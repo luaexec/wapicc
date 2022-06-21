@@ -31,13 +31,13 @@ void Hooks::StandardBlendingRules(int a2, int a3, int a4, int a5, int a6)
 		return g_hooks.m_StandardBlendingRules(this, a2, a3, a4, a5, a6);
 
 	// disable interpolation.
-	if (!(player->m_fEffects() & EF_NOINTERP))
-		player->m_fEffects() |= EF_NOINTERP;
+	//if (!(player->m_fEffects() & EF_NOINTERP))
+		//player->m_fEffects() |= EF_NOINTERP;
 
 	g_hooks.m_StandardBlendingRules(this, a2, a3, a4, a5, a6);
 
 	// restore interpolation.
-	player->m_fEffects() &= ~EF_NOINTERP;
+	//player->m_fEffects() &= ~EF_NOINTERP;
 
 
 }

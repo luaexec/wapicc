@@ -84,6 +84,7 @@ void Visuals::ThirdpersonThink() {
 	vec3_t                         origin, forward;
 	static CTraceFilterSimple_game filter{ };
 	CGameTrace                     tr;
+	static float anim{ 0.f };
 
 	// for whatever reason overrideview also gets called from the main menu.
 	if (!g_csgo.m_engine->IsInGame())
@@ -124,6 +125,8 @@ void Visuals::ThirdpersonThink() {
 		// get camera angles.
 		g_csgo.m_engine->GetViewAngles(offset);
 
+		anim += 4.0f * g_csgo.m_globals->m_frametime;
+
 		// get our viewangle's forward directional vector.
 		math::AngleVectors(offset, &forward);
 
@@ -145,11 +148,14 @@ void Visuals::ThirdpersonThink() {
 
 		// adapt distance to travel time.
 		math::clamp(tr.m_fraction, 0.f, 1.f);
-		offset.z *= tr.m_fraction;
+		offset.z *= tr.m_fraction * anim;
 
 		// override camera angles.
 		g_csgo.m_input->m_camera_offset = { offset.x, offset.y, offset.z };
-	}
+	} else
+		anim -= 4.0f * g_csgo.m_globals->m_frametime;
+
+	anim = std::clamp(anim, 0.f, 1.f);
 }
 
 // meme...
@@ -277,7 +283,6 @@ void Visuals::Hitmarker() {
 		}
 	}
 }
-
 
 void Visuals::NoSmoke() {
 	if (!g_menu.main.visuals.nosmoke.get())
@@ -490,8 +495,6 @@ void Visuals::StatusIndicators() {
 	 //render::esp_small.string(500, 500, color1337, add1, render::ALIGN_CENTER);
 }
 
-
-
 void Visuals::SpreadCrosshair() {
 	// dont do if dead.
 	if (!g_cl.m_processing)
@@ -688,8 +691,8 @@ void Visuals::draw(Entity* ent) {
 		Player* player = ent->as< Player* >();
 
 		// dont draw dead players.
-		if (!player->alive())
-			return;
+		//if (!player->alive())
+			//return;
 
 		if (player->m_bIsLocalPlayer())
 			return;
@@ -967,223 +970,204 @@ void Visuals::OffScreen(Player* player, int alpha) {
 }
 
 void Visuals::DrawPlayer(Player* player) {
-	constexpr float MAX_DORMANT_TIME = 10.f;
-	constexpr float DORMANT_FADE_TIME = MAX_DORMANT_TIME / 2.f;
-
-	Rect		  box;
-	player_info_t info;
-	Color		  color;
-
-	// get player index.
-	int index = player->index();
-
-	// get reference to array variable.
-	float& opacity = m_opacities[index - 1];
-	bool& draw = m_draw[index - 1];
-
-	// opacity should reach 1 in 300 milliseconds.
-	constexpr int frequency = 1.f / 0.3f;
-
-	// the increment / decrement per frame.
-	float step = frequency * g_csgo.m_globals->m_frametime;
-
-	// is player enemy.
-	bool enemy = player->enemy(g_cl.m_local);
-	bool dormant = player->dormant();
-
-	if (g_menu.main.visuals.enemy_radar.get() && enemy && !dormant)
-		player->m_bSpotted() = true;
-
-	// we can draw this player again.
-	if (!dormant)
-		draw = true;
-
-	if (!draw)
+	if (!player->enemy(g_cl.m_local))
 		return;
 
-	// if non-dormant	-> increment
-	// if dormant		-> decrement
-	dormant ? opacity -= step : opacity += step;
-
-	// is dormant esp enabled for this player.
-	bool dormant_esp = enemy && g_menu.main.players.dormant.get();
-
-	// clamp the opacity.
-	math::clamp(opacity, 0.f, 1.f);
-	if (!opacity && !dormant_esp)
-		return;
-
-	// stay for x seconds max.
-	float dt = g_csgo.m_globals->m_curtime - player->m_flSimulationTime();
-	if (dormant && dt > MAX_DORMANT_TIME)
-		return;
-
-	// calculate alpha channels.
-	int alpha = (int)(255.f * opacity);
-	int low_alpha = (int)(179.f * opacity);
-
-	// get color based on enemy or not.
-	color = enemy ? g_menu.main.players.box_enemy.get() : g_menu.main.players.box_friendly.get();
-
-	if (dormant && dormant_esp) {
-		alpha = 112;
-		low_alpha = 80;
-
-		// fade.
-		if (dt > DORMANT_FADE_TIME) {
-			// for how long have we been fading?
-			float faded = (dt - DORMANT_FADE_TIME);
-			float scale = 1.f - (faded / DORMANT_FADE_TIME);
-
-			alpha *= scale;
-			low_alpha *= scale;
+	int i = player->index();
+	if ((!player->alive() && m_alpha[i] <= 0.f) || player->m_iTeamNum() == g_cl.m_local->m_iTeamNum()) {
+		if (player->alive()) {
+			m_alpha[i] = 155.f;
 		}
-
-		// override color.
-		color = { 112, 112, 112 };
-	}
-
-	// override alpha.
-	color.a() = alpha;
-
-	// get player info.
-	if (!g_csgo.m_engine->GetPlayerInfo(index, &info))
-		return;
-
-	// run offscreen ESP.
-	OffScreen(player, alpha);
-
-	// attempt to get player box.
-	if (!GetPlayerBoxRect(player, box)) {
-		// OffScreen( player );
 		return;
 	}
 
-	// DebugAimbotPoints( player );
+	Rect bbox;
+	if (!GetPlayerBoxRect(player, bbox) && player->alive()) {
+		OffScreen(player, m_alpha[i]);
+		return;
+	}
 
-	bool bone_esp = (enemy && g_menu.main.players.skeleton.get(0)) || (!enemy && g_menu.main.players.skeleton.get(1));
-	if (bone_esp)
-		DrawSkeleton(player, alpha);
+	m_bbox[i] = bbox;
 
-	// is box esp enabled for this player.
-	bool box_esp = (enemy && g_menu.main.players.box.get(0)) || (!enemy && g_menu.main.players.box.get(1));
+	if (!player->alive()) {
+		m_alpha[i] -= 480.f * g_csgo.m_globals->m_frametime;
+	}
+	else if (player->dormant()) {
+		m_alpha[i] -= 20.f * g_csgo.m_globals->m_frametime;
+	}
+	else {
+		m_alpha[i] += 240.f * g_csgo.m_globals->m_frametime;
+	}
+	m_alpha[i] = std::clamp(m_alpha[i], 0.f, 255.f);
 
-	// render box if specified.
-	if (box_esp)
-		render::rect_outlined(box.x, box.y, box.w, box.h, color, { 10, 10, 10, low_alpha });
+	player_info_t info;
+	if (!g_csgo.m_engine->GetPlayerInfo(i, &info))
+		return;
 
-	// is name esp enabled for this player.
-	bool name_esp = (enemy && g_menu.main.players.name.get(0)) || (!enemy && g_menu.main.players.name.get(1));
-
-	// draw name.
-	if (name_esp) {
-		// fix retards with their namechange meme 
-		// the point of this is overflowing unicode compares with hardcoded buffers, good hvh strat
+	/*  name  */
+	if (g_menu.main.players.name.get(0)) {
 		std::string name{ std::string(info.m_name).substr(0, 24) };
 
 		Color clr = g_menu.main.players.name_color.get();
-		if (dormant) {
-			clr.r() = 130;
-			clr.g() = 130;
-			clr.b() = 130;
-		}
-		// override alpha.
-		clr.a() = low_alpha;
+		clr.a() *= m_alpha[i] / 255.f;
 
-		render::esp.string(box.x + box.w / 2, box.y - render::esp.m_size.m_height, clr, name, render::ALIGN_CENTER);
+		render::esp.string(bbox.x + bbox.w / 2, bbox.y - render::esp.m_size.m_height, !player->dormant() ? clr : Color(141, 141, 141, int(m_alpha[i])), name, render::ALIGN_CENTER);
 	}
 
-	// is health esp enabled for this player.
-	bool health_esp = (enemy && g_menu.main.players.health.get(0)) || (!enemy && g_menu.main.players.health.get(1));
+	/*  box  */
+	if (g_menu.main.players.box.get(0)) {
+		Color clr = g_menu.main.players.box_enemy.get();
+		clr.a() *= m_alpha[i] / 255.f;
 
-	if (health_esp) {
-		int y = box.y + 1;
-		int h = box.h - 2;
+		render::rect_outlined(bbox.x, bbox.y, bbox.w, bbox.h, !player->dormant() ? clr : Color(141, 141, 141, int(m_alpha[i])), { 10, 10, 10, int(m_alpha[i]) });
+	}
 
-		// retarded servers that go above 100 hp..
+	/*  health  */
+	if (g_menu.main.players.health.get(0)) {
+		int y = bbox.y + 1;
+		int h = bbox.h - 2;
+
 		int hp = std::min(100, player->m_iHealth());
 
-		// calculate hp bar color.
+		if (m_hp[player->index()] > hp)
+			m_hp[player->index()] -= 200.f * g_csgo.m_globals->m_frametime;
+		else
+			m_hp[player->index()] = hp;
+
+		hp = m_hp[player->index()];
+
 		int r = std::min((510 * (100 - hp)) / 100, 255);
 		int g = std::min((510 * hp) / 100, 255);
 
-		// get hp bar height.
 		int fill = (int)std::round(hp * h / 100.f);
 
-		// render background.
-		render::rect_filled(box.x - 6, y - 2, 4, h + 3 + 1, { 10, 10, 10, low_alpha });
+		render::rect_filled(bbox.x - 6, y - 1, 4, h + 2, { 10, 10, 10, int(m_alpha[i]) });
 
-		// render actual bar.
-		if (dormant)
-			render::rect(box.x - 5, y + h - fill - 1, 2, fill + 2, { 110, 130, 110 , alpha });
-		else
-			render::rect(box.x - 5, y + h - fill - 1, 2, fill + 2, { r, g, 0, alpha });
+		render::rect(bbox.x - 5, y + h - fill, 2, fill, !player->dormant() ? Color(r, g, 0, int(m_alpha[i])) : Color(141, 141, 141, int(m_alpha[i])));
 
-		// if hp is below max, draw a string.
-		if (dormant) {
-			if (hp < 90)
-				render::esp_small.string(box.x - 5, y + (h - fill) - 5, { 130, 130, 130, low_alpha }, std::to_string(hp), render::ALIGN_CENTER);
+		if (hp < 93)
+			render::pixel.string(bbox.x - 5, y + (h - fill) - 5, !player->dormant() ? Color(255, 255, 255, int(m_alpha[i])) : Color(141, 141, 141, int(m_alpha[i])), std::to_string(hp), render::ALIGN_CENTER);
+	}
+
+	/*  bottom bars  */
+	if (player->alive()) {
+		int  offset{ 0 };
+
+		if (g_menu.main.players.lby_update.get()) {
+			AimPlayer* data = &g_aimbot.m_players[player->index() - 1];
+
+			if (data && data->m_moved && data->m_records.size()) {
+				LagRecord* current = data->m_records.front().get();
+
+				if (current) {
+					if (!(current->m_velocity.length_2d() > 0.1 && !current->m_fake_walk)) {
+						float cycle = std::clamp<float>(data->m_body_update - current->m_anim_time, 0.f, 1.0f);
+						float width = (bbox.w * cycle) / 1.1f;
+
+						if (width > 0.f) {
+							render::rect_filled(bbox.x, bbox.y + bbox.h + 2, bbox.w, 4, { 10, 10, 10, int(m_alpha[i]) });
+
+							Color clr = g_menu.main.players.lby_update_color.get();
+							clr.a() = m_alpha[i];
+							render::rect(bbox.x + 1, bbox.y + bbox.h + 3, width, 2, !player->dormant() ? clr : Color(141, 141, 141, int(m_alpha[i])));
+
+							offset += 5;
+						}
+					}
+				}
+			}
 		}
-		else {
-			if (hp < 90)
-				render::esp_small.string(box.x - 5, y + (h - fill) - 5, { 255, 255, 255, low_alpha }, std::to_string(hp), render::ALIGN_CENTER);
+
+		if (g_menu.main.players.weapon.get(0)) {
+			Weapon* weapon = player->GetActiveWeapon();
+			if (weapon) {
+				WeaponInfo* data = weapon->GetWpnData();
+				if (data) {
+					int bar;
+					float scale;
+
+					int max = data->m_max_clip1;
+					int current = weapon->m_iClip1();
+
+					C_AnimationLayer* layer1 = &player->m_AnimOverlay()[1];
+
+					bool reload = (layer1->m_weight != 0.f) && (player->GetSequenceActivity(layer1->m_sequence) == 967);
+
+					if (max != -1 && g_menu.main.players.ammo.get()) {
+						if (reload)
+							scale = layer1->m_cycle;
+
+						else
+							scale = (float)current / max;
+
+						bar = (int)std::round((bbox.w - 2) * scale);
+
+						render::rect_filled(bbox.x, bbox.y + bbox.h + 2 + offset, bbox.w, 4, { 10, 10, 10, int(m_alpha[i]) });
+
+						Color clr = g_menu.main.players.ammo_color.get();
+						clr.a() = int(m_alpha[i]);
+						render::rect(bbox.x + 1, bbox.y + bbox.h + 3 + offset, bar, 2, !player->dormant() ? clr : Color(141, 141, 141, int(m_alpha[i])));
+
+						if (current <= (int)std::round(max / 5) && !reload)
+							render::esp_small.string(bbox.x + bar, bbox.y + bbox.h + offset, !player->dormant() ? Color(255, 255, 255, int(m_alpha[i])) : Color(141, 141, 141, int(m_alpha[i])), std::to_string(current), render::ALIGN_CENTER);
+
+						offset += 6;
+					}
+
+					if (g_menu.main.players.weapon_mode.get(0)) {
+						std::string name{ weapon->GetLocalizedName() };
+
+						// smallfonts needs upper case.
+						std::transform(name.begin(), name.end(), name.begin(), ::tolower);
+
+						render::esp_small.string(bbox.x + bbox.w / 2, bbox.y + bbox.h + offset, !player->dormant() ? Color(255, 255, 255, int(m_alpha[i])) : Color(141, 141, 141, int(m_alpha[i])), name, render::ALIGN_CENTER);
+					}
+
+					if (g_menu.main.players.weapon_mode.get(1)) {
+						offset -= 5;
+
+						std::string icon = tfm::format(XOR("%c"), m_weapon_icons[weapon->m_iItemDefinitionIndex()]);
+						render::cs.string(bbox.x + bbox.w / 2, bbox.y + bbox.h + offset, !player->dormant() ? Color(255, 255, 255, int(m_alpha[i])) : Color(141, 141, 141, int(m_alpha[i])), icon, render::ALIGN_CENTER);
+					}
+				}
+			}
 		}
 	}
 
-
-	// draw flags.
-	{
+	/*  flags  */
+	if (player->alive() && !player->dormant()) {
 		std::vector< std::pair< std::string, Color > > flags;
 
-		auto items = enemy ? g_menu.main.players.flags_enemy.GetActiveIndices() : g_menu.main.players.flags_friendly.GetActiveIndices();
+		auto items = g_menu.main.players.flags_enemy.GetActiveIndices();
 
-		// NOTE FROM NITRO TO DEX -> stop removing my iterator loops, i do it so i dont have to check the size of the vector
-		// with range loops u do that to do that.
 		for (auto it = items.begin(); it != items.end(); ++it) {
 
 			// money.
 			if (*it == 0)
-				if (dormant)
-					flags.push_back({ tfm::format(XOR("$%i"), player->m_iAccount()), { 130,130,130, low_alpha } });
-				else
-					flags.push_back({ tfm::format(XOR("$%i"), player->m_iAccount()), { 150, 200, 60, low_alpha } });
+				flags.push_back({ tfm::format(XOR("$%i"), player->m_iAccount()), { 150, 200, 60, int(m_alpha[i]) } });
 
 			// armor.
 			if (*it == 1) {
 				// helmet and kevlar.
 				if (player->m_bHasHelmet() && player->m_ArmorValue() > 0)
-					if (dormant)
-						flags.push_back({ XOR("HK"), { 130,130,130, low_alpha } });
-					else
-						flags.push_back({ XOR("HK"), { 255, 255, 255, low_alpha } });
+					flags.push_back({ XOR("hk"), { 103, 160, 224, int(m_alpha[i]) } });
+
 				// only helmet.
 				else if (player->m_bHasHelmet())
-					if (dormant)
-						flags.push_back({ XOR("HK"), { 130,130,130, low_alpha } });
-					else
-						flags.push_back({ XOR("HK"), { 255, 255, 255, low_alpha } });
+					flags.push_back({ XOR("h"), { 103, 160, 224, int(m_alpha[i]) } });
 
 				// only kevlar.
 				else if (player->m_ArmorValue() > 0)
-					if (dormant)
-						flags.push_back({ XOR("K"), { 130,130,130, low_alpha } });
-					else
-						flags.push_back({ XOR("K"), { 255, 255, 255, low_alpha } });
+					flags.push_back({ XOR("k"), { 103, 160, 224, int(m_alpha[i]) } });
 			}
 
 			// scoped.
 			if (*it == 2 && player->m_bIsScoped())
-				if (dormant)
-					flags.push_back({ XOR("ZOOM"), { 130,130,130, low_alpha } });
-				else
-					flags.push_back({ XOR("ZOOM"), { 60, 180, 225, low_alpha } });
+				flags.push_back({ XOR("zoom"), { 224, 160, 103, int(m_alpha[i]) } });
 
 			// flashed.
 			if (*it == 3 && player->m_flFlashBangTime() > 0.f)
-				if (dormant)
-					flags.push_back({ XOR("BLIND"), { 130,130,130, low_alpha } });
-				else
-					flags.push_back({ XOR("BLIND"), { 60, 180, 225, low_alpha } });
+				flags.push_back({ XOR("blind"), { 224, 103, 206, int(m_alpha[i]) } });
 
 			// reload.
 			if (*it == 4) {
@@ -1192,29 +1176,15 @@ void Visuals::DrawPlayer(Player* player) {
 
 				// check if reload animation is going on.
 				if (layer1->m_weight != 0.f && player->GetSequenceActivity(layer1->m_sequence) == 967 /* ACT_CSGO_RELOAD */)
-					if (dormant)
-						flags.push_back({ XOR("RELOAD"), { 130,130,130, low_alpha } });
-					else
-						flags.push_back({ XOR("RELOAD"), { 60, 180, 225, low_alpha } });
+					flags.push_back({ XOR("r"), { 60, 180, 225, int(m_alpha[i]) } });
 			}
 
 			// bomb.
 			if (*it == 5 && player->HasC4())
-				if (dormant)
-					flags.push_back({ XOR("C4"), { 130,130,130, low_alpha } });
-				else
-					flags.push_back({ XOR("C4"), { 255, 0, 0, low_alpha } });
-
-			//if (*it == 6 && g_resolver.iPlayers[player->index()] == true && enemy)
-			//	if (dormant)
-			//		flags.push_back({ XOR("FAKE"), { 130,130,130, low_alpha } });
-			//	else
-			//		flags.push_back({ XOR("FAKE"), { 255,255,255, low_alpha } });
-
+				flags.push_back({ XOR("b"), { 224, 103, 106, int(m_alpha[i]) } });
 		}
 
-
-			// iterate flags.
+		// iterate flags.
 		for (size_t i{ }; i < flags.size(); ++i) {
 			// get flag job (pair).
 			const auto& f = flags[i];
@@ -1222,165 +1192,7 @@ void Visuals::DrawPlayer(Player* player) {
 			int offset = i * (render::esp_small.m_size.m_height - 1);
 
 			// draw flag.
-			render::esp_small.string(box.x + box.w + 2, box.y + offset, f.second, f.first);
-		}
-	}
-
-	// draw bottom bars.
-	{
-		int  offset1{ 0 };
-		int  offset3{ 0 };
-		int  offset{ 0 };
-		int  distance1337{ 0 };
-
-		// draw lby update bar.
-		if (enemy && g_menu.main.players.lby_update.get()) {
-			AimPlayer* data = &g_aimbot.m_players[player->index() - 1];
-
-			// make sure everything is valid.
-			if (data && data->m_moved && data->m_records.size()) {
-				// grab lag record.
-				LagRecord* current = data->m_records.front().get();
-
-				if (current) {
-					if (!(current->m_velocity.length_2d() > 0.1 && !current->m_fake_walk) && data->m_body_index <= 3) {
-						// calculate box width
-						float cycle = std::clamp<float>(data->m_body_update - current->m_anim_time, 0.f, 1.125f);
-						float width = (box.w * cycle) / 1.125f;
-
-						if (width > 0.f) {
-							// draw.
-							render::rect_filled(box.x - 1, box.y + box.h + 2, box.w + 2, 4, { 10, 10, 10, low_alpha });
-
-							Color clr = g_menu.main.players.lby_update_color.get();
-							if (dormant) {
-								clr.r() = 130;
-								clr.g() = 100;
-								clr.b() = 120;// 180, 60, 120
-							}
-							clr.a() = alpha;
-							render::rect(box.x, box.y + box.h + 3, width, 2, clr);
-
-							// move down the offset to make room for the next bar.
-							offset += 5;
-							offset3 += 1;
-						}
-					}
-				}
-			}
-		}
-		// draw weapon.
-		if ((enemy && g_menu.main.players.weapon.get(0)) || (!enemy && g_menu.main.players.weapon.get(1))) {
-			Weapon* weapon = player->GetActiveWeapon();
-			if (weapon) {
-				WeaponInfo* data = weapon->GetWpnData();
-				if (data) {
-					int bar;
-					float scale;
-
-					// the maxclip1 in the weaponinfo
-					int max = data->m_max_clip1;
-					int current = weapon->m_iClip1();
-
-					C_AnimationLayer* layer1 = &player->m_AnimOverlay()[1];
-
-					// set reload state.
-					bool reload = (layer1->m_weight != 0.f) && (player->GetSequenceActivity(layer1->m_sequence) == 967);
-
-					// ammo bar.
-					if (max != -1 && g_menu.main.players.ammo.get()) {
-						// check for reload.
-						if (reload)
-							scale = layer1->m_cycle;
-
-						// not reloading.
-						// make the division of 2 ints produce a float instead of another int.
-						else
-							scale = (float)current / max;
-
-						// relative to bar.
-						bar = (int)std::round((box.w - 2) * scale);
-
-						// draw.
-						render::rect_filled(box.x - 1, box.y + box.h + 2 + offset, box.w + 2, 4, { 10, 10, 10, low_alpha });
-
-						Color clr = g_menu.main.players.ammo_color.get();
-						if (dormant) {
-							clr.r() = 120;
-							clr.g() = 125;
-							clr.b() = 130;//95, 174, 227,
-						}
-						clr.a() = alpha;
-						render::rect(box.x, box.y + box.h + 3 + offset, bar + 2, 2, clr);
-
-						// less then a 5th of the bullets left.
-						if (current <= (int)std::round(max / 5) && !reload)
-							if (dormant)
-								render::esp_small.string(box.x + bar, box.y + box.h + offset, { 130, 130, 130, low_alpha }, std::to_string(current), render::ALIGN_CENTER);
-							else
-								render::esp_small.string(box.x + bar, box.y + box.h + offset, { 255, 255, 255, low_alpha }, std::to_string(current), render::ALIGN_CENTER);
-
-						offset += 6;
-					}
-
-					if (g_menu.main.players.distance.get()) {
-						std::string distance;
-						int dist = (((player->m_vecOrigin() - g_cl.m_local->m_vecOrigin()).length_sqr()) * 0.0625) * 0.001;
-
-						if (dist < 0)
-							distance1337 = 0;
-
-						if (dist > 0) {
-							distance1337 = 9 + offset3;
-							if (dist > 5) {
-								while (!(dist % 5 == 0)) {
-									dist = dist - 1;
-								}
-
-								if (dist % 5 == 0)
-									distance = tfm::format(XOR("%i FT"), dist);
-							}
-							else
-								distance = tfm::format(XOR("%i FT"), dist);
-
-							if (dormant)
-								render::esp_small.string(box.x + box.w / 2, box.y + box.h + offset + offset3, { 130, 130, 130, low_alpha }, distance, render::ALIGN_CENTER);
-							else
-								render::esp_small.string(box.x + box.w / 2, box.y + box.h + offset + offset3, { 255, 255, 255, low_alpha }, distance, render::ALIGN_CENTER);
-						}
-					}
-
-					// text.
-					if (g_menu.main.players.weapon_mode.get(0)) {
-						offset1 -= 9;
-						// construct std::string instance of localized weapon name.
-						std::string name{ weapon->GetLocalizedName() };
-
-						// smallfonts needs upper case.
-						std::transform(name.begin(), name.end(), name.begin(), ::toupper);
-
-
-						if (dormant)
-							render::esp_small.string(box.x + box.w / 2, box.y + box.h + offset + distance1337, { 130,130,130, low_alpha }, name, render::ALIGN_CENTER);
-						else
-							render::esp_small.string(box.x + box.w / 2, box.y + box.h + offset + distance1337, { 255, 255, 255, low_alpha }, name, render::ALIGN_CENTER);
-
-					}
-
-					// icons.
-					if (g_menu.main.players.weapon_mode.get(1)) {
-						offset -= 5;
-						// icons are super fat..
-						// move them back up.
-
-						std::string icon = tfm::format(XOR("%c"), m_weapon_icons[weapon->m_iItemDefinitionIndex()]);
-						if (dormant)
-							render::cs.string(box.x + box.w / 2, box.y + box.h + offset - offset1 + distance1337 + 2, { 130,130,130, low_alpha }, icon, render::ALIGN_CENTER);
-						else
-							render::cs.string(box.x + box.w / 2, box.y + box.h + offset - offset1 + distance1337 + 2, { 255, 255, 255, low_alpha }, icon, render::ALIGN_CENTER);
-					}
-				}
-			}
+			render::esp_small.string(bbox.x + bbox.w + 2, bbox.y + offset, f.second, f.first);
 		}
 	}
 }
@@ -1494,26 +1306,59 @@ void Visuals::DrawPlantedC4() {
 }
 
 bool Visuals::GetPlayerBoxRect(Player* player, Rect& box) {
-	vec3_t origin, mins, maxs;
-	vec2_t bottom, top;
+	vec3_t min, max, out_vec;
+	float left, bottom, right, top;
 
-	// get interpolated origin.
-	origin = player->GetAbsOrigin();
+	auto& tran_frame = player->coord_frame();
+	min = player->m_vecMins();
+	max = player->m_vecMaxs();
 
-	// get hitbox bounds.
-	player->ComputeHitboxSurroundingBox(&mins, &maxs);
+	vec2_t screen_boxes[8];
+	vec3_t points[] =
+	{
+		{ min.x, min.y, min.z },
+		{ min.x, max.y, min.z },
+		{ max.x, max.y, min.z },
+		{ max.x, min.y, min.z },
+		{ max.x, max.y, max.z },
+		{ min.x, max.y, max.z },
+		{ min.x, min.y, max.z },
+		{ max.x, min.y, max.z }
+	};
 
-	// correct x and y coordinates.
-	mins = { origin.x, origin.y, mins.z };
-	maxs = { origin.x, origin.y, maxs.z + 8.f };
-
-	if (!render::WorldToScreen(mins, bottom) || !render::WorldToScreen(maxs, top))
-		return false;
-
-	box.h = bottom.y - top.y;
-	box.w = box.h / 2.f;
-	box.x = bottom.x - (box.w / 2.f);
-	box.y = bottom.y - box.h;
+	for (int i = 0; i <= 7; i++) {
+		math::VectorTransform(points[i], tran_frame, out_vec);
+		if (!render::WorldToScreen(out_vec, screen_boxes[i]))
+			return false;
+	}
+	vec2_t box_array[] = {
+		screen_boxes[3],
+		screen_boxes[5],
+		screen_boxes[0],
+		screen_boxes[4],
+		screen_boxes[2],
+		screen_boxes[1],
+		screen_boxes[6],
+		screen_boxes[7]
+	};
+	left = screen_boxes[3].x,
+		bottom = screen_boxes[3].y,
+		right = screen_boxes[3].x,
+		top = screen_boxes[3].y;
+	for (int i = 0; i <= 7; i++) {
+		if (left > box_array[i].x)
+			left = box_array[i].x;
+		if (bottom < box_array[i].y)
+			bottom = box_array[i].y;
+		if (right < box_array[i].x)
+			right = box_array[i].x;
+		if (top > box_array[i].y)
+			top = box_array[i].y;
+	}
+	box.x = left;
+	box.y = top;
+	box.w = right - left;
+	box.h = (bottom - top);
 
 	return true;
 }

@@ -20,7 +20,7 @@ private:
 public:
 	__forceinline Notify() : m_notify_text{} {}
 
-	__forceinline void add(const std::string& text, Color color = colors::white, float time = 8.f, bool console = true) {
+	__forceinline void add(const std::string& text, Color color = colors::accent, float time = 4.f, bool console = true) {
 		// modelled after 'CConPanel::AddToNotify'
 		m_notify_text.push_back(std::make_shared< NotifyText >(text, color, time));
 

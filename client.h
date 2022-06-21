@@ -35,6 +35,7 @@ public:
 	void ClanTag();
 	void Skybox();
 	void UpdateInformation();
+	void UpdateLocal();
 	void SetAngles();
 	void UpdateAnimations();
 	void KillFeed();
@@ -65,6 +66,7 @@ public:
 	float            m_abs_yaw;
 	float            m_poses[24];
 	float			 m_left_thickness[64], m_right_thickness[64], m_at_target_angle[64];
+	ang_t            m_real_angle;
 
 	// active weapon variables.
 	Weapon* m_weapon;

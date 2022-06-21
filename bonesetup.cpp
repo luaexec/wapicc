@@ -59,7 +59,7 @@ bool Bones::BuildBones( Player* target, int mask, BoneArray* out, LagRecord* rec
 	math::AngleMatrix( record->m_abs_ang, record->m_pred_origin, transform );
 
 	// set non interpolated data.
-	target->AddEffect( EF_NOINTERP );
+	//target->AddEffect( EF_NOINTERP );
 	target->SetAbsOrigin( record->m_pred_origin );
 	target->SetAbsAngles( record->m_abs_ang );
 	target->SetPoseParameters( record->m_poses );
@@ -82,7 +82,7 @@ bool Bones::BuildBones( Player* target, int mask, BoneArray* out, LagRecord* rec
 	accessor->m_pBones = backup_matrix;
 
 	// restore original interpolated entity data.
-	target->m_fEffects() &= ~EF_NOINTERP;
+	//target->m_fEffects() &= ~EF_NOINTERP;
 	target->SetAbsOrigin( backup_origin );
 	target->SetAbsAngles( backup_angles );
 	target->SetPoseParameters( backup_poses );

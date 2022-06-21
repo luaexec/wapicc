@@ -61,6 +61,7 @@ namespace render {
 	extern Font indicator;
 	extern Font logevent;
 	extern Font damage;
+	extern Font pixel;
 
 	void init();
 	bool WorldToScreen(const vec3_t& world, vec2_t& screen);

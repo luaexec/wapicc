@@ -10,7 +10,9 @@ struct OffScreenDamageData_t {
 
 class Visuals {
 public:
-    std::array< bool, 64 >                  m_draw;
+    float	                                m_alpha[64];
+    float	                                m_hp[64];
+    std::array< Rect, 64 >                  m_bbox;
     std::array< float, 2048 >               m_opacities;
     std::array< OffScreenDamageData_t, 64 > m_offscreen_damage;
     vec2_t                                  m_crosshair;

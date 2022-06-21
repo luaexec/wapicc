@@ -27,7 +27,6 @@ void events::round_start(IGameEvent* evt) {
 	g_visuals.bombedefused = false;
 
 	// reset dormant esp.
-	g_visuals.m_draw.fill(false);
 	g_visuals.m_opacities.fill(0.f);
 	g_visuals.m_offscreen_damage.fill(OffScreenDamageData_t());
 
@@ -182,10 +181,6 @@ void events::item_purchase(IGameEvent* evt) {
 void events::player_death(IGameEvent* evt) {
 	// get index of player that died.
 	int index = g_csgo.m_engine->GetPlayerForUserID(evt->m_keys->FindKey(HASH("userid"))->GetInt());
-
-	// reset opacity scale.
-	g_visuals.m_opacities[index - 1] = 0.f;
-	g_visuals.m_draw[index - 1] = false;
 }
 
 void events::player_given_c4(IGameEvent* evt) {

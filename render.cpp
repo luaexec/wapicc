@@ -12,19 +12,21 @@ namespace render {
 	Font indicator;;
 	Font logevent;;
 	Font damage;;
+	Font pixel;;
 }
 
 void render::init() {
 	menu = Font(XOR("Verdana"), 12, FW_NORMAL, FONTFLAG_DROPSHADOW);
 	menu_shade = Font(XOR("Verdana"), 12, FW_NORMAL, FONTFLAG_DROPSHADOW);
-	esp = Font(XOR("Lucida Console"), 10, FW_NORMAL, FONTFLAG_DROPSHADOW);
-	esp_small = Font(XOR("hooge 05_55 Cyr2"), 10, FW_NORMAL, FONTFLAG_OUTLINE);
+	esp = Font(XOR("Verdana"), 12, FW_NORMAL, FONTFLAG_DROPSHADOW);
+	esp_small = Font(XOR("Verdana"), 12, FW_NORMAL, FONTFLAG_DROPSHADOW);
 	hud = Font(XOR("Verdana"), 16, FW_NORMAL, FONTFLAG_ANTIALIAS);
 	cs = Font(XOR("Counter-Strike"), 28, FW_MEDIUM, FONTFLAG_ANTIALIAS | FONTFLAG_DROPSHADOW);
 	indicator = Font(XOR("Verdana"), 26, FW_BOLD, FONTFLAG_ANTIALIAS | FONTFLAG_DROPSHADOW);
 	logevent = Font(XOR("Lucida Console"), 10, FW_DONTCARE, FONTFLAG_DROPSHADOW);
 	indicator = Font(XOR("Verdana"), 26, FW_BOLD, FONTFLAG_ANTIALIAS | FONTFLAG_DROPSHADOW);
 	damage = Font(XOR("Verdana"), 16, FW_BOLD, FONTFLAG_ANTIALIAS | FONTFLAG_DROPSHADOW);
+	pixel = Font(XOR("Small Fonts"), 9, FW_MEDIUM, FONTFLAG_ANTIALIAS | FONTFLAG_OUTLINE);
 }
 
 void render::gradient1337(int x, int y, int w, int h, Color color1, Color color2) {

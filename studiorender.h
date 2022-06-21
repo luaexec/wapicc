@@ -291,12 +291,14 @@ public:
 	}
 };
 
+class IMatRenderContext;
+
 class IVModelRender {
 public:
 	enum indices : size_t {
 		FORCEDMATERIALOVERRIDE = 1,
 		ISFORCEDMATERIALOVERRIDE = 2,
-		DRAWMODELEXECUTE       = 21
+		DRAWMODELEXECUTE = 21
 	};
 
 	// dont use this, just a wrapper.
@@ -305,8 +307,17 @@ public:
 	//	return util::get_method< void( __thiscall* )( void *, IMaterial *, int, int ) >( this, FORCEDMATERIALOVERRIDE )( this, mat, 0, 0 );
 	//}
 
-	__forceinline bool IsForcedMaterialOverride( ) {
-		return util::get_method< bool( __thiscall* )( void * ) >( this, ISFORCEDMATERIALOVERRIDE )( this );
+	__forceinline void DrawModelExecute(IMatRenderContext* ctx, const DrawModelState_t& state, const ModelRenderInfo_t& pInfo, matrix3x4_t* pCustomBoneToWorld = NULL) {
+		return util::get_method(this, DRAWMODELEXECUTE).as< void(__thiscall*)(decltype(this), IMatRenderContext*, const DrawModelState_t&, const ModelRenderInfo_t&, matrix3x4_t*)>()(this, ctx, state, pInfo, pCustomBoneToWorld);
+	}
+
+	__forceinline void ForceMat(IMaterial* mat, int nOverrideType = 0, int nOverrides = 0)
+	{
+		return util::get_method(this, FORCEDMATERIALOVERRIDE).as< void(__thiscall*)(decltype(this), IMaterial*, int&, int&)>()(this, mat, nOverrideType, nOverrides);
+	}
+
+	__forceinline bool IsForcedMaterialOverride() {
+		return util::get_method< bool(__thiscall*)(void*) >(this, ISFORCEDMATERIALOVERRIDE)(this);
 	}
 };
 

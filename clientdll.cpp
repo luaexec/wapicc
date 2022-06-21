@@ -101,6 +101,8 @@ void Hooks::FrameStageNotify( Stage_t stage ) {
         // restore non-compressed netvars.
 		g_netdata.apply( );
 
+		//g_cl.UpdateLocal();
+
 		// update all players.
 		for( int i{ 1 }; i <= g_csgo.m_globals->m_max_clients; ++i ) {
 			Player* player = g_csgo.m_entlist->GetClientEntity< Player* >( i );

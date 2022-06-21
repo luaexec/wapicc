@@ -284,6 +284,23 @@ public:
 		return get< bool >(g_entoffsets.m_bReadyToDraw);
 	}
 
+	void UpdateAnimationState(CCSGOPlayerAnimState* state, vec3_t angle)
+	{
+		static auto UpdateAnimState = pattern::find(g_csgo.m_client_dll, "55 8B EC 83 E4 F8 83 EC 18 56 57 8B F9 F3 0F 11 54 24");
+		if (!UpdateAnimState)
+			return;
+
+		__asm
+		{
+			mov ecx, state
+
+			movss xmm1, dword ptr[angle + 4]
+			movss xmm2, dword ptr[angle]
+
+			call UpdateAnimState
+		}
+	}
+
 public:
 	// virtual indices
 	enum indices : size_t {
@@ -805,6 +822,13 @@ public:
 		util::get_method< void(__thiscall *)(decltype(this), vec3_t *) >(this, GETEYEPOS)(this, pos);
 	}
 
+	__forceinline vec3_t get_eye_pos()
+	{
+		vec3_t out;
+		util::get_method<void(__thiscall*)(void*, vec3_t&)>(this, 277)(this, out);
+		return out;
+	}
+
 	__forceinline void ModifyEyePosition(CCSGOPlayerAnimState *state, vec3_t *pos) {
 		if (!state) {
 			return;
@@ -923,6 +947,11 @@ public:
 		using ComputeHitboxSurroundingBox_t = bool(__thiscall *)(void *, vec3_t *, vec3_t *);
 
 		return g_csgo.ComputeHitboxSurroundingBox.as< ComputeHitboxSurroundingBox_t >()(this, mins, maxs);
+	}
+
+	__forceinline matrix3x4_t& coord_frame() {
+		static auto _m_rgflCoordinateFrame = g_netvars.get(FNV1a::get("DT_BasePlayer"), FNV1a::get("m_CollisionGroup")) - 0x30;
+		return *(matrix3x4_t*)((uintptr_t)this + _m_rgflCoordinateFrame);
 	}
 
 	__forceinline int GetSequenceActivity(int sequence) {
