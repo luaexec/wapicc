@@ -49,3 +49,4 @@ struct CBaseTrace;
 #include "beams.h"
 #include "networkstringtable.h"
 #include "sound.h"
+#include "modelcahce.h"

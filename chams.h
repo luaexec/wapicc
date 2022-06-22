@@ -10,6 +10,18 @@ public:
 		view_weapon
 	};
 
+	struct matrices_t {
+		int                         ent_index;
+		ModelRenderInfo_t           info;
+		DrawModelState_t            state;
+		matrix3x4_t                 pBoneToWorld[128] = { };
+		float                       time;
+		matrix3x4_t                 model_to_world;
+	};
+
+public:
+	std::vector< matrices_t >       m_hit_matrix;
+
 public:
 	model_type_t GetModelType(const ModelRenderInfo_t& info);
 	bool IsInViewPlane(const vec3_t& world);
@@ -17,6 +29,9 @@ public:
 	void SetColor(Color col, IMaterial* mat = nullptr);
 	void SetAlpha(float alpha, IMaterial* mat = nullptr);
 	void SetupMaterial(IMaterial* mat, Color col, bool z_flag);
+
+	void AddMatrix(Player* player, matrix3x4_t* bones);
+	void OnPSE();
 
 	void init();
 

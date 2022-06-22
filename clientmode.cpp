@@ -90,5 +90,12 @@ bool Hooks::CreateMove(float time, CUserCmd* cmd) {
 bool Hooks::DoPostScreenSpaceEffects( CViewSetup* setup ) {
 	g_visuals.RenderGlow( );
 
+	if (g_csgo.m_engine->IsInGame() && g_cl.m_local)
+		g_chams.OnPSE( );
+	else {
+		if (!g_chams.m_hit_matrix.empty())
+			g_chams.m_hit_matrix.clear();
+	}
+
 	return g_hooks.m_client_mode.GetOldMethod< DoPostScreenSpaceEffects_t >( IClientMode::DOPOSTSPACESCREENEFFECTS )( this, setup );
 }

@@ -14,6 +14,8 @@ public:
     float	                                m_hp[64];
     std::array< Rect, 64 >                  m_bbox;
     std::array< float, 2048 >               m_opacities;
+    bool	                                m_dormant[64];
+    bool	                                m_alive[64];
     std::array< OffScreenDamageData_t, 64 > m_offscreen_damage;
     vec2_t                                  m_crosshair;
     bool                                    m_thirdperson;

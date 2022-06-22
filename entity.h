@@ -206,6 +206,30 @@ enum Weapons_t : int {
 	KNIFE_SHADOW_DAGGERS = 516,
 };
 
+
+enum pose_params : int
+{
+	strafe_yaw,
+	stand,
+	lean_yaw,
+	speed,
+	ladder_yaw,
+	ladder_speed,
+	jump_fall,
+	move_yaw,
+	move_blend_crouch,
+	move_blend_walk,
+	move_blend_run,
+	body_yaw,
+	body_pitch,
+	aim_blend_stand_idle,
+	aim_blend_stand_walk,
+	aim_blend_stand_run,
+	aim_blend_courch_idle,
+	aim_blend_crouch_walk,
+	death_yaw
+};
+
 struct RenderableInstance_t {
 	uint8_t m_alpha;
 	__forceinline RenderableInstance_t() : m_alpha{ 255ui8 } {}
@@ -731,6 +755,10 @@ public:
 	__forceinline CBoneCache &m_BoneCache() {
 		// TODO; sig
 		return get< CBoneCache >(g_entoffsets.m_BoneCache);
+	}
+
+	__forceinline CUtlVector<matrix3x4_t>bone_cache() {
+		return *reinterpret_cast<CUtlVector<matrix3x4_t>*>(uintptr_t(this) + 0x2900);
 	}
 
 	__forceinline matrix3x4_t**& m_iBoneCache() {

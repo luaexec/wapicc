@@ -254,6 +254,7 @@
     <ClInclude Include="matrix.h" />
     <ClInclude Include="memalloc.h" />
     <ClInclude Include="menu.h" />
+    <ClInclude Include="modelcahce.h" />
     <ClInclude Include="modules.h" />
     <ClInclude Include="movement.h" />
     <ClInclude Include="multidropdown.h" />

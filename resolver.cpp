@@ -50,7 +50,7 @@ LagRecord* Resolver::FindLastRecord(AimPlayer* data) {
 	return nullptr;
 }
 
-void Resolver::ResolveBodyUpdates(Player* player, LagRecord* record) {
+bool Resolver::ResolveBodyUpdates(Player* player, LagRecord* record) {
 	AimPlayer* data = &g_aimbot.m_players[player->index() - 1];
 
 	// from csgo src sdk.
@@ -59,19 +59,18 @@ void Resolver::ResolveBodyUpdates(Player* player, LagRecord* record) {
 	// first we are gonna start of with some checks.
 	if (!g_cl.m_processing) {
 		data->m_moved = false;
-		return;
+		return false;
 	}
 
 	// dont predict on doramnt players.
 	if (record->dormant()) {
-		return;
+		return false;
 	}
 
 	// if we have missed 2 shots lets predict until he moves again.
-	if (data->m_body_index >= 2) {
-		return;
+	if (data->m_missed_shots > 2) {
+		return false;
 	}
-
 
 	bool lby_change = false;
 
@@ -82,7 +81,6 @@ void Resolver::ResolveBodyUpdates(Player* player, LagRecord* record) {
 			lby_change = previous->m_body != record->m_body;
 		}
 	}
-
 
 	// on ground and not moving.
 	if ((record->m_flags & FL_ONGROUND) && record->m_velocity.length() <= 0.1f && (data->m_body_update != FLT_MAX || lby_change)) {
@@ -96,13 +94,17 @@ void Resolver::ResolveBodyUpdates(Player* player, LagRecord* record) {
 
 			// set next predicted time, till update.
 			data->m_body_update = record->m_sim_time + CSGO_ANIM_LOWER_REALIGN_DELAY;
+
+			return true;
 		}
 
 	}
 	else if (record->m_velocity.length() > 0.1f) {
 		// set delayed predicted time, after they stop moving.
-		data->m_body_update = record->m_sim_time + (CSGO_ANIM_LOWER_REALIGN_DELAY * 0.2f);
+		data->m_body_update = record->m_sim_time + 0.22f;
 	}
+
+	return false;
 }
 
 void Resolver::OnBodyUpdate(Player* player, float value) {
@@ -239,7 +241,7 @@ void Resolver::ResolveAngles(Player* player, LagRecord* record) {
 
 void Resolver::ResolveWalk(AimPlayer* data, LagRecord* record) {
 	// apply lby to eyeangles.
-	record->m_eye_angles.y = record->m_player->m_flLowerBodyYawTarget();
+	record->m_eye_angles.y = record->m_body;
 
 	// havent checked this yet in ResolveStand( ... )
 	data->m_moved = false;
@@ -579,6 +581,10 @@ void Resolver::ResolveStand(AimPlayer* data, LagRecord* record) {
 	// pointer for easy access.
 	LagRecord* move = &data->m_walk_record;
 
+	if (record->m_lag <= 2)
+		if (ResolveBodyUpdates(record->m_player, record))
+			return;
+
 	// we have a valid moving record.
 	if (move->m_sim_time > 0.f) {
 		// lets check if we can collect move data.
@@ -591,7 +597,6 @@ void Resolver::ResolveStand(AimPlayer* data, LagRecord* record) {
 			}
 		}
 	}
-
 
 	if (data->m_moved) {
 		float diff = math::NormalizedAngle(record->m_body - move->m_body);
@@ -618,9 +623,9 @@ void Resolver::ResolveStand(AimPlayer* data, LagRecord* record) {
 				record->m_mode = Modes::RESOLVE_FREESTAND;
 
 				if (direction == Directions::YAW_LEFT)
-					record->m_eye_angles.y = away + 90.f;
-				else if (direction == Directions::YAW_RIGHT)
 					record->m_eye_angles.y = away - 90.f;
+				else if (direction == Directions::YAW_RIGHT)
+					record->m_eye_angles.y = away + 90.f;
 
 				// seemed to work the best.
 				else
@@ -631,7 +636,7 @@ void Resolver::ResolveStand(AimPlayer* data, LagRecord* record) {
 			}
 		}
 	}
-	else if (!data->m_moved)
+	else
 	{
 		const Directions direction = HandleDirections(data);
 
@@ -642,9 +647,9 @@ void Resolver::ResolveStand(AimPlayer* data, LagRecord* record) {
 			record->m_mode = Modes::RESOLVE_FREESTAND;
 
 			if (direction == Directions::YAW_LEFT)
-				record->m_eye_angles.y = away + 90.f;
-			else if (direction == Directions::YAW_RIGHT)
 				record->m_eye_angles.y = away - 90.f;
+			else if (direction == Directions::YAW_RIGHT)
+				record->m_eye_angles.y = away + 90.f;
 
 			// seemed to work the best.
 			else
@@ -675,5 +680,4 @@ void Resolver::ResolveAir(AimPlayer* data, LagRecord* record) {
 }
 
 void Resolver::ResolvePoses(Player* player, LagRecord* record) {
-
 }

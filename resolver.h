@@ -29,7 +29,7 @@ public:
 	LagRecord* FindIdealRecord(AimPlayer* data);
 	LagRecord* FindLastRecord(AimPlayer* data);
 
-	void ResolveBodyUpdates(Player* player, LagRecord* record);
+	bool ResolveBodyUpdates(Player* player, LagRecord* record);
 	void OnBodyUpdate(Player* player, float value);
 	float GetAwayAngle(LagRecord* record);
 

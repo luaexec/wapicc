@@ -40,31 +40,24 @@ void Shots::OnImpact(IGameEvent* evt) {
 	float      time;
 	CGameTrace trace;
 
-	// screw this.
 	if (!evt || !g_cl.m_local)
 		return;
 
-	// get attacker, if its not us, screw it.
 	attacker = g_csgo.m_engine->GetPlayerForUserID(evt->m_keys->FindKey(HASH("userid"))->GetInt());
 	if (attacker != g_csgo.m_engine->GetLocalPlayer())
 		return;
 
-	// decode impact coordinates and convert to vec3.
 	pos = {
 		evt->m_keys->FindKey(HASH("x"))->GetFloat(),
 		evt->m_keys->FindKey(HASH("y"))->GetFloat(),
 		evt->m_keys->FindKey(HASH("z"))->GetFloat()
 	};
 
-	// get prediction time at this point.
 	time = game::TICKS_TO_TIME(g_cl.m_local->m_nTickBase());
 
-	// add to visual impacts if we have features that rely on it enabled.
-	// todo - dex; need to match shots for this to have proper GetShootPosition, don't really care to do it anymore.
 	if (g_menu.main.visuals.impact_beams.get())
 		m_vis_impacts.push_back({ pos, g_cl.m_local->GetShootPosition(), g_cl.m_local->m_nTickBase() });
 
-	// we did not take a shot yet.
 	if (m_shots.empty())
 		return;
 
@@ -73,64 +66,48 @@ void Shots::OnImpact(IGameEvent* evt) {
 	match.delta = std::numeric_limits< float >::max();
 	match.shot = nullptr;
 
-	// iterate all shots.
 	for (auto& s : m_shots) {
 
-		// this shot was already matched
-		// with a 'bullet_impact' event.
 		if (s.m_matched)
 			continue;
 
-		// add the latency to the time when we shot.
-		// to predict when we would receive this event.
 		float predicted = s.m_time + s.m_lat;
 
-		// get the delta between the current time
-		// and the predicted arrival time of the shot.
 		float delta = std::abs(time - predicted);
 
 		// fuck this.
 		if (delta > 1.f)
 			continue;
 
-		// store this shot as being the best for now.
 		if (delta < match.delta) {
 			match.delta = delta;
 			match.shot = &s;
 		}
 	}
 
-	// no valid shotrecord was found.
 	ShotRecord* shot = match.shot;
 	if (!shot)
 		return;
 
-	// this shot was matched.
 	shot->m_matched = true;
 
-	// create new impact instance that we can match with a player hurt.
 	ImpactRecord impact;
 	impact.m_shot = shot;
 	impact.m_tick = g_cl.m_local->m_nTickBase();
 	impact.m_pos = pos;
 
-	// add to track.
 	m_impacts.push_front(impact);
 
-	// no need to keep an insane amount of impacts.
 	while (m_impacts.size() > 128)
 		m_impacts.pop_back();
 
-	// nospread mode.
 	if (g_menu.main.config.mode.get() == 1)
 		return;
 
-	// not in nospread mode, see if the shot missed due to spread.
 	Player* target = shot->m_target;
 	if (!target)
 		return;
 
-	// not gonna bother anymore.
 	if (!target->alive())
 		return;
 
@@ -138,43 +115,32 @@ void Shots::OnImpact(IGameEvent* evt) {
 	if (!data)
 		return;
 
-	// this record was deleted already.
 	if (!shot->m_record->m_bones)
 		return;
 
-	// we are going to alter this player.
-	// store all his og data.
 	BackupRecord backup;
 	backup.store(target);
 
-	// write historical matrix of the time that we shot
-	// into the games bone cache, so we can trace against it.
 	shot->m_record->cache();
 
-	// start position of trace is where we took the shot.
 	start = shot->m_pos;
 
-	// the impact pos contains the spread from the server
-	// which is generated with the server seed, so this is where the bullet
-	// actually went, compute the direction of this from where the shot landed
-	// and from where we actually took the shot.
 	dir = (pos - start).normalized();
 
-	// get end pos by extending direction forward.
-	// todo; to do this properly should save the weapon range at the moment of the shot, cba..
 	end = start + (dir * 8192.f);
 
-	// intersect our historical matrix with the path the shot took.
 	g_csgo.m_engine_trace->ClipRayToEntity(Ray(start, end), MASK_SHOT, target, &trace);
 
-	// we did not hit jackshit, or someone else.
-	if (!trace.m_entity || !trace.m_entity->IsPlayer() || trace.m_entity != target)
-		g_notify.add(XOR("Missed shot due to spread\n"));
-
-
-	// we should have 100% hit this player..
-	// this is a miss due to wrong angles.
+	std::string info = tfm::format(XOR("pdmg: %s - phb: %s - choke: %s - delta: %s"), shot->m_damage, shot->m_hitbox, shot->m_record->m_lag, match.delta);
+	if (shot->m_record->m_broke_lc) {
+		g_notify.add(tfm::format(XOR("missed shot (r: broke lc - %s)\n"), info));
+	}
+	else if (!trace.m_entity || !trace.m_entity->IsPlayer()) {
+		g_notify.add(tfm::format(XOR("missed shot (r: spread - %s)\n"), info));
+	}
 	else if (trace.m_entity == target) {
+		g_notify.add(tfm::format(XOR("missed shot (r: unknown - %s)\n"), info));
+
 		size_t mode = shot->m_record->m_mode;
 
 		++data->m_missed_shots;
@@ -283,9 +249,6 @@ void Shots::OnHurt(IGameEvent* evt) {
 		g_notify.add(out);
 	}
 
-	if (group == HITGROUP_GENERIC)
-		return;
-
 	// if we hit a player, mark vis impacts.
 	if (!m_vis_impacts.empty()) {
 		for (auto& i : m_vis_impacts) {
@@ -325,6 +288,13 @@ void Shots::OnHurt(IGameEvent* evt) {
 	hit.m_impact = impact;
 	hit.m_group = group;
 	hit.m_damage = damage;
+
+	auto hit_matrix = impact->m_shot->m_record->m_bones;
+	if (hp <= 0)
+		g_chams.AddMatrix(target, hit_matrix);
+
+	if (group == HITGROUP_GENERIC)
+		return;
 
 	//g_cl.print( "hit %x time: %f lat: %f dmg: %f\n", impact->m_shot->m_record, impact->m_shot->m_time, impact->m_shot->m_lat, impact->m_shot->m_damage );
 

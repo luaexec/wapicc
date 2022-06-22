@@ -67,6 +67,107 @@ void Chams::SetupMaterial(IMaterial* mat, Color col, bool z_flag) {
 	g_csgo.m_studio_render->ForcedMaterialOverride(mat);
 }
 
+void Chams::AddMatrix(Player* player, matrix3x4_t* bones) {
+	auto& hit = m_hit_matrix.emplace_back();
+
+	std::memcpy(hit.pBoneToWorld, bones, player->bone_cache().Count() * sizeof(matrix3x4_t));
+
+	hit.time = g_csgo.m_globals->m_curtime;
+
+	static int m_nSkin = 0xA1C;
+	static int m_nBody = 0xA20;
+
+	hit.info.m_origin = player->GetAbsOrigin();
+	hit.info.m_angles = player->GetAbsAngles();
+
+	auto renderable = player->renderable();
+	if (!renderable)
+		return;
+
+	auto model = player->GetModel();
+	if (!model)
+		return;
+
+	auto hdr = *(studiohdr_t**)(player->GetModelPtr());
+	if (!hdr)
+		return;
+
+	hit.state.m_pStudioHdr = hdr;
+	hit.state.m_pStudioHWData = g_csgo.m_model_cache->GetHardwareData(model->m_studio);
+	hit.state.m_pRenderable = renderable;
+	hit.state.m_drawFlags = 0;
+
+	hit.info.m_renderable = renderable;
+	hit.info.m_model = model;
+	hit.info.m_lighting_offset = nullptr;
+	hit.info.m_lighting_origin = nullptr;
+	hit.info.m_hitboxset = player->m_nHitboxSet();
+	hit.info.m_skin = (int)(uintptr_t(player) + m_nSkin);
+	hit.info.m_body = (int)(uintptr_t(player) + m_nBody);
+	hit.info.m_index = player->index();
+	hit.info.m_instance = util::get_method<ModelInstanceHandle_t(__thiscall*)(void*) >(renderable, 30u)(renderable);
+	hit.info.m_flags = 0x1;
+
+	hit.info.m_model_to_world = &hit.model_to_world;
+	hit.state.m_pModelToWorld = &hit.model_to_world;
+
+	math::AngleMatrix(hit.info.m_angles, hit.info.m_origin, hit.model_to_world);
+}
+
+void Chams::OnPSE() {
+	if (!g_cl.m_processing)
+		return;
+
+	const auto local = g_cl.m_local;
+	if (!local || !g_csgo.m_engine->IsInGame())
+		m_hit_matrix.clear();
+
+	if (m_hit_matrix.empty() || !g_csgo.m_model_render)
+		return;
+
+	auto ctx = g_csgo.m_material_system->get_render_context();
+	if (!ctx)
+		return;
+
+	auto it = m_hit_matrix.begin();
+
+	while (it != m_hit_matrix.end()) {
+		if (!it->state.m_pModelToWorld || !it->state.m_pRenderable || !it->state.m_pStudioHdr || !it->state.m_pStudioHWData ||
+			!it->info.m_renderable || !it->info.m_model_to_world || !it->info.m_model) {
+			++it;
+			continue;
+		}
+
+		//auto alpha = 1.0f;
+		//auto delta = g_csgo.m_globals->m_realtime - it->time;
+
+		//if (delta > 0.0f) {
+		//	alpha -= delta;
+
+		//	if (delta > 1.0f) {
+		//		it = m_hit_matrix.erase(it);
+		//		continue;
+		//	}
+		//}
+
+		if (g_visuals.m_alpha[it->ent_index] <= 0.f) {
+			it = m_hit_matrix.erase(it);
+			continue;
+		}
+
+		auto alpha_color = (g_menu.main.players.chams_enemy_blend.get() / 255.f) * g_visuals.m_alpha[it->ent_index] / 255.f;
+
+		Color ghost_color = g_menu.main.players.chams_enemy_invis.get();
+
+		g_csgo.m_render_view->SetBlend(alpha_color);
+		g_chams.SetupMaterial(debugdrawflat, ghost_color, true);
+		g_csgo.m_model_render->DrawModelExecute(ctx, it->state, it->info, it->pBoneToWorld);
+		g_csgo.m_model_render->ForceMat(nullptr);
+
+		++it;
+	}
+}
+
 void Chams::init() {
 	std::ofstream("csgo\\materials\\simple_flat.vmt") << R"#("UnlitGeneric"
 {
@@ -380,7 +481,6 @@ bool Chams::DrawModel(uintptr_t ctx, const DrawModelState_t& state, const ModelR
 
 	return true;
 }
-
 
 void Chams::SceneEnd() {
 	// store and sort ents by distance.

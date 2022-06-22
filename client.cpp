@@ -410,6 +410,8 @@ void Client::UpdateAnimations() {
 	// prevent model sway on player.
 	g_cl.m_local->m_AnimOverlay()[12].m_weight = 0.f;
 
+	m_poses[pose_params::jump_fall] = 0.f;
+
 	// update animations with last networked data.
 	g_cl.m_local->SetPoseParameters(g_cl.m_poses);
 
@@ -431,10 +433,6 @@ void Client::UpdateInformation() {
 
 	// current angle will be animated.
 	m_angle = g_cl.m_cmd->m_view_angles;
-
-	// fix landing anim.
-	if (state->m_land && !state->m_dip_air && state->m_dip_cycle > 0.f)
-		m_angle.x = -12.f;
 
 	math::clamp(m_angle.x, -90.f, 90.f);
 	m_angle.normalize();
