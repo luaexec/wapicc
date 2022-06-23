@@ -95,6 +95,8 @@ bool Resolver::ResolveBodyUpdates(Player* player, LagRecord* record) {
 			// set next predicted time, till update.
 			data->m_body_update = record->m_sim_time + CSGO_ANIM_LOWER_REALIGN_DELAY;
 
+			record->m_resolver = XOR("upd");
+
 			return true;
 		}
 
@@ -161,10 +163,10 @@ float Resolver::GetAwayAngle(LagRecord* record) {
 	//return away.y;
 }
 
-void Resolver::MatchShot(AimPlayer* data, LagRecord* record) {
+bool Resolver::MatchShot(AimPlayer* data, LagRecord* record) {
 	// do not attempt to do this in nospread mode.
 	if (g_menu.main.config.mode.get() == 1)
-		return;
+		return false;
 
 	float shoot_time = -1.f;
 
@@ -177,17 +179,26 @@ void Resolver::MatchShot(AimPlayer* data, LagRecord* record) {
 
 	// this record has a shot on it.
 	if (game::TIME_TO_TICKS(shoot_time) == game::TIME_TO_TICKS(record->m_sim_time)) {
-		if (record->m_lag <= 2)
+		if (record->m_lag <= 2) {
 			record->m_shot = true;
-
+			record->m_eye_angles.x = 0.f;
+		}
 		// more then 1 choke, cant hit pitch, apply prev pitch.
 		else if (data->m_records.size() >= 2) {
 			LagRecord* previous = data->m_records[1].get();
 
-			if (previous && !previous->dormant())
+			if (previous && !previous->dormant()) {
 				record->m_eye_angles.x = previous->m_eye_angles.x;
+			}
 		}
+
+		record->m_eye_angles.y = GetAwayAngle(record);
+		record->m_resolver = XOR("shot");
+
+		return true;
 	}
+
+	return false;
 }
 
 void Resolver::SetMode(LagRecord* record) {
@@ -214,7 +225,8 @@ void Resolver::ResolveAngles(Player* player, LagRecord* record) {
 	AimPlayer* data = &g_aimbot.m_players[player->index() - 1];
 
 	// mark this record if it contains a shot.
-	MatchShot(data, record);
+	if (MatchShot(data, record))
+		return;
 
 	// next up mark this record with a resolver mode that will be used.
 	SetMode(record);
@@ -247,6 +259,9 @@ void Resolver::ResolveWalk(AimPlayer* data, LagRecord* record) {
 	data->m_moved = false;
 
 	data->m_body_index = 0;
+	data->m_missed_shots = 0;
+
+	record->m_resolver = XOR("move");
 
 	// copy the last record that this player was walking
 	// we need it later on because it gives us crucial data.
@@ -286,7 +301,7 @@ void Resolver::FindBestAngle(LagRecord* record) {
 
 		// draw a line for debugging purposes.
 
-		//g_csgo.m_debug_overlay->AddLineOverlay( start, end, 255, 0, 0, true, 0.1f );
+		g_csgo.m_debug_overlay->AddLineOverlay( start, end, 255, 0, 0, true, 0.1f ); // <!--
 
 		// compute the direction.
 		vec3_t dir = end - start;
@@ -581,7 +596,7 @@ void Resolver::ResolveStand(AimPlayer* data, LagRecord* record) {
 	// pointer for easy access.
 	LagRecord* move = &data->m_walk_record;
 
-	if (record->m_lag <= 2)
+	//if (record->m_lag <= 2)
 		if (ResolveBodyUpdates(record->m_player, record))
 			return;
 
@@ -602,39 +617,60 @@ void Resolver::ResolveStand(AimPlayer* data, LagRecord* record) {
 		float diff = math::NormalizedAngle(record->m_body - move->m_body);
 		const Directions direction = HandleDirections(data);
 
-		// last move is valid.
-		if (IsLastMoveValid(record, move->m_body) && !record->m_fake_walk && fabsf(move->m_body - record->m_body) >= 36.f) {
-			record->m_mode = Modes::RESOLVE_LM;
-
-			// if these are the case then it is 100%
-			if (direction == Directions::YAW_LEFT)
-				record->m_eye_angles.y = away + 90.f;
-			else if (direction == Directions::YAW_RIGHT)
-				record->m_eye_angles.y = away - 90.f;
-
-			// if not just lastmove resolve
-			else
+		if (fabsf(move->m_body - record->m_body) >= 36.f && !record->m_fake_walk) {
+			if (IsLastMoveValid(record, move->m_body)) {
 				record->m_eye_angles.y = move->m_body;
-		}
-		else {
-
-			if (data->m_missed_shots < 1) {
-				// set our resolver mode
-				record->m_mode = Modes::RESOLVE_FREESTAND;
-
-				if (direction == Directions::YAW_LEFT)
-					record->m_eye_angles.y = away - 90.f;
-				else if (direction == Directions::YAW_RIGHT)
-					record->m_eye_angles.y = away + 90.f;
-
-				// seemed to work the best.
-				else
-					FindBestAngle(record);
+				record->m_resolver = XOR("*last");
 			}
 			else {
-				record->m_eye_angles.y = away - 180.f;
+				if (direction == Directions::YAW_LEFT)
+					record->m_eye_angles.y = away + 90.f;
+				else if (direction == Directions::YAW_RIGHT)
+					record->m_eye_angles.y = away - 90.f;
+				else
+					record->m_eye_angles.y = away - 180.f;
+
+				record->m_resolver = XOR("*dir");
 			}
 		}
+		else {
+			FindBestAngle(record);
+			record->m_resolver = XOR("*ang");
+		}
+
+		// last move is valid.
+		//if (IsLastMoveValid(record, move->m_body) && !record->m_fake_walk && fabsf(move->m_body - record->m_body) >= 36.f) {
+		//	record->m_mode = Modes::RESOLVE_LM;
+
+		//	// if these are the case then it is 100%
+		//	if (direction == Directions::YAW_LEFT)
+		//		record->m_eye_angles.y = away + 90.f;
+		//	else if (direction == Directions::YAW_RIGHT)
+		//		record->m_eye_angles.y = away - 90.f;
+
+		//	// if not just lastmove resolve
+		//	else
+		//		record->m_eye_angles.y = move->m_body;
+		//}
+		//else {
+
+		//	if (data->m_missed_shots < 1) {
+		//		// set our resolver mode
+		//		record->m_mode = Modes::RESOLVE_FREESTAND;
+
+		//		if (direction == Directions::YAW_LEFT)
+		//			record->m_eye_angles.y = away - 90.f;
+		//		else if (direction == Directions::YAW_RIGHT)
+		//			record->m_eye_angles.y = away + 90.f;
+
+		//		// seemed to work the best.
+		//		else
+		//			FindBestAngle(record);
+		//	}
+		//	else {
+		//		record->m_eye_angles.y = away - 180.f;
+		//	}
+		//}
 	}
 	else
 	{
@@ -642,9 +678,10 @@ void Resolver::ResolveStand(AimPlayer* data, LagRecord* record) {
 
 		record->m_mode = Modes::RESOLVE_FREESTAND;
 
-		if (data->m_missed_shots < 1) {
+		if (data->m_missed_shots <= 2) {
 			// set our resolver mode
 			record->m_mode = Modes::RESOLVE_FREESTAND;
+			record->m_resolver = XOR("fs");
 
 			if (direction == Directions::YAW_LEFT)
 				record->m_eye_angles.y = away - 90.f;
@@ -652,11 +689,14 @@ void Resolver::ResolveStand(AimPlayer* data, LagRecord* record) {
 				record->m_eye_angles.y = away + 90.f;
 
 			// seemed to work the best.
-			else
+			else {
 				FindBestAngle(record);
+				record->m_resolver = XOR("ang");
+			}
 		}
 		else {
 			record->m_eye_angles.y = away - 180.f;
+			record->m_resolver = XOR("dir");
 		}
 	}
 }
@@ -677,6 +717,8 @@ void Resolver::ResolveAir(AimPlayer* data, LagRecord* record) {
 		record->m_eye_angles.y = velyaw + 135.f;
 		break;
 	}
+
+	record->m_resolver = XOR("air");
 }
 
 void Resolver::ResolvePoses(Player* player, LagRecord* record) {

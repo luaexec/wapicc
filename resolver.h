@@ -33,7 +33,7 @@ public:
 	void OnBodyUpdate(Player* player, float value);
 	float GetAwayAngle(LagRecord* record);
 
-	void MatchShot(AimPlayer* data, LagRecord* record);
+	bool MatchShot(AimPlayer* data, LagRecord* record);
 	void SetMode(LagRecord* record);
 
 	void collect_wall_detect(const Stage_t stage);

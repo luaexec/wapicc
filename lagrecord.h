@@ -90,6 +90,8 @@ public:
 
 	// other stuff.
 	float  m_interp_time;
+
+	std::string m_resolver = XOR("def");
 public:
 
 	// default ctor.

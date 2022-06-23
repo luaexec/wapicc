@@ -1142,6 +1142,11 @@ void Visuals::DrawPlayer(Player* player) {
 
 		for (auto it = items.begin(); it != items.end(); ++it) {
 
+			//AimPlayer* data = &g_aimbot.m_players[player->index() - 1];
+			//if (data != nullptr && data->m_records.front().get() != nullptr) {
+			//	flags.push_back({ data->m_records.front().get()->m_resolver, { 205, 205, 205, int(m_alpha[i]) } });
+			//}
+
 			// money.
 			if (*it == 0)
 				flags.push_back({ tfm::format(XOR("$%i"), player->m_iAccount()), { 150, 200, 60, int(m_alpha[i]) } });
