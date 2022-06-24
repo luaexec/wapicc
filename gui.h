@@ -40,12 +40,12 @@ public:
 public:
 	__forceinline void update( ) {
 		// iterate all keys.
-		for( int i{}; i <= 254; ++i ) {
-			key_t* key = &m_keys[ i ];
+		for ( int i{}; i <= 254; ++i ) {
+			key_t* key = &m_keys[i];
 
 			key->pressed = false;
 
-			if( key->down && key->tick > key->oldtick ) {
+			if ( key->down && key->tick > key->oldtick ) {
 				key->oldtick = key->tick;
 				key->pressed = true;
 			}
@@ -54,7 +54,7 @@ public:
 
 	// mouse within coords.
 	__forceinline bool IsCursorInBounds( int x, int y, int x2, int y2 ) const {
-		return m_mouse.x > x && m_mouse.y > y && m_mouse.x < x2 && m_mouse.y < y2;
+		return m_mouse.x > x && m_mouse.y > y && m_mouse.x < x2&& m_mouse.y < y2;
 	}
 
 	// mouse within rectangle.
@@ -62,32 +62,48 @@ public:
 		return IsCursorInBounds( area.x, area.y, area.x + area.w, area.y + area.h );
 	}
 
+	__forceinline bool hovered( vec2_t pos, vec2_t size ) {
+		return ( m_mouse.x > pos.x && m_mouse.x < pos.x + size.x && m_mouse.y > pos.y && m_mouse.y < pos.y + size.y );
+	}
+
+	__forceinline bool hovered( int x, int y, vec2_t size ) {
+		return ( m_mouse.x > x && m_mouse.x < x + size.x && m_mouse.y > y && m_mouse.y < y + size.y );
+	}
+
+	__forceinline bool hovered( vec2_t pos, int w, int h ) {
+		return ( m_mouse.x > pos.x && m_mouse.x < pos.x + w && m_mouse.y > pos.y && m_mouse.y < pos.y + h );
+	}
+
+	__forceinline bool hovered( int x, int y, int w, int h ) {
+		return ( m_mouse.x > x && m_mouse.x < x + w && m_mouse.y > y && m_mouse.y < y + h );
+	}
+
 	__forceinline void SetDown( int vk ) {
-		key_t* key = &m_keys[ vk ];
+		key_t* key = &m_keys[vk];
 
 		key->down = true;
 		key->tick = g_winapi.GetTickCount( );
 	}
 
 	__forceinline void SetUp( int vk ) {
-		key_t* key = &m_keys[ vk ];
-		key->down    = false;
+		key_t* key = &m_keys[vk];
+		key->down = false;
 	}
 
 	// key is being held.
 	__forceinline bool GetKeyState( int vk ) {
-		if( vk == -1 )
+		if ( vk == -1 )
 			return false;
 
-		return m_keys[ vk ].down;
+		return m_keys[vk].down;
 	}
 
 	// key was pressed.
 	__forceinline bool GetKeyPress( int vk ) {
-		if( vk == -1 )
+		if ( vk == -1 )
 			return false;
 
-		key_t* key = &m_keys[ vk ];
+		key_t* key = &m_keys[vk];
 		return key->pressed;
 	}
 };

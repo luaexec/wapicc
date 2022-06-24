@@ -34,6 +34,9 @@
     <Filter Include="Header Files\util\contrib">
       <UniqueIdentifier>{203aec8b-15f9-4e88-b0c7-d51d4a57be52}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Header Files\wapim">
+      <UniqueIdentifier>{01000349-4a88-4b85-bdf2-001406969375}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="aimbot.h">
@@ -314,6 +317,12 @@
     </ClInclude>
     <ClInclude Include="modelcahce.h">
       <Filter>Header Files\sdk</Filter>
+    </ClInclude>
+    <ClInclude Include="framework.h">
+      <Filter>Header Files\wapim</Filter>
+    </ClInclude>
+    <ClInclude Include="wapim.h">
+      <Filter>Header Files\wapim</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

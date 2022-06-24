@@ -16,59 +16,70 @@ private:
 
 public:
 	// ctors.
-	__forceinline Color() : m_r{ 0 }, m_g{ 0 }, m_b{ 0 }, m_a{ 0 }, m_rgba{} {}
-	__forceinline Color(int r, int g, int b, int a = 255) : m_r{ (uint8_t)r }, m_g{ (uint8_t)g }, m_b{ (uint8_t)b }, m_a{ (uint8_t)a } {}
-	__forceinline Color(uint32_t rgba) : m_rgba{ rgba } {}
+	__forceinline Color( ) : m_r{ 0 }, m_g{ 0 }, m_b{ 0 }, m_a{ 0 }, m_rgba{} {}
+	__forceinline Color( int r, int g, int b, int a = 255 ) : m_r{ (uint8_t)r }, m_g{ (uint8_t)g }, m_b{ (uint8_t)b }, m_a{ (uint8_t)a } {}
+	__forceinline Color( uint32_t rgba ) : m_rgba{ rgba } {}
 
-	static Color hsl_to_rgb(float h, float s, float l) {
+	static Color hsl_to_rgb( float h, float s, float l ) {
 		float q;
 
-		if (l < 0.5f)
-			q = l * (s + 1.f);
+		if ( l < 0.5f )
+			q = l * ( s + 1.f );
 
 		else
-			q = l + s - (l * s);
+			q = l + s - ( l * s );
 
 		float p = 2 * l - q;
 
 		float rgb[3];
-		rgb[0] = h + (1.f / 3.f);
+		rgb[0] = h + ( 1.f / 3.f );
 		rgb[1] = h;
-		rgb[2] = h - (1.f / 3.f);
+		rgb[2] = h - ( 1.f / 3.f );
 
-		for (int i = 0; i < 3; ++i) {
-			if (rgb[i] < 0)
+		for ( int i = 0; i < 3; ++i ) {
+			if ( rgb[i] < 0 )
 				rgb[i] += 1.f;
 
-			if (rgb[i] > 1)
+			if ( rgb[i] > 1 )
 				rgb[i] -= 1.f;
 
-			if (rgb[i] < (1.f / 6.f))
-				rgb[i] = p + ((q - p) * 6 * rgb[i]);
-			else if (rgb[i] < 0.5f)
+			if ( rgb[i] < ( 1.f / 6.f ) )
+				rgb[i] = p + ( ( q - p ) * 6 * rgb[i] );
+			else if ( rgb[i] < 0.5f )
 				rgb[i] = q;
-			else if (rgb[i] < (2.f / 3.f))
-				rgb[i] = p + ((q - p) * 6 * ((2.f / 3.f) - rgb[i]));
+			else if ( rgb[i] < ( 2.f / 3.f ) )
+				rgb[i] = p + ( ( q - p ) * 6 * ( ( 2.f / 3.f ) - rgb[i] ) );
 			else
 				rgb[i] = p;
 		}
 
 		return {
-			int(rgb[0] * 255.f),
-			int(rgb[1] * 255.f),
-			int(rgb[2] * 255.f)
+			int( rgb[0] * 255.f ),
+			int( rgb[1] * 255.f ),
+			int( rgb[2] * 255.f )
 		};
 	}
 
 	// member accessors.
-	__forceinline uint8_t& r() { return m_r; }
-	__forceinline uint8_t& g() { return m_g; }
-	__forceinline uint8_t& b() { return m_b; }
-	__forceinline uint8_t& a() { return m_a; }
-	__forceinline uint32_t& rgba() { return m_rgba; }
+	__forceinline uint8_t& r( ) { return m_r; }
+	__forceinline uint8_t& g( ) { return m_g; }
+	__forceinline uint8_t& b( ) { return m_b; }
+	__forceinline uint8_t& a( ) { return m_a; }
+	__forceinline uint32_t& rgba( ) { return m_rgba; }
+
+	Color alpha( int _a ) {
+		a( ) = _a;
+		return *this;
+	}
+
+	Color blend( Color _tmp, float fraction ) {
+		float r_d = r( ) - _tmp.r( ), g_d = g( ) - _tmp.g( ), b_d = b( ) - _tmp.b( ), a_d = a( ) - _tmp.a( );
+
+		return Color( r( ) - ( r_d * fraction ), g( ) - ( g_d * fraction ), b( ) - ( b_d * fraction ), a( ) - ( a_d * fraction ) );
+	}
 
 	// operators.
-	__forceinline operator uint32_t() { return m_rgba; }
+	__forceinline operator uint32_t( ) { return m_rgba; }
 };
 
 namespace colors {

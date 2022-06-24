@@ -24,11 +24,11 @@ void Hooks::LevelInitPostEntity( ) {
 void Hooks::LevelShutdown( ) {
 	g_aimbot.reset( );
 
-	g_cl.m_local       = nullptr;
-	g_cl.m_weapon      = nullptr;
-	g_cl.m_processing  = false;
+	g_cl.m_local = nullptr;
+	g_cl.m_weapon = nullptr;
+	g_cl.m_processing = false;
 	g_cl.m_weapon_info = nullptr;
-	g_cl.m_round_end   = false;
+	g_cl.m_round_end = false;
 
 	g_cl.m_sequences.clear( );
 
@@ -47,7 +47,7 @@ void Hooks::LevelShutdown( ) {
 		}
 
 		// up.
-		else 
+		else
 			g_cl.m_drop = false;
 
 		// ignore the event.
@@ -60,56 +60,71 @@ void Hooks::LevelShutdown( ) {
 void Hooks::FrameStageNotify( Stage_t stage ) {
 
 	// save stage.
-	if( stage != FRAME_START )
+	if ( stage != FRAME_START )
 		g_cl.m_stage = stage;
 
 	// damn son.
 	g_cl.m_local = g_csgo.m_entlist->GetClientEntity< Player* >( g_csgo.m_engine->GetLocalPlayer( ) );
 
-	if( stage == FRAME_RENDER_START ) {	
+	if ( stage == FRAME_RENDER_START ) {
 		// apply local player animated angles.
 		g_cl.SetAngles( );
 
 		// apply local player animation fix.
 		g_cl.UpdateAnimations( );
 
-        // draw our custom beams.
-        g_visuals.DrawBeams( );
+		// draw our custom beams.
+		g_visuals.DrawBeams( );
 	}
 
 	// call og.
 	g_hooks.m_client.GetOldMethod< FrameStageNotify_t >( CHLClient::FRAMESTAGENOTIFY )( this, stage );
 
-	if( stage == FRAME_RENDER_START ) {
+	if ( stage == FRAME_RENDER_START ) {
 		// ...
 	}
 
-	else if( stage == FRAME_NET_UPDATE_POSTDATAUPDATE_START ) {
+	else if ( stage == FRAME_NET_UPDATE_POSTDATAUPDATE_START ) {
 		// restore non-compressed netvars.
 		// g_netdata.apply( );
 
-		g_cl.Skybox();
-		g_cl.ClanTag();
+		g_cl.Skybox( );
+		g_cl.ClanTag( );
 		g_skins.think( );
 	}
 
-	else if( stage == FRAME_NET_UPDATE_POSTDATAUPDATE_END ) {
+	else if ( stage == FRAME_NET_UPDATE_POSTDATAUPDATE_END ) {
 		g_visuals.NoSmoke( );
+
+		for ( int i = 1; i < g_csgo.m_globals->m_max_clients; i++ ) {
+			const auto entity = static_cast<Player*>( g_csgo.m_entlist->GetClientEntity( i ) );
+
+			if ( !entity || !entity->alive( ) )
+				continue;
+
+			if ( entity->dormant( ) )
+				continue;
+
+			auto varmap = reinterpret_cast<uintptr_t>( entity ) + 36;
+			auto varmap_size = *reinterpret_cast<int*>( varmap + 20 );
+			for ( auto index = 0; index < varmap_size; index++ )
+				*reinterpret_cast<uintptr_t*>( *reinterpret_cast<uintptr_t*>( varmap ) + index * 12 ) = 0;
+		}
 	}
 
-	else if( stage == FRAME_NET_UPDATE_END ) {
-        // restore non-compressed netvars.
+	else if ( stage == FRAME_NET_UPDATE_END ) {
+		// restore non-compressed netvars.
 		g_netdata.apply( );
 
 		//g_cl.UpdateLocal();
 
 		// update all players.
-		for( int i{ 1 }; i <= g_csgo.m_globals->m_max_clients; ++i ) {
+		for ( int i{ 1 }; i <= g_csgo.m_globals->m_max_clients; ++i ) {
 			Player* player = g_csgo.m_entlist->GetClientEntity< Player* >( i );
-			if( !player || player->m_bIsLocalPlayer( ) )
+			if ( !player || player->m_bIsLocalPlayer( ) )
 				continue;
 
-			AimPlayer* data = &g_aimbot.m_players[ i - 1 ];
+			AimPlayer* data = &g_aimbot.m_players[i - 1];
 			data->OnNetUpdate( player );
 		}
 	}

@@ -229,6 +229,7 @@
     <ClInclude Include="entlist.h" />
     <ClInclude Include="entoffsets.h" />
     <ClInclude Include="form.h" />
+    <ClInclude Include="framework.h" />
     <ClInclude Include="game.h" />
     <ClInclude Include="gameevents.h" />
     <ClInclude Include="gamerules.h" />
@@ -290,6 +291,7 @@
     <ClInclude Include="vector3.h" />
     <ClInclude Include="visuals.h" />
     <ClInclude Include="vmt.h" />
+    <ClInclude Include="wapim.h" />
     <ClInclude Include="winapir.h" />
     <ClInclude Include="x86.h" />
     <ClInclude Include="xorstr.h" />
