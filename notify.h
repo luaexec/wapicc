@@ -20,7 +20,7 @@ private:
 public:
 	__forceinline Notify() : m_notify_text{} {}
 
-	__forceinline void add(const std::string& text, Color color = colors::accent, float time = 4.f, bool console = true) {
+	__forceinline void add(const std::string& text, Color color = colors::accent, float time = 5.f, bool console = true) {
 		// modelled after 'CConPanel::AddToNotify'
 		m_notify_text.push_back(std::make_shared< NotifyText >(text, color, time));
 
@@ -30,9 +30,8 @@ public:
 
 	// modelled after 'CConPanel::DrawNotify' and 'CConPanel::ShouldDraw'
 	void think() {
-		int		x{ 8 }, y{ 5 }, size{ render::logevent.m_size.m_height + 1 };
+		int		x{ 8 }, y{ 5 }, size{ render::esp.m_size.m_height + 1 };
 		Color	color;
-		float	left;
 
 		// update lifetimes.
 		for (size_t i{}; i < m_notify_text.size(); ++i) {
@@ -46,6 +45,9 @@ public:
 			}
 		}
 
+		while (m_notify_text.size( ) > 10)
+			m_notify_text.pop_back( );
+
 		// we have nothing to draw.
 		if (m_notify_text.empty())
 			return;
@@ -54,25 +56,13 @@ public:
 		for (size_t i{}; i < m_notify_text.size(); ++i) {
 			auto notify = m_notify_text[i];
 
-			left = notify->m_time;
+			auto s = std::min( 5.f - notify->m_time, 0.5f ) * 2.f;
+			auto e = std::min( notify->m_time, 0.5f ) * 2.f;
+			auto t = std::min( s, e );
 			color = notify->m_color;
 
-			if (left < .5f) {
-				float f = left;
-				math::clamp(f, 0.f, .5f);
-
-				f /= .5f;
-
-				color.a() = (int)(f * 255.f);
-
-				if (i == 0 && f < 0.2f)
-					y -= size * (1.f - f / 0.2f);
-			}
-
-			else
-				color.a() = 255;
-
-			render::logevent.string(x, y, color, notify->m_text);
+			render::esp.string( x - ( render::esp.size( "__stdcall" ).m_width + 5 ) + ( (render::esp.size( "__stdcall" ).m_width + 5) * t ), y, color.alpha( 255.f * t ), "__stdcall" );
+			render::esp.string( x + ( render::esp.size( "__stdcall" ).m_width + 5 ) - render::esp.size( notify->m_text ).m_width + ( render::esp.size( notify->m_text ).m_width * t ), y, colors::white.alpha( 255.f * t ), notify->m_text );
 			y += size;
 		}
 	}

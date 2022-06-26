@@ -773,82 +773,45 @@ void HVH::AntiAim() {
 }
 
 void HVH::SendPacket() {
-	// if not the last packet this shit wont get sent anyway.
-	// fix rest of hack by forcing to false.
 	if (!*g_cl.m_final_packet)
 		*g_cl.m_packet = false;
 
-	// fake-lag enabled.
-	if (g_menu.main.antiaim.lag_enable.get() && !g_csgo.m_gamerules->m_bFreezePeriod() && !(g_cl.m_flags & FL_FROZEN)) {
-		// limit of lag.
-		int limit = std::min((int)g_menu.main.antiaim.lag_limit.get(), g_cl.m_max_lag);
+	if (config["fl_enable"].get<bool>( ) && !g_csgo.m_gamerules->m_bFreezePeriod( ) && !( g_cl.m_flags & FL_FROZEN )) {
+		int limit = std::min(config["fl_limit"].get<int>( ), g_cl.m_max_lag);
 
-		// indicates wether to lag or not.
 		bool active{ };
 
-		// get current origin.
 		vec3_t cur = g_cl.m_local->m_vecOrigin();
 
-		// get prevoius origin.
 		vec3_t prev = g_cl.m_net_pos.empty() ? g_cl.m_local->m_vecOrigin() : g_cl.m_net_pos.front().m_pos;
 
-		// delta between the current origin and the last sent origin.
 		float delta = (cur - prev).length_sqr();
 
-		auto activation = g_menu.main.antiaim.lag_active.GetActiveIndices();
-		for (auto it = activation.begin(); it != activation.end(); it++) {
-
-			// move.
-			if (*it == 0 && delta > 0.1f && g_cl.m_speed > 0.1f) {
-				active = true;
-				break;
-			}
-
-			// air.
-			else if (*it == 1 && ((g_cl.m_buttons & IN_JUMP) || !(g_cl.m_flags & FL_ONGROUND))) {
-				active = true;
-				break;
-			}
-
-			// crouch.
-			else if (*it == 2 && g_cl.m_local->m_bDucking()) {
-				active = true;
-				break;
-			}
-		}
+		active = ( delta > 0.1f && g_cl.m_speed > 0.1f ) || ( ( g_cl.m_buttons & IN_JUMP ) || !( g_cl.m_flags & FL_ONGROUND ) );
 
 		if (active) {
 			int mode = g_menu.main.antiaim.lag_mode.get();
 
-			// max.
-			if (mode == 0)
+			if (config["fl_mode"].get<int>( ) == 0)
 				*g_cl.m_packet = false;
 
-			// break.
-			else if (mode == 1 && delta <= 4096.f)
+			else if (config["fl_mode"].get<int>( ) == 1) {
+				auto speed = g_cl.m_local->m_vecVelocity( ).length_2d( );
+				if (speed <= 100.f)
+					limit = config["fl_limit"].get<float>( ) * ( speed / 100.f );
+			}
+
+			else if (config["fl_mode"].get<int>( ) == 2) {
+				if (g_csgo.m_globals->m_tick_count % 40 < 20 && !( !( g_cl.m_flags & FL_ONGROUND ) && config["fl_lc"].get<bool>( ) ))
+					*g_cl.m_packet = false;
+			}
+			
+			// here comes smelly fart, probably the lowest ping wapicc user.
+			if (!( g_csgo.m_globals->m_tick_count % ( 101 - config["fl_var"].get<int>( ) ) ) && ( g_cl.m_flags & FL_ONGROUND ) )
+				*g_cl.m_packet = true;
+
+			if (delta <= 4096.f && config["fl_lc"].get<bool>( ))
 				*g_cl.m_packet = false;
-
-			// random.
-			else if (mode == 2) {
-				// compute new factor.
-				if (g_cl.m_lag >= m_random_lag)
-					m_random_lag = g_csgo.RandomInt(2, limit);
-
-				// factor not met, keep choking.
-				else *g_cl.m_packet = false;
-			}
-
-			// break step.
-			else if (mode == 3) {
-				// normal break.
-				if (m_step_switch) {
-					if (delta <= 4096.f)
-						*g_cl.m_packet = false;
-				}
-
-				// max.
-				else *g_cl.m_packet = false;
-			}
 
 			if (g_cl.m_lag >= limit)
 				*g_cl.m_packet = true;

@@ -42,6 +42,8 @@ public:
 	ImpactRecord* m_impact;
 	int           m_group;
 	float         m_damage;
+	float         m_time;
+	vec3_t		  m_pos;
 };
 
 class Shots {

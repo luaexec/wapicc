@@ -68,8 +68,7 @@ public:
 	__forceinline uint32_t& rgba( ) { return m_rgba; }
 
 	Color alpha( int _a ) {
-		a( ) = _a;
-		return *this;
+		return Color( r( ), g( ), b( ), _a );
 	}
 
 	Color blend( Color _tmp, float fraction ) {

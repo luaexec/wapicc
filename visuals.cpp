@@ -86,25 +86,16 @@ void Visuals::ThirdpersonThink( ) {
 	CGameTrace                     tr;
 	static float anim{ 0.f };
 
-	// for whatever reason overrideview also gets called from the main menu.
 	if ( !g_csgo.m_engine->IsInGame( ) )
 		return;
 
-	// check if we have a local player and he is alive.
 	bool alive = g_cl.m_local && g_cl.m_local->alive( );
 
-	// camera should be in thirdperson.
 	if ( m_thirdperson ) {
-
-		// if alive and not in thirdperson already switch to thirdperson.
 		if ( alive && !g_csgo.m_input->CAM_IsThirdPerson( ) )
 			g_csgo.m_input->CAM_ToThirdPerson( );
 
-		// if dead and spectating in firstperson switch to thirdperson.
 		else if ( g_cl.m_local->m_iObserverMode( ) == 4 ) {
-
-			// if in thirdperson, switch to firstperson.
-			// we need to disable thirdperson to spectate properly.
 			if ( g_csgo.m_input->CAM_IsThirdPerson( ) ) {
 				g_csgo.m_input->CAM_ToFirstPerson( );
 				g_csgo.m_input->m_camera_offset.z = 0.f;
@@ -112,31 +103,25 @@ void Visuals::ThirdpersonThink( ) {
 
 			g_cl.m_local->m_iObserverMode( ) = 5;
 		}
-	}
 
-	// camera should be in firstperson.
-	else if ( g_csgo.m_input->CAM_IsThirdPerson( ) ) {
+		anim += 5.5f * g_csgo.m_globals->m_frametime;
+	}
+	 else if ( g_csgo.m_input->CAM_IsThirdPerson( ) ) {
 		g_csgo.m_input->CAM_ToFirstPerson( );
 		g_csgo.m_input->m_camera_offset.z = 0.f;
+		anim -= 5.5f * g_csgo.m_globals->m_frametime;
 	}
+	anim = std::clamp( anim, 0.f, 1.f );
 
-	// if after all of this we are still in thirdperson.
 	if ( g_csgo.m_input->CAM_IsThirdPerson( ) ) {
-		// get camera angles.
 		g_csgo.m_engine->GetViewAngles( offset );
 
-		anim += 5.0f * g_csgo.m_globals->m_frametime;
-
-		// get our viewangle's forward directional vector.
 		math::AngleVectors( offset, &forward );
 
-		// cam_idealdist convar.
 		offset.z = g_menu.main.visuals.thirdperson_distance.get( );
 
-		// start pos.
 		origin = g_cl.m_shoot_pos;
 
-		// setup trace filter and trace.
 		filter.SetPassEntity( g_cl.m_local );
 
 		g_csgo.m_engine_trace->TraceRay(
@@ -146,142 +131,46 @@ void Visuals::ThirdpersonThink( ) {
 			&tr
 		);
 
-		// adapt distance to travel time.
 		math::clamp( tr.m_fraction, 0.f, 1.f );
 		offset.z *= tr.m_fraction * anim;
 
-		// override camera angles.
 		g_csgo.m_input->m_camera_offset = { offset.x, offset.y, offset.z };
-	}
-	else
-		anim -= 5.0f * g_csgo.m_globals->m_frametime;
-
-	anim = std::clamp( anim, 0.f, 1.f );
-}
-
-// meme...
-void Visuals::IndicateAngles( )
-{
-	if ( !g_csgo.m_engine->IsInGame( ) && !g_csgo.m_engine->IsConnected( ) )
-		return;
-
-	if ( !g_menu.main.antiaim.draw_angles.get( ) )
-		return;
-
-	if ( !g_csgo.m_input->CAM_IsThirdPerson( ) )
-		return;
-
-	if ( !g_cl.m_local || g_cl.m_local->m_iHealth( ) < 1 )
-		return;
-
-	const auto& pos = g_cl.m_local->GetRenderOrigin( );
-	vec2_t tmp;
-
-	if ( render::WorldToScreen( pos, tmp ) )
-	{
-		vec2_t draw_tmp;
-		const vec3_t real_pos( 50.f * std::cos( math::deg_to_rad( g_cl.m_radar.y ) ) + pos.x, 50.f * sin( math::deg_to_rad( g_cl.m_radar.y ) ) + pos.y, pos.z );
-
-		if ( render::WorldToScreen( real_pos, draw_tmp ) )
-		{
-			render::line( tmp.x, tmp.y, draw_tmp.x, draw_tmp.y, { 0, 255, 0, 255 } );
-			render::esp_small.string( draw_tmp.x, draw_tmp.y, { 0, 255, 0, 255 }, "FAKE", render::ALIGN_LEFT );
-		}
-
-		if ( g_menu.main.antiaim.fake_yaw.get( ) )
-		{
-			const vec3_t fake_pos( 50.f * cos( math::deg_to_rad( g_cl.m_angle.y ) ) + pos.x, 50.f * sin( math::deg_to_rad( g_cl.m_angle.y ) ) + pos.y, pos.z );
-
-			if ( render::WorldToScreen( fake_pos, draw_tmp ) )
-			{
-				render::line( tmp.x, tmp.y, draw_tmp.x, draw_tmp.y, { 255, 0, 0, 255 } );
-				render::esp_small.string( draw_tmp.x, draw_tmp.y, { 255, 0, 0, 255 }, "REAL", render::ALIGN_LEFT );
-			}
-		}
-
-		if ( g_menu.main.antiaim.body_fake_stand.get( ) == 1 || g_menu.main.antiaim.body_fake_stand.get( ) == 2 || g_menu.main.antiaim.body_fake_stand.get( ) == 3 || g_menu.main.antiaim.body_fake_stand.get( ) == 4 || g_menu.main.antiaim.body_fake_stand.get( ) == 5 || g_menu.main.antiaim.body_fake_stand.get( ) == 6 )
-		{
-			float lby = g_cl.m_local->m_flLowerBodyYawTarget( );
-			const vec3_t lby_pos( 50.f * cos( math::deg_to_rad( lby ) ) + pos.x,
-				50.f * sin( math::deg_to_rad( lby ) ) + pos.y, pos.z );
-
-			if ( render::WorldToScreen( lby_pos, draw_tmp ) )
-			{
-				render::line( tmp.x, tmp.y, draw_tmp.x, draw_tmp.y, { 255, 255, 255, 255 } );
-				render::esp_small.string( draw_tmp.x, draw_tmp.y, { 255, 255, 255, 255 }, "LBY", render::ALIGN_LEFT );
-			}
-		}
 	}
 }
 
 void Visuals::Hitmarker( ) {
-
 	static auto cross = g_csgo.m_cvar->FindVar( HASH( "weapon_debug_spread_show" ) );
 	cross->SetValue( g_menu.main.visuals.force_xhair.get( ) && !g_cl.m_local->m_bIsScoped( ) ? 3 : 0 );
 	if ( !g_menu.main.misc.hitmarker.get( ) )
 		return;
 
-	if ( g_csgo.m_globals->m_curtime > m_hit_end )
-		return;
-
-	if ( m_hit_duration <= 0.f )
-		return;
-
-	float complete = ( g_csgo.m_globals->m_curtime - m_hit_start ) / m_hit_duration;
-	int x = g_cl.m_width,
-		y = g_cl.m_height,
-		alpha = ( 1.f - complete ) * 240;
-
 	constexpr int line{ 6 };
 
+	auto hm = [&]( int x, int y, int damage, bool hs, float s, float e ) {
+		auto t = std::min( s, e );
+		auto end_set = ( 2 + ( 5 * t ) );
 
-	render::rect_filled( x / 2 + 6, y / 2 + 6, 1, 1, { 200, 200, 200, alpha } );
-	render::rect_filled( x / 2 + 7, y / 2 + 7, 1, 1, { 200, 200, 200, alpha } );
-	render::rect_filled( x / 2 + 8, y / 2 + 8, 1, 1, { 200, 200, 200, alpha } );
-	render::rect_filled( x / 2 + 9, y / 2 + 9, 1, 1, { 200, 200, 200, alpha } );
-	render::rect_filled( x / 2 + 10, y / 2 + 10, 1, 1, { 200, 200, 200, alpha } );
+		render::line( x + 2, y + 2, x + end_set, y + end_set, hs ? colors::red.alpha( int( 255.f * t ) ) : colors::white.alpha( int( 255.f * t ) ) );
+		render::line( x - 2, y + 2, x - end_set, y + end_set, hs ? colors::red.alpha( int( 255.f * t ) ) : colors::white.alpha( int( 255.f * t ) ) );
+		render::line( x + 2, y - 2, x + end_set, y - end_set, hs ? colors::red.alpha( int( 255.f * t ) ) : colors::white.alpha( int( 255.f * t ) ) );
+		render::line( x - 2, y - 2, x - end_set, y - end_set, hs ? colors::red.alpha( int( 255.f * t ) ) : colors::white.alpha( int( 255.f * t ) ) );
 
-	render::rect_filled( x / 2 - 6, y / 2 - 6, 1, 1, { 200, 200, 200, alpha } );
-	render::rect_filled( x / 2 - 7, y / 2 - 7, 1, 1, { 200, 200, 200, alpha } );
-	render::rect_filled( x / 2 - 8, y / 2 - 8, 1, 1, { 200, 200, 200, alpha } );
-	render::rect_filled( x / 2 - 9, y / 2 - 9, 1, 1, { 200, 200, 200, alpha } );
-	render::rect_filled( x / 2 - 10, y / 2 - 10, 1, 1, { 200, 200, 200, alpha } );
+		render::esp.string( x + 1, int( y - 10 - ( 8 * t ) ), hs ? colors::red.alpha( int( 255.f * t ) ) : colors::white.alpha( int( 255.f * t ) ), std::to_string( damage ), render::ALIGN_CENTER);
+	};
 
-	render::rect_filled( x / 2 - 6, y / 2 + 6, 1, 1, { 200, 200, 200, alpha } );
-	render::rect_filled( x / 2 - 7, y / 2 + 7, 1, 1, { 200, 200, 200, alpha } );
-	render::rect_filled( x / 2 - 8, y / 2 + 8, 1, 1, { 200, 200, 200, alpha } );
-	render::rect_filled( x / 2 - 9, y / 2 + 9, 1, 1, { 200, 200, 200, alpha } );
-	render::rect_filled( x / 2 - 10, y / 2 + 10, 1, 1, { 200, 200, 200, alpha } );
+	for (auto i : g_shots.m_hits) {
+		float rem = ( i.m_time + 5.f ) - g_csgo.m_globals->m_curtime;
+		if (rem < 0.f || rem > 5.f)
+			continue;
 
-	render::rect_filled( x / 2 + 6, y / 2 - 6, 1, 1, { 200, 200, 200, alpha } );
-	render::rect_filled( x / 2 + 7, y / 2 - 7, 1, 1, { 200, 200, 200, alpha } );
-	render::rect_filled( x / 2 + 8, y / 2 - 8, 1, 1, { 200, 200, 200, alpha } );
-	render::rect_filled( x / 2 + 9, y / 2 - 9, 1, 1, { 200, 200, 200, alpha } );
-	render::rect_filled( x / 2 + 10, y / 2 - 10, 1, 1, { 200, 200, 200, alpha } );
+		vec2_t pos;
+		if (!render::WorldToScreen( i.m_pos, pos ))
+			continue;
 
-	// damage indicator above head
-	std::string out = tfm::format( XOR( "%i\n" ), g_shots.iHitDmg );
+		auto s = std::min( 5.f - rem, 0.5f ) * 2.f;
+		auto e = std::min( rem, 0.5f ) * 2.f;
 
-	for ( int i{ 1 }; i <= g_csgo.m_globals->m_max_clients; ++i ) {
-		Player* player = g_csgo.m_entlist->GetClientEntity< Player* >( i );
-
-		if ( render::WorldToScreen( g_shots.iPlayermins, g_shots.iPlayerbottom ) && render::WorldToScreen( g_shots.iPlayermaxs, g_shots.iPlayertop ) )
-		{
-			// get the esp box info >_<
-			Rect box;
-			box.h = g_shots.iPlayerbottom.y - g_shots.iPlayertop.y;
-			box.w = box.h / 2.f;
-			box.x = g_shots.iPlayerbottom.x - ( box.w / 2.f );
-			box.y = g_shots.iPlayerbottom.y - box.h;
-
-			// text damage
-			if ( !g_shots.iHeadshot )
-				render::damage.string( box.x + box.w / 2, box.y - render::esp.m_size.m_height - 10, { 255, 0, 0, alpha }, out, render::ALIGN_CENTER );
-
-			if ( g_shots.iHeadshot == true )
-				render::damage.string( box.x + box.w / 2, box.y - render::esp.m_size.m_height - 10, { 255, 0, 0, alpha }, out, render::ALIGN_CENTER );
-			render::damage.string( box.x + box.w / 2, box.y - render::esp.m_size.m_height - 10, { 255, 0, 0, alpha }, out, render::ALIGN_CENTER );
-		}
+		hm( pos.x, pos.y, i.m_damage, i.m_group == 1, s, e );
 	}
 }
 
@@ -300,7 +189,7 @@ void Visuals::NoSmoke( ) {
 	for ( auto mat_s : vistasmoke_mats )
 	{
 		IMaterial* mat = g_csgo.m_material_system->FindMaterial( mat_s, XOR( "Other textures" ) );
-		mat->SetFlag( MATERIAL_VAR_WIREFRAME, true );
+		mat->SetFlag( MATERIAL_VAR_NO_DRAW, true );
 	}
 }
 
@@ -309,11 +198,18 @@ void Visuals::think( ) {
 	if ( !g_cl.m_local )
 		return;
 
+	static float anim{ 0.f };
+	if (g_cl.m_local->m_bIsScoped( )) {
+		anim += 4.5f * g_csgo.m_globals->m_frametime;
+	}
+	else { anim -= 4.5f * g_csgo.m_globals->m_frametime; }
+	anim = std::clamp( anim, 0.f, 1.f );
+
 	if ( g_menu.main.visuals.noscope.get( )
 		&& g_cl.m_local->alive( )
 		&& g_cl.m_local->GetActiveWeapon( )
 		&& g_cl.m_local->GetActiveWeapon( )->GetWpnData( )->m_weapon_type == CSWeaponType::WEAPONTYPE_SNIPER_RIFLE
-		&& g_cl.m_local->m_bIsScoped( ) ) {
+		 ) {
 
 		// rebuild the original scope lines.
 		int w = g_cl.m_width,
@@ -329,8 +225,8 @@ void Visuals::think( ) {
 		}
 
 		// draw our lines.
-		render::rect_filled( 0, y, w, size, colors::black );
-		render::rect_filled( x, 0, size, h, colors::black );
+		render::rect_filled( 0, y, w * anim, size, colors::black );
+		render::rect_filled( x, 0, size, h * anim, colors::black );
 	}
 
 	// draw esp on ents.
@@ -548,86 +444,27 @@ void Visuals::ManualAntiAim( ) {
 	y = g_cl.m_height / 2;
 
 	Color color = g_menu.main.antiaim.color_manul_antiaim.get( );
+	float size = 15.f, sep = 48.f;
 
-
-	if ( g_hvh.m_left ) {
-		render::rect_filled( x - 50, y - 10, 1, 21, color );
-		render::rect_filled( x - 51, y - 10 + 1, 1, 19, color );
-		render::rect_filled( x - 52, y - 10 + 2, 1, 17, color );
-		render::rect_filled( x - 53, y - 10 + 3, 1, 15, color );
-		render::rect_filled( x - 54, y - 10 + 4, 1, 13, color );
-		render::rect_filled( x - 55, y - 10 + 5, 1, 11, color );
-		render::rect_filled( x - 56, y - 10 + 6, 1, 9, color );
-		render::rect_filled( x - 57, y - 10 + 7, 1, 7, color );
-		render::rect_filled( x - 58, y - 10 + 8, 1, 5, color );
-		render::rect_filled( x - 59, y - 10 + 9, 1, 3, color );
-		render::rect_filled( x - 60, y - 10 + 10, 1, 1, color );
-	}
-	else {
-		render::rect_filled( x - 50, y - 10, 1, 21, { 0, 0, 0, 125 } );
-		render::rect_filled( x - 51, y - 10 + 1, 1, 19, { 0, 0, 0, 125 } );
-		render::rect_filled( x - 52, y - 10 + 2, 1, 17, { 0, 0, 0, 125 } );
-		render::rect_filled( x - 53, y - 10 + 3, 1, 15, { 0, 0, 0, 125 } );
-		render::rect_filled( x - 54, y - 10 + 4, 1, 13, { 0, 0, 0, 125 } );
-		render::rect_filled( x - 55, y - 10 + 5, 1, 11, { 0, 0, 0, 125 } );
-		render::rect_filled( x - 56, y - 10 + 6, 1, 9, { 0, 0, 0, 125 } );
-		render::rect_filled( x - 57, y - 10 + 7, 1, 7, { 0, 0, 0, 125 } );
-		render::rect_filled( x - 58, y - 10 + 8, 1, 5, { 0, 0, 0, 125 } );
-		render::rect_filled( x - 59, y - 10 + 9, 1, 3, { 0, 0, 0, 125 } );
-		render::rect_filled( x - 60, y - 10 + 10, 1, 1, { 0, 0, 0, 125 } );
+	if (g_hvh.m_left) {
+		Vertex left[3]; vec2_t lpoint[3];
+		lpoint[0] = vec2_t( x - sep, y - ( size / 2.f ) ); lpoint[1] = vec2_t( x - sep, y + ( size / 2.f ) ); lpoint[2] = vec2_t( x - sep - size, float( y ) );
+		left[0].init( lpoint[0] ); left[1].init( lpoint[1] ); left[2].init( lpoint[2] );
+		render::polygon( 3, left, color );
 	}
 
-	if ( g_hvh.m_right ) {
-		render::rect_filled( x + 50, y - 10, 1, 21, color );
-		render::rect_filled( x + 51, y - 10 + 1, 1, 19, color );
-		render::rect_filled( x + 52, y - 10 + 2, 1, 17, color );
-		render::rect_filled( x + 53, y - 10 + 3, 1, 15, color );
-		render::rect_filled( x + 54, y - 10 + 4, 1, 13, color );
-		render::rect_filled( x + 55, y - 10 + 5, 1, 11, color );
-		render::rect_filled( x + 56, y - 10 + 6, 1, 9, color );
-		render::rect_filled( x + 57, y - 10 + 7, 1, 7, color );
-		render::rect_filled( x + 58, y - 10 + 8, 1, 5, color );
-		render::rect_filled( x + 59, y - 10 + 9, 1, 3, color );
-		render::rect_filled( x + 60, y - 10 + 10, 1, 1, color );
+	if (g_hvh.m_right) {
+		Vertex right[3]; vec2_t rpoint[3];
+		rpoint[0] = vec2_t( x + sep, y - ( size / 2.f ) ); rpoint[1] = vec2_t( x + sep, y + ( size / 2.f ) ); rpoint[2] = vec2_t( x + sep + size, float( y ) );
+		right[0].init( rpoint[0] ); right[1].init( rpoint[1] ); right[2].init( rpoint[2] );
+		render::polygon( 3, right, color );
 	}
-	else {
-		render::rect_filled( x + 50, y - 10, 1, 21, { 0, 0, 0, 125 } );
-		render::rect_filled( x + 51, y - 10 + 1, 1, 19, { 0, 0, 0, 125 } );
-		render::rect_filled( x + 52, y - 10 + 2, 1, 17, { 0, 0, 0, 125 } );
-		render::rect_filled( x + 53, y - 10 + 3, 1, 15, { 0, 0, 0, 125 } );
-		render::rect_filled( x + 54, y - 10 + 4, 1, 13, { 0, 0, 0, 125 } );
-		render::rect_filled( x + 55, y - 10 + 5, 1, 11, { 0, 0, 0, 125 } );
-		render::rect_filled( x + 56, y - 10 + 6, 1, 9, { 0, 0, 0, 125 } );
-		render::rect_filled( x + 57, y - 10 + 7, 1, 7, { 0, 0, 0, 125 } );
-		render::rect_filled( x + 58, y - 10 + 8, 1, 5, { 0, 0, 0, 125 } );
-		render::rect_filled( x + 59, y - 10 + 9, 1, 3, { 0, 0, 0, 125 } );
-		render::rect_filled( x + 60, y - 10 + 10, 1, 1, { 0, 0, 0, 125 } );
-	}
-	if ( g_hvh.m_back ) {
-		render::rect_filled( x - 10, y + 50, 21, 1, color );
-		render::rect_filled( x - 10 + 1, y + 51, 19, 1, color );
-		render::rect_filled( x - 10 + 2, y + 52, 17, 1, color );
-		render::rect_filled( x - 10 + 3, y + 53, 15, 1, color );
-		render::rect_filled( x - 10 + 4, y + 54, 13, 1, color );
-		render::rect_filled( x - 10 + 5, y + 55, 11, 1, color );
-		render::rect_filled( x - 10 + 6, y + 56, 9, 1, color );
-		render::rect_filled( x - 10 + 7, y + 57, 7, 1, color );
-		render::rect_filled( x - 10 + 8, y + 58, 5, 1, color );
-		render::rect_filled( x - 10 + 9, y + 59, 3, 1, color );
-		render::rect_filled( x - 10 + 10, y + 60, 1, 1, color );
-	}
-	else {
-		render::rect_filled( x - 10, y + 50, 21, 1, { 0, 0, 0, 125 } );
-		render::rect_filled( x - 10 + 1, y + 51, 19, 1, { 0, 0, 0, 125 } );
-		render::rect_filled( x - 10 + 2, y + 52, 17, 1, { 0, 0, 0, 125 } );
-		render::rect_filled( x - 10 + 3, y + 53, 15, 1, { 0, 0, 0, 125 } );
-		render::rect_filled( x - 10 + 4, y + 54, 13, 1, { 0, 0, 0, 125 } );
-		render::rect_filled( x - 10 + 5, y + 55, 11, 1, { 0, 0, 0, 125 } );
-		render::rect_filled( x - 10 + 6, y + 56, 9, 1, { 0, 0, 0, 125 } );
-		render::rect_filled( x - 10 + 7, y + 57, 7, 1, { 0, 0, 0, 125 } );
-		render::rect_filled( x - 10 + 8, y + 58, 5, 1, { 0, 0, 0, 125 } );
-		render::rect_filled( x - 10 + 9, y + 59, 3, 1, { 0, 0, 0, 125 } );
-		render::rect_filled( x - 10 + 10, y + 60, 1, 1, { 0, 0, 0, 125 } );
+
+	if (g_hvh.m_back) {
+		Vertex back[3]; vec2_t bpoint[3];
+		bpoint[0] = vec2_t( x - ( size / 2.f ), y + sep ); bpoint[1] = vec2_t( x + ( size / 2.f ), y + sep ); bpoint[2] = vec2_t( float( x ), y + sep + size );
+		back[0].init( bpoint[0] ); back[1].init( bpoint[1] ); back[2].init( bpoint[2] );
+		render::polygon( 3, back, color );
 	}
 }
 

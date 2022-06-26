@@ -131,7 +131,7 @@ void Shots::OnImpact( IGameEvent* evt ) {
 
 	g_csgo.m_engine_trace->ClipRayToEntity( Ray( start, end ), MASK_SHOT, target, &trace );
 
-	std::string info = tfm::format( XOR( "pdmg: %s - phb: %s - choke: %s - delta: %s - solver: %s" ), shot->m_damage, shot->m_hitbox, shot->m_record->m_lag, match.delta, shot->m_record->m_resolver );
+	std::string info = tfm::format( XOR( "pdmg: %s - phb: %s - choke: %s - delta: %s - solver: %s - runtime: %s" ), shot->m_damage, shot->m_hitbox, shot->m_record->m_lag, match.delta, shot->m_record->m_resolver, game::TICKS_TO_TIME( g_csgo.m_globals->m_tick_count - g_resolver.m_runtime[shot->m_record->m_player->index( )] ) );
 	if ( shot->m_record->m_broke_lc ) {
 		g_notify.add( tfm::format( XOR( "missed shot (r: broke lc - %s)\n" ), info ) );
 	}
@@ -245,7 +245,7 @@ void Shots::OnHurt( IGameEvent* evt ) {
 
 	// print this shit.
 	if ( g_menu.main.misc.notifications.get( 1 ) ) {
-		std::string out = tfm::format( XOR( "Hit %s in the %s for %i damage (%i health remaining)\n" ), name, m_groups[group], (int)damage, hp );
+		std::string out = tfm::format( XOR( "hit %s in the %s for %i damage (%i health remaining)\n" ), name, m_groups[group], (int)damage, hp );
 		g_notify.add( out );
 	}
 
@@ -288,6 +288,8 @@ void Shots::OnHurt( IGameEvent* evt ) {
 	hit.m_impact = impact;
 	hit.m_group = group;
 	hit.m_damage = damage;
+	hit.m_time = g_csgo.m_globals->m_curtime;
+	hit.m_pos = impact->m_pos;
 
 	auto hit_matrix = impact->m_shot->m_record->m_bones;
 	if ( hp <= 0 )

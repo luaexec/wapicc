@@ -508,7 +508,7 @@ void Movement::AutoPeek() {
 	else m_invert = false;
 
 	bool can_stop = g_menu.main.movement.autostop_always_on.get() || (!g_menu.main.movement.autostop_always_on.get() && g_input.GetKeyState(g_menu.main.movement.autostop.get()));
-	if ((g_input.GetKeyState(g_menu.main.movement.autopeek.get()) || can_stop) && g_aimbot.m_stop) {
+	if ((g_input.GetKeyState(g_menu.main.movement.autopeek.get()) || can_stop) && g_aimbot.m_stop && g_cl.m_local->m_fFlags() & FL_ONGROUND) {
 		Movement::QuickStop();
 	}
 }
@@ -540,11 +540,11 @@ void Movement::QuickStop() {
 	}
 }
 
-void Movement::FakeWalk() {
+void Movement::FakeWalk( bool force ) {
 	vec3_t velocity{ g_cl.m_local->m_vecVelocity() };
 	int    ticks{ }, max{ 16 };
 
-	if (!g_input.GetKeyState(g_menu.main.movement.fakewalk.get()))
+	if ( !( g_input.GetKeyState(g_menu.main.movement.fakewalk.get()) || force ) )
 		return;
 
 	if (!g_cl.m_local->GetGroundEntity())

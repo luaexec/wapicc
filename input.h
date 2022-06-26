@@ -122,11 +122,22 @@ public:
 	ulong_t    m_crc;
 };
 
+enum analog_code_t {
+	ANALOG_CODE_INVALID = -1,
+	MOUSE_X = 0,
+	MOUSE_Y,
+	MOUSE_XY, // invoked when either x or y changes
+	MOUSE_WHEEL,
+	ANALOG_CODE_LAST = 10,
+};
+
 class IInputSystem {
 public:
 	enum indices : size_t {
 		ENABLEINPUT          = 11,
 		ISBUTTONDOWN         = 15,
+		ANALOGVALUE			 = 18,
+		ANALOGDELTA			 = 19,
 		GETBUTTONPRESSEDTICK = 16,
 		GETCURSORPOSITION    = 56,
 	};
@@ -138,6 +149,18 @@ public:
 
 	__forceinline void GetCursorPosition( int* x, int* y ) {
 		return util::get_method< void( __thiscall* )( decltype( this ), int*, int* ) >( this, GETCURSORPOSITION )( this, x, y );
+	}
+
+	__forceinline bool is_button_down( analog_code_t code ) {
+		return util::get_method< bool( __thiscall* )( decltype( this ), analog_code_t ) >( this, ISBUTTONDOWN )( this, code );
+	}
+
+	__forceinline int get_analog_value( analog_code_t code ) {
+		return util::get_method< int( __thiscall* )( decltype( this ), analog_code_t ) >( this, ANALOGVALUE )( this, code );
+	}
+
+	__forceinline int get_analog_delta( analog_code_t code ) {
+		return util::get_method< int( __thiscall* )( decltype( this ), analog_code_t ) >( this, ANALOGDELTA )( this, code );
 	}
 };
 

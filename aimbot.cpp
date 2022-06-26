@@ -1232,7 +1232,7 @@ void Aimbot::apply( ) {
 				g_csgo.m_engine->SetViewAngles( m_angle );
 
 			if ( g_menu.main.aimbot.debugaim.get( ) )
-				g_visuals.DrawHitboxMatrix( m_record, colors::white, 10.f );
+				g_visuals.DrawHitboxMatrix( m_record, colors::white, 2.f );
 		}
 
 		// nospread.

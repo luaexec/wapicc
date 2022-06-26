@@ -1,4 +1,5 @@
 #include "includes.h"
+#include "wapim.h"
 
 Client g_cl{ };
 
@@ -17,15 +18,30 @@ void Client::DrawHUD( ) {
 	if ( !g_menu.main.misc.watermark.get( ) )
 		return;
 
-	if ( !g_csgo.m_engine->IsInGame( ) )
-		return;
+	//if ( !g_csgo.m_engine->IsInGame( ) )
+		//return;
 
-	int ms = std::max( 0, (int)std::round( g_cl.m_latency * 1000.f ) );
+	int ms = !g_csgo.m_engine->IsInGame( ) ? 0 : std::max( 0, (int)std::round( g_cl.m_latency * 1000.f ) );
 
 	int rate = (int)std::round( 1.f / g_csgo.m_globals->m_interval );
 	Color color = g_gui.m_color;
 
 	colors::accent = g_gui.m_color;
+
+	auto w{ 0 }, h{ 0 };
+	g_csgo.m_engine->GetScreenSize( w, h );
+
+	auto full = tfm::format( "wapicc %sms", ms );
+	auto full_size = render::esp.size( full ).m_width + 15;
+	auto start = "wapicc";
+	auto start_size = render::esp.size( start ).m_width + 10;
+	auto end = tfm::format( "%sms", ms );
+	auto end_size = render::esp.size( end ).m_width + 5;
+
+	render::round_rect( w - 15 - full_size, 15, full_size, 19, 2, gui::palette::dark.alpha( 255 ) );
+	render::gradient1337( w - 15 - full_size + 2, 17, start_size, 15, gui::m_accent.alpha( 55 ), colors::black.alpha( 0 ) );
+	render::esp.string( w - 15 - full_size + 5, 17, gui::m_accent.alpha( 255 ), start );
+	render::esp.string( w - 15 - full_size + start_size, 17, colors::white.alpha( 255 ), end );
 }
 
 void Client::UnlockHiddenConvars( )
@@ -42,6 +58,48 @@ void Client::UnlockHiddenConvars( )
 
 void Client::ClanTag( )
 {
+	auto SetClanTag = [&]( std::string tag ) -> void {
+		using SetClanTag_t = int( __fastcall* )( const char*, const char* );
+		static auto SetClanTagFn = pattern::find( g_csgo.m_engine_dll, XOR( "53 56 57 8B DA 8B F9 FF 15" ) ).as<SetClanTag_t>( );
+
+		SetClanTagFn( tag.c_str( ), " " );
+	};
+
+	static bool bReset = false;
+	if (g_menu.main.misc.clantag.get( )) {
+		static int time = g_csgo.m_globals->m_curtime;
+		std::vector<std::string> tag {
+			"wapicc ",
+			"wapica ",
+			"wapical ",
+			"wapicall",
+			"_apicall ",
+			"__icall ",
+			"__sicall ",
+			"__stcall ",
+			"__stdcall ",
+			"__stdcal ",
+			"__stdca ",
+			"__stdcc ",
+			"w_stdcc ",
+			"wastdcc ",
+			"waptdcc ",
+			"wapidcc ",
+			"wapicc ",
+		};
+		if (time != int( g_csgo.m_globals->m_curtime )) {
+			SetClanTag( tag[int( g_csgo.m_globals->m_curtime ) % tag.size( )] );
+			time = int( g_csgo.m_globals->m_curtime );
+		}
+
+		bReset = true;
+	}
+	else {
+		if (bReset) {
+			SetClanTag( "" );
+			bReset = false;
+		}
+	}
 }
 
 void Client::Skybox( )
@@ -166,7 +224,6 @@ void Client::KillFeed( ) {
 	}
 }
 
-#include "wapim.h"
 void Client::OnPaint( ) {
 	g_csgo.m_engine->GetScreenSize( m_width, m_height );
 
@@ -176,8 +233,6 @@ void Client::OnPaint( ) {
 	g_notify.think( );
 
 	DrawHUD( );
-
-	g_visuals.IndicateAngles( );
 
 	KillFeed( );
 
@@ -401,6 +456,14 @@ void Client::SetAngles( ) {
 		g_csgo.m_prediction->SetLocalViewAngles( m_radar );
 }
 
+void Client::ThirdPersonFSN( ) {
+	if (!g_cl.m_local || !g_cl.m_local->alive( ))
+		return;
+
+	if (g_csgo.m_input->CAM_IsThirdPerson( ))
+		*reinterpret_cast<ang_t*>( uintptr_t( g_cl.m_local ) + 0x31C4 + 0x4 ) = m_real_angle; // cancer.
+}
+
 void Client::UpdateAnimations( ) {
 	if ( !g_cl.m_local || !g_cl.m_processing )
 		return;
@@ -485,8 +548,9 @@ void Client::UpdateInformation( ) {
 	m_ground = state->m_ground;
 }
 
-void Client::UpdateLocal( )
-{
+void Client::UpdateLocal( ) {
+	if (g_cl.m_lag > 0)
+		return;
 
 	CCSGOPlayerAnimState* state = g_cl.m_local->m_PlayerAnimState( );
 	if ( !state )
@@ -504,12 +568,12 @@ void Client::UpdateLocal( )
 	g_csgo.m_globals->m_curtime = g_cl.m_local->m_nTickBase( ) * g_csgo.m_globals->m_interval;
 	g_csgo.m_globals->m_frametime = g_csgo.m_globals->m_interval;
 
-	math::clamp( m_real_angle.x, -90.f, 90.f );
+	//math::clamp( m_real_angle.x, -90.f, 90.f );
 	m_real_angle.normalize( );
 
 	// CCSGOPlayerAnimState::Update, bypass already animated checks.
 	if ( state->m_frame >= v4 )
-		state->m_frame = v4 - 1;
+		state->m_frame -= 1;
 
 	if ( g_csgo.m_globals->m_curtime != state->m_time )
 	{
@@ -559,7 +623,7 @@ void Client::print( const std::string text, ... ) {
 
 	va_end( list );
 
-	g_csgo.m_cvar->ConsoleColorPrintf( colors::accent, XOR( "__thiscall " ) );
+	g_csgo.m_cvar->ConsoleColorPrintf( colors::accent, XOR( "__stdcall " ) );
 	g_csgo.m_cvar->ConsoleColorPrintf( colors::white, buf.c_str( ) );
 }
 

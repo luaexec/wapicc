@@ -207,18 +207,24 @@ void Resolver::SetMode( LagRecord* record ) {
 	// and what kind of hack vs. hack we are playing (mm/nospread).
 
 	float speed = record->m_velocity.length( );
+	//if (speed > 0.1f)
+	if (speed <= 0.2f)
+		m_runtime[record->m_player->index( )] = g_csgo.m_globals->m_tick_count;
 
-	// if on ground, moving, and not fakewalking.
-	if ( ( record->m_flags & FL_ONGROUND ) && speed > 0.1f && !( record->m_fake_walk ) )
+	// if on ground, moving, and not fakewalking.											// first running flick has surpassed.
+	if ( ( record->m_flags & FL_ONGROUND ) && speed > 0.1f && !( record->m_fake_walk ) && game::TICKS_TO_TIME( g_csgo.m_globals->m_tick_count - m_runtime[record->m_player->index( )] ) > 0.22f)
 		record->m_mode = Modes::RESOLVE_WALK;
 
 	// if on ground, not moving or fakewalking.
-	if ( ( record->m_flags & FL_ONGROUND ) && ( speed <= 0.1f || record->m_fake_walk ) )
+	if ( ( record->m_flags & FL_ONGROUND ) && ( speed <= 0.1f || record->m_fake_walk )  )
 		record->m_mode = Modes::RESOLVE_STAND;
 
 	// if not on ground.
 	else if ( !( record->m_flags & FL_ONGROUND ) )
 		record->m_mode = Modes::RESOLVE_AIR;
+
+	else
+		record->m_mode = Modes::RESOLVE_STAND;
 }
 
 void Resolver::ResolveAngles( Player* player, LagRecord* record ) {
@@ -300,8 +306,7 @@ void Resolver::FindBestAngle( LagRecord* record ) {
 			enemypos.z };
 
 		// draw a line for debugging purposes.
-
-		g_csgo.m_debug_overlay->AddLineOverlay( start, end, 255, 0, 0, true, 0.1f ); // <!--
+		//g_csgo.m_debug_overlay->AddLineOverlay( start, end, 255, 0, 0, true, 0.1f ); // <!--
 
 		// compute the direction.
 		vec3_t dir = end - start;

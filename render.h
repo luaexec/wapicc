@@ -74,6 +74,8 @@ namespace render {
 	void draw_arc(int x, int y, int radius, int start_angle, int percent, int thickness, Color color);
 	void rect_filled_fade(int x, int y, int w, int h, Color color, int a1, int a2);
 	void rect_outlined(int x, int y, int w, int h, Color color, Color color2);
+	void polygon( int vert_count, Vertex* points, Color color );
+	void round_rect( int x, int y, int w, int h, int r, Color color );
 	void circle(int x, int y, int radius, int segments, Color color);
 	void gradient(int x, int y, int w, int h, Color color1, Color color2);
 	void gradient1337(int x, int y, int w, int h, Color color1, Color color2);

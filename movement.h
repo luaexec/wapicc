@@ -24,7 +24,7 @@ public:
 	void FixMove(CUserCmd* cmd, const ang_t& old_angles);
 	void AutoPeek();
 	void QuickStop();
-	void FakeWalk();
+	void FakeWalk( bool force = false );
 };
 
 extern Movement g_movement;

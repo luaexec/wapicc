@@ -417,6 +417,15 @@ bool Chams::GenerateLerpedMatrix( int index, BoneArray* out ) {
 		}
 	}
 
+	current_record = g_resolver.FindLastRecord( data );
+	if (current_record && current_record->valid( )) {
+		std::memcpy( out,
+			current_record->m_bones,
+			sizeof( current_record->m_bones ) );
+
+		return true;
+	}
+
 	return false;
 }
 
@@ -448,20 +457,20 @@ void Chams::RenderHistoryChams( int index ) {
 		SetupMaterial( debugdrawflat, g_menu.main.players.chams_enemy_history_col.get( ), true );
 
 		// was the matrix properly setup?
-		//BoneArray arr[128];
-		//if (Chams::GenerateLerpedMatrix(index, arr)) {
-		//	// backup the bone cache before we fuck with it.
-		//	auto backup_bones = player->m_BoneCache().m_pCachedBones;
+		BoneArray arr[128];
+		if (Chams::GenerateLerpedMatrix(index, arr)) {
+			// backup the bone cache before we fuck with it.
+			auto backup_bones = player->m_BoneCache().m_pCachedBones;
 
-		//	// replace their bone cache with our custom one.
-		//	player->m_BoneCache().m_pCachedBones = arr;
+			// replace their bone cache with our custom one.
+			player->m_BoneCache().m_pCachedBones = arr;
 
-		//	// manually draw the model.
-		//	player->DrawModel();
+			// manually draw the model.
+			player->DrawModel();
 
-		//	// reset their bone cache to the previous one.
-		//	player->m_BoneCache().m_pCachedBones = backup_bones;
-		//}
+			// reset their bone cache to the previous one.
+			player->m_BoneCache().m_pCachedBones = backup_bones;
+		}
 
 		player->DrawModel( );
 	}

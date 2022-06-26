@@ -49,6 +49,7 @@ public:
 
 public:
 	std::array< vec3_t, 64 > m_impacts;
+	int m_runtime[64];
 
 	// check if the players yaw is sideways.
 	__forceinline bool IsLastMoveValid(LagRecord* record, float m_yaw) {

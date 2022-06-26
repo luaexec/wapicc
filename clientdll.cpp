@@ -68,10 +68,12 @@ void Hooks::FrameStageNotify( Stage_t stage ) {
 
 	if ( stage == FRAME_RENDER_START ) {
 		// apply local player animated angles.
-		g_cl.SetAngles( );
+		//g_cl.SetAngles( );
 
 		// apply local player animation fix.
 		g_cl.UpdateAnimations( );
+
+		g_cl.ThirdPersonFSN( );
 
 		// draw our custom beams.
 		g_visuals.DrawBeams( );
@@ -80,11 +82,7 @@ void Hooks::FrameStageNotify( Stage_t stage ) {
 	// call og.
 	g_hooks.m_client.GetOldMethod< FrameStageNotify_t >( CHLClient::FRAMESTAGENOTIFY )( this, stage );
 
-	if ( stage == FRAME_RENDER_START ) {
-		// ...
-	}
-
-	else if ( stage == FRAME_NET_UPDATE_POSTDATAUPDATE_START ) {
+	if ( stage == FRAME_NET_UPDATE_POSTDATAUPDATE_START ) {
 		// restore non-compressed netvars.
 		// g_netdata.apply( );
 
@@ -116,7 +114,7 @@ void Hooks::FrameStageNotify( Stage_t stage ) {
 		// restore non-compressed netvars.
 		g_netdata.apply( );
 
-		//g_cl.UpdateLocal();
+		g_cl.UpdateLocal();
 
 		// update all players.
 		for ( int i{ 1 }; i <= g_csgo.m_globals->m_max_clients; ++i ) {
