@@ -21,6 +21,7 @@ namespace wapim {
 	}
 
 	__forceinline void antiaim( ) {
+		static bool r{ false };
 		
 		static auto general = std::make_unique<gui::child_t>( );
 		general->begin( "general", vec2_t( 0, 0 ), gui::tab_area( false ) );
@@ -65,9 +66,17 @@ namespace wapim {
 		other->begin( "other", vec2_t( gui::tab_area( false ).x + 7.5f, gui::tab_area( true ).y + 7.5f ), gui::tab_area( true ) );
 		{
 			
+			static auto fakeflick = std::make_unique<gui::hotkey_t>(
+				"fake flick", "aa_fflick"
+			);
+			if (!r)
+				other->add_hotkey( fakeflick.get( ) );
+
 		}
 		other->finish( );
 
+		if (!r)
+			r = true;
 	}
 
 	__forceinline void player( ) {

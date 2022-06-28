@@ -770,6 +770,29 @@ void HVH::AntiAim() {
 
 	// no fake, just run real.
 	else DoRealAntiAim();
+
+	int speed = 5;
+	int cycle = g_csgo.m_globals->m_tick_count % int( speed + 1 );
+	if (cfg_t::get_hotkey( "aa_fflick", "aa_fflick_mode" )) {
+		if (*g_cl.m_packet) {
+			if (cycle == speed) {
+				g_cl.m_cmd->m_view_angles.y += 90.f;
+				g_cl.m_cmd->m_side_move = 450.f;
+			}
+			else if (cycle == 0) {
+				g_cl.m_cmd->m_view_angles.y -= 90.f;
+				g_cl.m_cmd->m_side_move = -450.f;
+			}
+		}
+		else {
+			if (cycle == speed) {
+				g_cl.m_cmd->m_view_angles.y += 90.f;
+			}
+			else if (cycle == 0) {
+				g_cl.m_cmd->m_view_angles.y -= 90.f;
+			}
+		}
+	}
 }
 
 void HVH::SendPacket() {

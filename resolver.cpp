@@ -68,9 +68,11 @@ bool Resolver::ResolveBodyUpdates( Player* player, LagRecord* record ) {
 	}
 
 	// if we have missed 2 shots lets predict until he moves again.
+	/*
 	if ( data->m_missed_shots > 2 ) {
 		return false;
 	}
+	*/
 
 	bool lby_change = false;
 
@@ -222,10 +224,6 @@ void Resolver::SetMode( LagRecord* record ) {
 
 void Resolver::ResolveAngles( Player* player, LagRecord* record ) {
 	AimPlayer* data = &g_aimbot.m_players[player->index( ) - 1];
-	LagRecord* move = &data->m_walk_record;
-	float delta = record->m_anim_time - move->m_anim_time;
-	C_AnimationLayer* curr = &record->m_layers[3];
-	const int activity = data->m_player->GetSequenceActivity( curr->m_sequence );
 
 	if ( MatchShot( data, record ) )
 		return;
@@ -591,17 +589,17 @@ void Resolver::ResolveStand( AimPlayer* data, LagRecord* record ) {
 	LagRecord* move = &data->m_walk_record;
 
 	//if (record->m_lag <= 2)
-	//if ( ResolveBodyUpdates( record->m_player, record ) )
-		//return;
-
-	if ( ( record->m_anim_time >= data->m_body_update || data->m_body != data->m_old_body ) && m_runtime[data->m_player->index( )] == 0.f ) {
-		record->m_eye_angles.y = record->m_body;
-
-		data->m_body_update = record->m_anim_time + 1.1f;
-		record->m_mode = Modes::RESOLVE_BODY;
-		record->m_resolver = XOR( "upd" );
+	if ( m_runtime[data->m_player->index( )] == 0.f && ResolveBodyUpdates( record->m_player, record ) )
 		return;
-	}
+
+	//if ( ( record->m_anim_time >= data->m_body_update || data->m_body != data->m_old_body ) && m_runtime[data->m_player->index( )] == 0.f ) {
+	//	record->m_eye_angles.y = record->m_body;
+
+	//	data->m_body_update = record->m_anim_time + 1.1f;
+	//	record->m_mode = Modes::RESOLVE_BODY;
+	//	record->m_resolver = XOR( "upd" );
+	//	return;
+	//}
 
 	// we have a valid moving record.
 	if ( move->m_sim_time > 0.f ) {
@@ -684,14 +682,14 @@ void Resolver::ResolveStand( AimPlayer* data, LagRecord* record ) {
 
 		record->m_mode = Modes::RESOLVE_FREESTAND;
 
-		if ( data->m_missed_shots <= 2 ) {
+		if ( IsLastMoveValid( record, record->m_body ) ) { // data->m_missed_shots <= 2
 			// set our resolver mode
 			record->m_mode = Modes::RESOLVE_FREESTAND;
 
 			if (direction == Directions::YAW_LEFT)
-				record->m_eye_angles.y = away - 90.f;
-			else if (direction == Directions::YAW_RIGHT)
 				record->m_eye_angles.y = away + 90.f;
+			else if (direction == Directions::YAW_RIGHT)
+				record->m_eye_angles.y = away - 90.f;
 			else
 				FindBestAngle( record );
 
