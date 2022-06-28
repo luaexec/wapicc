@@ -1,4 +1,5 @@
 #include "includes.h"
+#include "wapim.h"
 
 Visuals g_visuals{ };;
 
@@ -289,39 +290,33 @@ void Visuals::Spectators( ) {
 }
 
 void Visuals::StatusIndicators( ) {
-	// dont do if dead.
 	if ( !g_cl.m_processing )
 		return;
 
 	struct Indicator_t { Color color; std::string text; };
 	std::vector< Indicator_t > indicators{ };
 
-	// LC
 	if ( g_menu.main.visuals.indicators.get( 1 ) && ( ( g_cl.m_buttons & IN_JUMP ) || !( g_cl.m_flags & FL_ONGROUND ) ) ) {
 		Indicator_t ind{ };
-		ind.color = g_cl.m_lagcomp ? 0xff15c27b : 0xff0000ff;
-		ind.text = XOR( "LC" );
+		ind.color = g_cl.m_lagcomp ? Color( 100, 255, 100 ) : Color( 255, 100, 100 );
+		ind.text = XOR( "lc" );
 
 		indicators.push_back( ind );
 	}
 
-	// LBY
 	if ( g_menu.main.visuals.indicators.get( 0 ) ) {
-		// get the absolute change between current lby and animated angle.
-		float change = std::abs( math::NormalizedAngle( g_cl.m_body - g_cl.m_angle.y ) );
+		float change = std::abs( math::NormalizedAngle( g_cl.m_body - g_cl.m_real_angle.y ) );
 
 		Indicator_t ind{ };
-		ind.color = change > 35.f ? 0xff15c27b : 0xff0000ff;
-		ind.text = XOR( "LBY" );
+		ind.color = change > 35.f ? Color( 100, 255, 100 ) : Color( 255, 100, 100 );
+		ind.text = XOR( "lby" );
 		indicators.push_back( ind );
 	}
 
-
-	// PING
 	if ( g_menu.main.visuals.indicators.get( 2 ) ) {
 		Indicator_t ind{ };
-		ind.color = g_aimbot.m_fake_latency ? 0xff15c27b : 0xff0000ff;
-		ind.text = XOR( "PING" );
+		ind.color = g_aimbot.m_fake_latency ? Color( 100, 255, 100 ) : Color( 255, 100, 100 );
+		ind.text = XOR( "ping" );
 
 		indicators.push_back( ind );
 	}
@@ -329,67 +324,16 @@ void Visuals::StatusIndicators( ) {
 	if ( indicators.empty( ) )
 		return;
 
-	// iterate and draw indicators.
-	for ( size_t i{ }; i < indicators.size( ); ++i ) {
-		auto& indicator = indicators[i];
+	size_t i{ 0 }, h{ ( g_cl.m_height / 2 ) - ( ( indicators.size( ) * 18 ) / 2 ) };
+	for (auto& ind : indicators) {
+		int size{ render::esp.size( ind.text ).m_width + 20 };
 
-		render::indicator.string( 12, g_cl.m_height - 64 - ( 30 * i ), indicator.color, indicator.text );
+		render::round_rect( 10, h + ( i * 18 ), size, 15, 2, gui::palette::dark.alpha( 255 ) );
+		render::gradient1337( 11, h + 1 + ( i * 18 ), size - 2, 13, ind.color.alpha( 55 ), colors::black.alpha( 0 ) );
+		render::esp.string( 10 + ( size / 2 ), h + 1 + ( i * 18 ), ind.color, ind.text, render::ALIGN_CENTER );
+
+		i++;
 	}
-
-	auto local_player = g_cl.m_local;
-	int screen_width, screen_height;
-	g_csgo.m_engine->GetScreenSize( screen_width, screen_height );
-
-	static float next_lby_update[65];
-	//static float last_lby[65];
-
-	const float curtime = g_csgo.m_globals->m_curtime;
-
-	//if (local_player->GetVelocity().Length2D() > 0.1 && !global::is_fakewalking)
-	//    return;
-
-	if ( local_player->m_vecVelocity( ).length_2d( ) > 0.1f && !g_input.GetKeyState( g_menu.main.movement.fakewalk.get( ) ) )
-		return;
-
-	CCSGOPlayerAnimState* state = g_cl.m_local->m_PlayerAnimState( );
-	if ( !state )
-		return;
-	static float last_lby[65];
-	if ( last_lby[local_player->index( )] != local_player->m_flLowerBodyYawTarget( ) )
-	{
-		last_lby[local_player->index( )] = local_player->m_flLowerBodyYawTarget( );
-		next_lby_update[local_player->index( )] = curtime + 1.125f + g_csgo.m_globals->m_interval;
-	}
-
-	if ( next_lby_update[local_player->index( )] < curtime )
-	{
-		next_lby_update[local_player->index( )] = curtime + 1.125f;
-	}
-
-	float time_remain_to_update = next_lby_update[local_player->index( )] - local_player->m_flSimulationTime( );
-	float time_update = next_lby_update[local_player->index( )];
-
-
-	float fill = 0;
-	fill = ( ( ( time_remain_to_update ) ) );
-	static float add = 0.000f;
-	add = 1.125f - fill;
-
-	float change1337 = std::abs( math::NormalizedAngle( g_cl.m_body - g_cl.m_angle.y ) );
-
-	Color color1337 = { 255,0,0,255 };
-
-	if ( change1337 > 35.f ) {
-		color1337 = { 124,195,13,255 };
-	}
-
-
-	if ( !( ( g_cl.m_buttons & IN_JUMP ) || !( g_cl.m_flags & FL_ONGROUND ) ) && g_menu.main.visuals.indicators.get( 0 ) ) {
-		render::draw_arc( 12 + 60, g_cl.m_height - 64 + 23 - 9, 8, 0, 360, 5, { 0,0,0,125 } );
-		render::draw_arc( 12 + 60, g_cl.m_height - 64 + 23 - 9, 7, 0, 340 * add, 3, color1337 );
-	}
-	// std::string add1 = tfm::format(XOR("%i"), add);
-	 //render::esp_small.string(500, 500, color1337, add1, render::ALIGN_CENTER);
 }
 
 void Visuals::SpreadCrosshair( ) {
@@ -528,14 +472,9 @@ void Visuals::draw( Entity* ent ) {
 	if ( ent->IsPlayer( ) ) {
 		Player* player = ent->as< Player* >( );
 
-		// dont draw dead players.
-		//if (!player->alive())
-			//return;
-
 		if ( player->m_bIsLocalPlayer( ) )
 			return;
 
-		// draw player esp.
 		DrawPlayer( player );
 	}
 
@@ -843,25 +782,25 @@ void Visuals::DrawPlayer( Player* player ) {
 		return;
 
 	/*  name  */
-	if ( g_menu.main.players.name.get( 0 ) ) {
+	if ( config["esp_name"].get<bool>( ) ) {
 		std::string name{ std::string( info.m_name ).substr( 0, 24 ) };
 
-		Color clr = g_menu.main.players.name_color.get( );
+		Color clr = config["esp_name_clr"].get_color( );
 		clr.a( ) *= m_alpha[i] / 255.f;
 
 		render::esp.string( bbox.x + bbox.w / 2, bbox.y - render::esp.m_size.m_height, !player->dormant( ) ? clr : Color( 141, 141, 141, int( m_alpha[i] ) ), name, render::ALIGN_CENTER );
 	}
 
 	/*  box  */
-	if ( g_menu.main.players.box.get( 0 ) ) {
-		Color clr = g_menu.main.players.box_enemy.get( );
+	if ( config["esp_box"].get<bool>( ) ) {
+		Color clr = config["esp_box_clr"].get_color( );
 		clr.a( ) *= m_alpha[i] / 255.f;
 
 		render::rect_outlined( bbox.x, bbox.y, bbox.w, bbox.h, !player->dormant( ) ? clr : Color( 141, 141, 141, int( m_alpha[i] ) ), { 10, 10, 10, int( m_alpha[i] ) } );
 	}
 
 	/*  health  */
-	if ( g_menu.main.players.health.get( 0 ) ) {
+	if ( config["esp_hp"].get<bool>( ) ) {
 		int y = bbox.y + 1;
 		int h = bbox.h - 2;
 
@@ -874,14 +813,14 @@ void Visuals::DrawPlayer( Player* player ) {
 
 		hp = m_hp[player->index( )];
 
-		int r = std::min( ( 510 * ( 100 - hp ) ) / 100, 255 );
-		int g = std::min( ( 510 * hp ) / 100, 255 );
+		auto hp_clr = config["esp_hp_empty"].get_color( ).blend( config["esp_hp_full"].get_color( ), float( hp ) / 100.f );
+		hp_clr.a( ) *= m_alpha[i] / 255.f;
 
 		int fill = (int)std::round( hp * h / 100.f );
 
 		render::rect_filled( bbox.x - 6, y - 1, 4, h + 2, { 10, 10, 10, int( m_alpha[i] ) } );
 
-		render::rect( bbox.x - 5, y + h - fill, 2, fill, !player->dormant( ) ? Color( r, g, 0, int( m_alpha[i] ) ) : Color( 141, 141, 141, int( m_alpha[i] ) ) );
+		render::rect( bbox.x - 5, y + h - fill, 2, fill, !player->dormant( ) ? hp_clr : Color( 141, 141, 141, int( m_alpha[i] ) ) );
 
 		if ( hp < 93 )
 			render::pixel.string( bbox.x - 5, y + ( h - fill ) - 5, !player->dormant( ) ? Color( 255, 255, 255, int( m_alpha[i] ) ) : Color( 141, 141, 141, int( m_alpha[i] ) ), std::to_string( hp ), render::ALIGN_CENTER );
@@ -891,7 +830,7 @@ void Visuals::DrawPlayer( Player* player ) {
 	if ( player->alive( ) ) {
 		int  offset{ 0 };
 
-		if ( g_menu.main.players.lby_update.get( ) ) {
+		if ( config["esp_lby"].get<bool>( ) ) {
 			AimPlayer* data = &g_aimbot.m_players[player->index( ) - 1];
 
 			if ( data && data->m_moved && data->m_records.size( ) ) {
@@ -905,8 +844,8 @@ void Visuals::DrawPlayer( Player* player ) {
 						if ( width > 0.f ) {
 							render::rect_filled( bbox.x, bbox.y + bbox.h + 2, bbox.w, 4, { 10, 10, 10, int( m_alpha[i] ) } );
 
-							Color clr = g_menu.main.players.lby_update_color.get( );
-							clr.a( ) = m_alpha[i];
+							Color clr = config["esp_lby_clr"].get_color( );
+							clr.a( ) *= m_alpha[i] / 255.f;
 							render::rect( bbox.x + 1, bbox.y + bbox.h + 3, width, 2, !player->dormant( ) ? clr : Color( 141, 141, 141, int( m_alpha[i] ) ) );
 
 							offset += 5;
@@ -916,7 +855,7 @@ void Visuals::DrawPlayer( Player* player ) {
 			}
 		}
 
-		if ( g_menu.main.players.weapon.get( 0 ) ) {
+		if ( config["esp_ammo"].get<bool>( ) ) {
 			Weapon* weapon = player->GetActiveWeapon( );
 			if ( weapon ) {
 				WeaponInfo* data = weapon->GetWpnData( );
@@ -942,8 +881,8 @@ void Visuals::DrawPlayer( Player* player ) {
 
 						render::rect_filled( bbox.x, bbox.y + bbox.h + 2 + offset, bbox.w, 4, { 10, 10, 10, int( m_alpha[i] ) } );
 
-						Color clr = g_menu.main.players.ammo_color.get( );
-						clr.a( ) = int( m_alpha[i] );
+						Color clr = config["esp_ammo_clr"].get_color( );
+						clr.a( ) *= m_alpha[i] / 255.f;
 						render::rect( bbox.x + 1, bbox.y + bbox.h + 3 + offset, bar, 2, !player->dormant( ) ? clr : Color( 141, 141, 141, int( m_alpha[i] ) ) );
 
 						if ( current <= (int)std::round( max / 5 ) && !reload )
@@ -952,20 +891,25 @@ void Visuals::DrawPlayer( Player* player ) {
 						offset += 6;
 					}
 
-					if ( g_menu.main.players.weapon_mode.get( 0 ) ) {
+					if ( config["esp_wpnt"].get<bool>( ) ) {
 						std::string name{ weapon->GetLocalizedName( ) };
 
-						// smallfonts needs upper case.
+						Color clr = config["esp_wpnt_clr"].get_color( );
+						clr.a( ) *= m_alpha[i] / 255.f;
+
 						std::transform( name.begin( ), name.end( ), name.begin( ), ::tolower );
 
-						render::esp_small.string( bbox.x + bbox.w / 2, bbox.y + bbox.h + offset, !player->dormant( ) ? Color( 255, 255, 255, int( m_alpha[i] ) ) : Color( 141, 141, 141, int( m_alpha[i] ) ), name, render::ALIGN_CENTER );
+						render::esp_small.string( bbox.x + bbox.w / 2, bbox.y + bbox.h + offset, !player->dormant( ) ? clr : Color( 141, 141, 141, int( m_alpha[i] ) ), name, render::ALIGN_CENTER );
 					}
 
-					if ( g_menu.main.players.weapon_mode.get( 1 ) ) {
-						offset -= 5;
+					if ( config["esp_wpni"].get<bool>( ) ) {
+						offset -= 15;
+
+						Color clr = config["esp_wpni_clr"].get_color( );
+						clr.a( ) *= m_alpha[i] / 255.f;
 
 						std::string icon = tfm::format( XOR( "%c" ), m_weapon_icons[weapon->m_iItemDefinitionIndex( )] );
-						render::cs.string( bbox.x + bbox.w / 2, bbox.y + bbox.h + offset, !player->dormant( ) ? Color( 255, 255, 255, int( m_alpha[i] ) ) : Color( 141, 141, 141, int( m_alpha[i] ) ), icon, render::ALIGN_CENTER );
+						render::cs.string( bbox.x + bbox.w / 2, bbox.y + bbox.h + offset, !player->dormant( ) ? clr : Color( 141, 141, 141, int( m_alpha[i] ) ), icon, render::ALIGN_CENTER );
 					}
 				}
 			}
@@ -976,56 +920,32 @@ void Visuals::DrawPlayer( Player* player ) {
 	if ( player->alive( ) && !player->dormant( ) ) {
 		std::vector< std::pair< std::string, Color > > flags;
 
-		auto items = g_menu.main.players.flags_enemy.GetActiveIndices( );
+		if ( !config["esp_flags"].get<bool>( ) )
+			return;
 
-		for ( auto it = items.begin( ); it != items.end( ); ++it ) {
+		{
+			if (player->m_bHasHelmet( ) && player->m_ArmorValue( ) > 0)
+				flags.push_back( { XOR( "hk" ), { 103, 160, 224, int( m_alpha[i] ) } } );
 
-			//AimPlayer* data = &g_aimbot.m_players[player->index() - 1];
-			//if (data != nullptr && data->m_records.front().get() != nullptr) {
-			//	flags.push_back({ data->m_records.front().get()->m_resolver, { 205, 205, 205, int(m_alpha[i]) } });
-			//}
+			else if (player->m_bHasHelmet( ))
+				flags.push_back( { XOR( "h" ), { 103, 160, 224, int( m_alpha[i] ) } } );
 
-			// money.
-			if ( *it == 0 )
-				flags.push_back( { tfm::format( XOR( "$%i" ), player->m_iAccount( ) ), { 150, 200, 60, int( m_alpha[i] ) } } );
-
-			// armor.
-			if ( *it == 1 ) {
-				// helmet and kevlar.
-				if ( player->m_bHasHelmet( ) && player->m_ArmorValue( ) > 0 )
-					flags.push_back( { XOR( "hk" ), { 103, 160, 224, int( m_alpha[i] ) } } );
-
-				// only helmet.
-				else if ( player->m_bHasHelmet( ) )
-					flags.push_back( { XOR( "h" ), { 103, 160, 224, int( m_alpha[i] ) } } );
-
-				// only kevlar.
-				else if ( player->m_ArmorValue( ) > 0 )
-					flags.push_back( { XOR( "k" ), { 103, 160, 224, int( m_alpha[i] ) } } );
-			}
-
-			// scoped.
-			if ( *it == 2 && player->m_bIsScoped( ) )
-				flags.push_back( { XOR( "zoom" ), { 224, 160, 103, int( m_alpha[i] ) } } );
-
-			// flashed.
-			if ( *it == 3 && player->m_flFlashBangTime( ) > 0.f )
-				flags.push_back( { XOR( "blind" ), { 224, 103, 206, int( m_alpha[i] ) } } );
-
-			// reload.
-			if ( *it == 4 ) {
-				// get ptr to layer 1.
-				C_AnimationLayer* layer1 = &player->m_AnimOverlay( )[1];
-
-				// check if reload animation is going on.
-				if ( layer1->m_weight != 0.f && player->GetSequenceActivity( layer1->m_sequence ) == 967 /* ACT_CSGO_RELOAD */ )
-					flags.push_back( { XOR( "r" ), { 60, 180, 225, int( m_alpha[i] ) } } );
-			}
-
-			// bomb.
-			if ( *it == 5 && player->HasC4( ) )
-				flags.push_back( { XOR( "b" ), { 224, 103, 106, int( m_alpha[i] ) } } );
+			else if (player->m_ArmorValue( ) > 0)
+				flags.push_back( { XOR( "k" ), { 103, 160, 224, int( m_alpha[i] ) } } );
 		}
+
+		if (player->m_bIsScoped( ))
+			flags.push_back( { XOR( "zoom" ), { 224, 160, 103, int( m_alpha[i] ) } } );
+
+		if (player->m_flFlashBangTime( ) > 0.f)
+			flags.push_back( { XOR( "blind" ), { 224, 103, 206, int( m_alpha[i] ) } } );
+
+		C_AnimationLayer* layer1 = &player->m_AnimOverlay( )[1];
+		if (layer1->m_weight != 0.f && player->GetSequenceActivity( layer1->m_sequence ) == 967 /* ACT_CSGO_RELOAD */)
+			flags.push_back( { XOR( "r" ), { 60, 180, 225, int( m_alpha[i] ) } } );
+
+		if (player->HasC4( ))
+			flags.push_back( { XOR( "b" ), { 224, 103, 106, int( m_alpha[i] ) } } );
 
 		// iterate flags.
 		for ( size_t i{ }; i < flags.size( ); ++i ) {

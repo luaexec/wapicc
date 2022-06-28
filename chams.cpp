@@ -417,14 +417,14 @@ bool Chams::GenerateLerpedMatrix( int index, BoneArray* out ) {
 		}
 	}
 
-	current_record = g_resolver.FindLastRecord( data );
-	if (current_record && current_record->valid( )) {
-		std::memcpy( out,
-			current_record->m_bones,
-			sizeof( current_record->m_bones ) );
+	//current_record = g_resolver.FindLastRecord( data );
+	//if (current_record && current_record->valid( )) {
+	//	std::memcpy( out,
+	//		current_record->m_bones,
+	//		sizeof( current_record->m_bones ) );
 
-		return true;
-	}
+	//	return true;
+	//}
 
 	return false;
 }

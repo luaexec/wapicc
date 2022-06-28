@@ -18,9 +18,6 @@ bool cfg_t::get_hotkey( std::string str, std::string mode ) {
 		return m_hotkey_states[str];
 		break;
 	}
-	case 2:
-		return true;
-		break;
 	}
 
 	return false;
@@ -67,6 +64,11 @@ void cfg_t::load( std::string name, bool from_clipboard ) {
 
 	for (auto& e : config) {
 		char value[64] = { '\0' }, sort = (char)( e.first.c_str( ) );
+
+		bool found = config.find( e.first.c_str( ) ) != config.end( );
+		if (!found) {
+			config.insert( { e.first.c_str( ), atof( value ) } );
+		}
 
 		GetPrivateProfileStringA( "wapicc", e.first.c_str( ), "", value, 64, file.c_str( ) );
 

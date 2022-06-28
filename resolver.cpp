@@ -202,24 +202,17 @@ bool Resolver::MatchShot( AimPlayer* data, LagRecord* record ) {
 }
 
 void Resolver::SetMode( LagRecord* record ) {
-	// the resolver has 3 modes to chose from.
-	// these modes will vary more under the hood depending on what data we have about the player
-	// and what kind of hack vs. hack we are playing (mm/nospread).
-
 	float speed = record->m_velocity.length( );
 	//if (speed > 0.1f)
 	if (speed <= 0.2f)
 		m_runtime[record->m_player->index( )] = g_csgo.m_globals->m_tick_count;
-
-	// if on ground, moving, and not fakewalking.											// first running flick has surpassed.
+																							// first running flick has surpassed.
 	if ( ( record->m_flags & FL_ONGROUND ) && speed > 0.1f && !( record->m_fake_walk ) && game::TICKS_TO_TIME( g_csgo.m_globals->m_tick_count - m_runtime[record->m_player->index( )] ) > 0.22f)
 		record->m_mode = Modes::RESOLVE_WALK;
 
-	// if on ground, not moving or fakewalking.
 	if ( ( record->m_flags & FL_ONGROUND ) && ( speed <= 0.1f || record->m_fake_walk )  )
 		record->m_mode = Modes::RESOLVE_STAND;
 
-	// if not on ground.
 	else if ( !( record->m_flags & FL_ONGROUND ) )
 		record->m_mode = Modes::RESOLVE_AIR;
 
@@ -229,21 +222,19 @@ void Resolver::SetMode( LagRecord* record ) {
 
 void Resolver::ResolveAngles( Player* player, LagRecord* record ) {
 	AimPlayer* data = &g_aimbot.m_players[player->index( ) - 1];
+	LagRecord* move = &data->m_walk_record;
+	float delta = record->m_anim_time - move->m_anim_time;
+	C_AnimationLayer* curr = &record->m_layers[3];
+	const int activity = data->m_player->GetSequenceActivity( curr->m_sequence );
 
-	// mark this record if it contains a shot.
 	if ( MatchShot( data, record ) )
 		return;
 
-	// next up mark this record with a resolver mode that will be used.
 	SetMode( record );
 
-	// if we are in nospread mode, force all players pitches to down.
-	// TODO; we should check thei actual pitch and up too, since those are the other 2 possible angles.
-	// this should be somehow combined into some iteration that matches with the air angle iteration.
 	if ( g_menu.main.config.mode.get( ) == 1 )
 		record->m_eye_angles.x = 90.f;
 
-	// we arrived here we can do the acutal resolve.
 	if ( record->m_mode == Modes::RESOLVE_WALK )
 		ResolveWalk( data, record );
 
@@ -595,15 +586,22 @@ bool Resolver::AntiFreestanding( Player* entity, AimPlayer* data, float& yaw )
 
 void Resolver::ResolveStand( AimPlayer* data, LagRecord* record ) {
 
-	// get predicted away angle for the player.
 	float away = GetAwayAngle( record );
 
-	// pointer for easy access.
 	LagRecord* move = &data->m_walk_record;
 
 	//if (record->m_lag <= 2)
-	if ( ResolveBodyUpdates( record->m_player, record ) )
+	//if ( ResolveBodyUpdates( record->m_player, record ) )
+		//return;
+
+	if ( ( record->m_anim_time >= data->m_body_update || data->m_body != data->m_old_body ) && m_runtime[data->m_player->index( )] == 0.f ) {
+		record->m_eye_angles.y = record->m_body;
+
+		data->m_body_update = record->m_anim_time + 1.1f;
+		record->m_mode = Modes::RESOLVE_BODY;
+		record->m_resolver = XOR( "upd" );
 		return;
+	}
 
 	// we have a valid moving record.
 	if ( move->m_sim_time > 0.f ) {
@@ -628,14 +626,17 @@ void Resolver::ResolveStand( AimPlayer* data, LagRecord* record ) {
 				record->m_resolver = XOR( "*last" );
 			}
 			else {
-				if ( direction == Directions::YAW_LEFT )
-					record->m_eye_angles.y = away + 90.f;
-				else if ( direction == Directions::YAW_RIGHT )
-					record->m_eye_angles.y = away - 90.f;
-				else
-					record->m_eye_angles.y = away - 180.f;
+				//if ( direction == Directions::YAW_LEFT )
+				//	record->m_eye_angles.y = away + 90.f;
+				//else if ( direction == Directions::YAW_RIGHT )
+				//	record->m_eye_angles.y = away - 90.f;
+				//else
+				//	record->m_eye_angles.y = away - 180.f;
 
-				record->m_resolver = XOR( "*dir" );
+				//record->m_resolver = XOR( "*dir" );
+
+				record->m_eye_angles.y = record->m_body;
+				record->m_resolver = XOR( "*cur" );
 			}
 		}
 		else {
@@ -686,22 +687,19 @@ void Resolver::ResolveStand( AimPlayer* data, LagRecord* record ) {
 		if ( data->m_missed_shots <= 2 ) {
 			// set our resolver mode
 			record->m_mode = Modes::RESOLVE_FREESTAND;
-			record->m_resolver = XOR( "fs" );
 
-			if ( direction == Directions::YAW_LEFT )
+			if (direction == Directions::YAW_LEFT)
 				record->m_eye_angles.y = away - 90.f;
-			else if ( direction == Directions::YAW_RIGHT )
+			else if (direction == Directions::YAW_RIGHT)
 				record->m_eye_angles.y = away + 90.f;
-
-			// seemed to work the best.
-			else {
+			else
 				FindBestAngle( record );
-				record->m_resolver = XOR( "ang" );
-			}
+
+			record->m_resolver = XOR( "fs" );
 		}
 		else {
-			record->m_eye_angles.y = away - 180.f;
-			record->m_resolver = XOR( "dir" );
+			FindBestAngle( record );
+			record->m_resolver = XOR( "ang" );
 		}
 	}
 }

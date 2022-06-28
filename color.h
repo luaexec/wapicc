@@ -60,6 +60,120 @@ public:
 		};
 	}
 
+    typedef struct {
+        double r;
+        double g;
+        double b;
+    } rgb;
+
+    typedef struct {
+        double h;
+        double s;
+        double v;
+    } hsv;
+
+    static Color hsv_to_rgb( double h, double s, double v )
+    {
+        double      hh, p, q, t, ff;
+        long        i;
+        rgb         out;
+
+        if (s <= 0.0) {
+            out.r = v;
+            out.g = v;
+            out.b = v;
+            return Color( out.r * 255.f, out.g * 255.f, out.b * 255.f );
+        }
+        hh = h;
+        if (hh >= 360.0) hh = 0.0;
+        hh /= 60.0;
+        i = (long)hh;
+        ff = hh - i;
+        p = v * ( 1.0 - s );
+        q = v * ( 1.0 - ( s * ff ) );
+        t = v * ( 1.0 - ( s * ( 1.0 - ff ) ) );
+
+        switch (i) {
+        case 0:
+            out.r = v;
+            out.g = t;
+            out.b = p;
+            break;
+        case 1:
+            out.r = q;
+            out.g = v;
+            out.b = p;
+            break;
+        case 2:
+            out.r = p;
+            out.g = v;
+            out.b = t;
+            break;
+
+        case 3:
+            out.r = p;
+            out.g = q;
+            out.b = v;
+            break;
+        case 4:
+            out.r = t;
+            out.g = p;
+            out.b = v;
+            break;
+        case 5:
+        default:
+            out.r = v;
+            out.g = p;
+            out.b = q;
+            break;
+        }
+        return Color( int( out.r * 255.f ), int( out.g * 255.f ), int( out.b * 255.f ) );
+    }
+
+    static hsv rgb_to_hsv( int r, int g, int b )
+    {
+        rgb in = { (float)( r / 255 ), (float)( g / 255 ) , (float)( b / 255 ) };
+        hsv         out;
+        double      min, max, delta;
+
+        min = in.r < in.g ? in.r : in.g;
+        min = min < in.b ? min : in.b;
+
+        max = in.r > in.g ? in.r : in.g;
+        max = max > in.b ? max : in.b;
+
+        out.v = max;
+        delta = max - min;
+        if (delta < 0.00001)
+        {
+            out.s = 0;
+            out.h = 0;
+            return out;
+        }
+        if (max > 0.0) {
+            out.s = ( delta / max );
+        }
+        else {
+            out.s = 0.0;
+            out.h = NAN;
+            return out;
+        }
+        if (in.r >= max)
+            out.h = ( in.g - in.b ) / delta;
+        else
+            if (in.g >= max)
+                out.h = 2.0 + ( in.b - in.r ) / delta;
+            else
+                out.h = 4.0 + ( in.r - in.g ) / delta;
+
+        out.h *= 60.0;
+
+        if (out.h < 0.0)
+            out.h += 360.0;
+
+        return out;
+    }
+
 	// member accessors.
 	__forceinline uint8_t& r( ) { return m_r; }
 	__forceinline uint8_t& g( ) { return m_g; }

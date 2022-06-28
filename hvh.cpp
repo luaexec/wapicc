@@ -796,13 +796,15 @@ void HVH::SendPacket() {
 				*g_cl.m_packet = false;
 
 			else if (config["fl_mode"].get<int>( ) == 1) {
-				auto speed = g_cl.m_local->m_vecVelocity( ).length_2d( );
-				if (speed <= 100.f)
-					limit = config["fl_limit"].get<float>( ) * ( speed / 100.f );
+				auto speed = g_cl.m_local->m_vecVelocity( ).length( );
+				if (speed <= 200.f)
+					limit = config["fl_limit"].get<float>( ) * ( speed / 200.f );
+
+				*g_cl.m_packet = false;
 			}
 
 			else if (config["fl_mode"].get<int>( ) == 2) {
-				if (g_csgo.m_globals->m_tick_count % 40 < 20 && !( !( g_cl.m_flags & FL_ONGROUND ) && config["fl_lc"].get<bool>( ) ))
+				if (g_csgo.m_globals->m_tick_count % 40 < 35)
 					*g_cl.m_packet = false;
 			}
 			
@@ -810,7 +812,7 @@ void HVH::SendPacket() {
 			if (!( g_csgo.m_globals->m_tick_count % ( 101 - config["fl_var"].get<int>( ) ) ) && ( g_cl.m_flags & FL_ONGROUND ) )
 				*g_cl.m_packet = true;
 
-			if (delta <= 4096.f && config["fl_lc"].get<bool>( ))
+			if (delta <= 4096.f && config["fl_lc"].get<bool>( ) && !( g_cl.m_flags & FL_ONGROUND ))
 				*g_cl.m_packet = false;
 
 			if (g_cl.m_lag >= limit)

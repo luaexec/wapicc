@@ -4,19 +4,38 @@ void Hooks::OnRenderStart( ) {
 	// call og.
 	g_hooks.m_view_render.GetOldMethod< OnRenderStart_t >( CViewRender::ONRENDERSTART )( this );
 
-	if( g_menu.main.visuals.fov.get( ) ) {
-		if( g_cl.m_local && g_cl.m_local->m_bIsScoped( ) ) {
-			if( g_menu.main.visuals.fov_scoped.get( ) ) {
-				if( g_cl.m_local->GetActiveWeapon( )->m_zoomLevel( ) != 2 ) {
-					g_csgo.m_view_render->m_view.m_fov = g_menu.main.visuals.fov_amt.get( );
-				}
-				else {
-					g_csgo.m_view_render->m_view.m_fov += 45.f;
-				}
-			}
-		}
+	/* field of view */ {
+		bool ovr = g_menu.main.visuals.fov.get( );
+		auto fov = g_menu.main.visuals.fov_amt.get( );
+		static float anim[2]{ 0.f };
 
-		else g_csgo.m_view_render->m_view.m_fov = g_menu.main.visuals.fov_amt.get( );
+		if (!ovr || !g_cl.m_local || !g_cl.m_processing)
+			return;
+
+		if (!g_cl.m_local->alive( ))
+			return;
+
+		g_csgo.m_view_render->m_view.m_fov = fov;
+
+		bool correct = g_cl.m_local->GetActiveWeapon( )->GetWpnData( )->m_weapon_type == CSWeaponType::WEAPONTYPE_SNIPER_RIFLE;
+		bool correct2 = g_cl.m_local->GetActiveWeapon( )->GetWpnData( )->m_weapon_type == CSWeaponType::WEAPONTYPE_GRENADE;
+
+		if (g_cl.m_local->GetActiveWeapon( )->m_zoomLevel( ) >= 1 && ( ( g_cl.m_local->m_bIsScoped( ) && correct ) || correct2 ) ) {
+			anim[0] += 4.f * g_csgo.m_globals->m_frametime;
+		}
+		else { anim[0] -= 4.f * g_csgo.m_globals->m_frametime; }
+		anim[0] = std::clamp( anim[0], 0.f, 1.f );
+
+		if (g_cl.m_local->GetActiveWeapon( )->m_zoomLevel( ) >= 2 && correct) {
+			anim[1] += 4.f * g_csgo.m_globals->m_frametime;
+		}
+		else { anim[1] -= 4.f * g_csgo.m_globals->m_frametime; }
+		anim[1] = std::clamp( anim[1], 0.f, 1.f );
+
+		if (g_menu.main.visuals.fov_scoped.get( )) {
+			g_csgo.m_view_render->m_view.m_fov -= 20 * anim[0];
+			g_csgo.m_view_render->m_view.m_fov -= 20 * anim[1];
+		}
 	}
 
 	if( g_menu.main.visuals.viewmodel_fov.get( ) )
