@@ -44,6 +44,7 @@ public:
 namespace events {
 	void round_start( IGameEvent* evt );
 	void round_end( IGameEvent* evt );
+	void weapon_fire(IGameEvent* evt);
 	void player_hurt( IGameEvent* evt );
 	void bullet_impact( IGameEvent* evt );
 	void item_purchase( IGameEvent* evt );

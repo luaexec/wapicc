@@ -242,7 +242,7 @@ bool penetration::run( PenetrationInput_t* in, PenetrationOutput_t* out ) {
     filter.SetPassEntity( in->m_from );
     filter.SetPassEntity2( nullptr );
 
-    while( damage > 0.f ) {
+    while( damage >= 1.f ) {
 		// calculating remaining len.
 		remaining = weapon_info->m_range - trace_len;
 
@@ -278,6 +278,9 @@ bool penetration::run( PenetrationInput_t* in, PenetrationOutput_t* out ) {
 
 				// scale damage based on the hitgroup we hit.
 				player_damage = scale( in->m_target, damage, weapon_info->m_armor_ratio, group );
+
+				if (player_damage < 1.f)
+					return false;
 
 				// set result data for when we hit a player.
 			    out->m_pen      = pen != 4;

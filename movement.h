@@ -13,17 +13,24 @@ public:
 	float  m_old_yaw;
 	float  m_circle_yaw;
 	bool   m_invert;
+	enum m_directions {
+		forwards = 0,
+		backwards = 180,
+		left = 90,
+		right = -90,
+		back_left = 135,
+		back_right = -135
+	};
 
 public:
-	void JumpRelated();
-	void Strafe();
-	void DoPrespeed();
-	bool GetClosestPlane(vec3_t& plane);
-	bool WillCollide(float time, float step);
-	void MoonWalk(CUserCmd* cmd);
-	void FixMove(CUserCmd* cmd, const ang_t& old_angles);
-	void AutoPeek();
-	void QuickStop();
+	void JumpRelated( );
+	void Strafe( );
+	void DoPrespeed( );
+	bool GetClosestPlane( vec3_t& plane );
+	bool WillCollide( float time, float step );
+	void FixMove( CUserCmd* cmd, ang_t old_angles );
+	void AutoPeek( );
+	void QuickStop( );
 	void FakeWalk( bool force = false );
 };
 

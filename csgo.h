@@ -97,6 +97,7 @@ public:
 	ConVar *sv_jump_impulse;
 	ConVar *sv_enablebunnyhopping;
 	ConVar *sv_airaccelerate;
+	ConVar *sv_maxspeed;
 	ConVar *sv_friction;
 	ConVar *sv_stopspeed;
 	ConVar *cl_interp;
@@ -195,7 +196,7 @@ namespace game {
 	}
 
 	__forceinline bool IsValidHitgroup(int index) {
-		if ((index >= HITGROUP_HEAD && index <= HITGROUP_RIGHTLEG) || index == HITGROUP_GEAR)
+		if (index != 9)
 			return true;
 
 		return false;
@@ -266,14 +267,6 @@ namespace game {
 			call func
 			add  esp, 4
 		}
-	}
-
-	template<class T = DWORD>
-	__forceinline T* FindHudElement(const char* name) {
-		static auto pThis = *pattern::find(g_csgo.m_client_dll, XOR("B9 ? ? ? ? E8 ? ? ? ? 8B 5D 08")).add(0x1).as< DWORD**>();
-
-		static auto find_hud_element = pattern::find(g_csgo.m_client_dll, ("55 8B EC 53 8B 5D 08 56 57 8B F9 33 F6 39")).as<DWORD(__thiscall*)(void*, const char*)>();
-		return (T*)find_hud_element(pThis, name);
 	}
 
 	bool   IsBreakable(Entity *ent);

@@ -206,13 +206,16 @@ bool Resolver::MatchShot( AimPlayer* data, LagRecord* record ) {
 void Resolver::SetMode( LagRecord* record ) {
 	float speed = record->m_velocity.length( );
 	//if (speed > 0.1f)
-	if (speed <= 0.2f)
+	if ( speed <= 0.2f )
 		m_runtime[record->m_player->index( )] = g_csgo.m_globals->m_tick_count;
-																							// first running flick has surpassed.
-	if ( ( record->m_flags & FL_ONGROUND ) && speed > 0.1f && !( record->m_fake_walk ) && game::TICKS_TO_TIME( g_csgo.m_globals->m_tick_count - m_runtime[record->m_player->index( )] ) > 0.22f)
+
+	bool flicked = game::TICKS_TO_TIME( g_csgo.m_globals->m_tick_count - m_runtime[record->m_player->index( )] ) > 0.22f;
+
+	// first running flick has surpassed.
+	if ( ( record->m_flags & FL_ONGROUND ) && speed > 0.1f && !( record->m_fake_walk ) && ( ( flicked && config["acc_correct_fflick"].get<bool>( ) ) || !config["acc_correct_fflick"].get<bool>( ) ) )
 		record->m_mode = Modes::RESOLVE_WALK;
 
-	if ( ( record->m_flags & FL_ONGROUND ) && ( speed <= 0.1f || record->m_fake_walk )  )
+	if ( ( record->m_flags & FL_ONGROUND ) && ( speed <= 0.1f || record->m_fake_walk ) )
 		record->m_mode = Modes::RESOLVE_STAND;
 
 	else if ( !( record->m_flags & FL_ONGROUND ) )
@@ -225,12 +228,12 @@ void Resolver::SetMode( LagRecord* record ) {
 void Resolver::ResolveAngles( Player* player, LagRecord* record ) {
 	AimPlayer* data = &g_aimbot.m_players[player->index( ) - 1];
 
-	if ( MatchShot( data, record ) )
+	if ( config["acc_correct_os"].get<bool>( ) && MatchShot( data, record ) )
 		return;
 
 	SetMode( record );
 
-	if ( g_menu.main.config.mode.get( ) == 1 )
+	if ( !config["menu_ut"].get<bool>( ) )
 		record->m_eye_angles.x = 90.f;
 
 	if ( record->m_mode == Modes::RESOLVE_WALK )
@@ -247,19 +250,16 @@ void Resolver::ResolveAngles( Player* player, LagRecord* record ) {
 }
 
 void Resolver::ResolveWalk( AimPlayer* data, LagRecord* record ) {
-	// apply lby to eyeangles.
 	record->m_eye_angles.y = record->m_body;
 
-	// havent checked this yet in ResolveStand( ... )
-	data->m_moved = false;
+	data->m_body_update = record->m_anim_time + 0.22f;
+	//data->m_moved = false;
 
-	data->m_body_index = 0;
 	data->m_missed_shots = 0;
+	data->m_body_index = 0;
 
 	record->m_resolver = XOR( "move" );
 
-	// copy the last record that this player was walking
-	// we need it later on because it gives us crucial data.
 	std::memcpy( &data->m_walk_record, record, sizeof( LagRecord ) );
 }
 
@@ -345,9 +345,9 @@ void Resolver::FindBestAngle( LagRecord* record ) {
 
 	// put the most distance at the front of the container.
 	std::sort( angles.begin( ), angles.end( ),
-		[]( const AdaptiveAngle& a, const AdaptiveAngle& b ) {
-			return a.m_dist > b.m_dist;
-		} );
+			   []( const AdaptiveAngle& a, const AdaptiveAngle& b ) {
+				   return a.m_dist > b.m_dist;
+			   } );
 
 	// the best angle should be at the front now.
 	AdaptiveAngle* best = &angles.front( );
@@ -359,7 +359,7 @@ void Resolver::FindBestAngle( LagRecord* record ) {
 	}
 }
 
-Resolver::Directions Resolver::HandleDirections( AimPlayer* data ) {
+Resolver::Directions Resolver::HandleDirections( AimPlayer* data, int ticks, float threshold ) {
 	CGameTrace tr;
 	CTraceFilterSimple filter{ };
 
@@ -413,32 +413,32 @@ Resolver::Directions Resolver::HandleDirections( AimPlayer* data ) {
 	static auto rightTicks = 0;
 	static auto backTicks = 0;
 
-	if ( rightLength - leftLength > 20.0f )
+	if ( rightLength - leftLength > threshold )
 		leftTicks++;
 	else
 		leftTicks = 0;
 
-	if ( leftLength - rightLength > 20.0f )
+	if ( leftLength - rightLength > threshold )
 		rightTicks++;
 	else
 		rightTicks = 0;
 
-	if ( fabs( rightLength - leftLength ) <= 20.0f )
+	if ( fabs( rightLength - leftLength ) <= threshold )
 		backTicks++;
 	else
 		backTicks = 0;
 
 	Directions direction = Directions::YAW_NONE;
 
-	if ( rightTicks > 10 ) {
+	if ( rightTicks > ticks ) {
 		direction = Directions::YAW_RIGHT;
 	}
 	else {
-		if ( leftTicks > 10 ) {
+		if ( leftTicks > ticks ) {
 			direction = Directions::YAW_LEFT;
 		}
 		else {
-			if ( backTicks > 10 )
+			if ( backTicks > ticks )
 				direction = Directions::YAW_BACK;
 		}
 	}
@@ -588,18 +588,11 @@ void Resolver::ResolveStand( AimPlayer* data, LagRecord* record ) {
 
 	LagRecord* move = &data->m_walk_record;
 
-	//if (record->m_lag <= 2)
-	if ( m_runtime[data->m_player->index( )] == 0.f && ResolveBodyUpdates( record->m_player, record ) )
-		return;
+	bool flicked = m_runtime[data->m_player->index( )] == 0.f;
 
-	//if ( ( record->m_anim_time >= data->m_body_update || data->m_body != data->m_old_body ) && m_runtime[data->m_player->index( )] == 0.f ) {
-	//	record->m_eye_angles.y = record->m_body;
-
-	//	data->m_body_update = record->m_anim_time + 1.1f;
-	//	record->m_mode = Modes::RESOLVE_BODY;
-	//	record->m_resolver = XOR( "upd" );
-	//	return;
-	//}
+	if ( ( record->m_lag <= 2 && config["acc_correct_fw"].get<bool>( ) ) || !config["acc_correct_fw"].get<bool>( ) )
+		if ( ( ( flicked && config["acc_correct_fflick"].get<bool>( ) ) || !config["acc_correct_fflick"].get<bool>( ) ) && ResolveBodyUpdates( record->m_player, record ) )
+			return;
 
 	// we have a valid moving record.
 	if ( move->m_sim_time > 0.f ) {
@@ -614,7 +607,7 @@ void Resolver::ResolveStand( AimPlayer* data, LagRecord* record ) {
 		}
 	}
 
-	if ( data->m_moved ) {
+	if ( data->m_moved && config["acc_correct_lm"].get<bool>( ) ) {
 		float diff = math::NormalizedAngle( record->m_body - move->m_body );
 		const Directions direction = HandleDirections( data );
 
@@ -686,9 +679,9 @@ void Resolver::ResolveStand( AimPlayer* data, LagRecord* record ) {
 			// set our resolver mode
 			record->m_mode = Modes::RESOLVE_FREESTAND;
 
-			if (direction == Directions::YAW_LEFT)
+			if ( direction == Directions::YAW_LEFT )
 				record->m_eye_angles.y = away + 90.f;
-			else if (direction == Directions::YAW_RIGHT)
+			else if ( direction == Directions::YAW_RIGHT )
 				record->m_eye_angles.y = away - 90.f;
 			else
 				FindBestAngle( record );

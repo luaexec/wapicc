@@ -1,9 +1,6 @@
 #include "includes.h"
 #include "wapim.h"
-
 Client g_cl{ };
-
-char username[33] = "\x90\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x90";
 
 ulong_t __stdcall Client::init( void* arg ) {
 	g_cl.m_user = XOR( "wapicc" );
@@ -15,10 +12,7 @@ ulong_t __stdcall Client::init( void* arg ) {
 }
 
 void Client::DrawHUD( ) {
-	if ( !g_menu.main.misc.watermark.get( ) )
-		return;
-
-	//if ( !g_csgo.m_engine->IsInGame( ) )
+	//if (!g_menu.main.misc.watermark.get( ))
 		//return;
 
 	int ms = !g_csgo.m_engine->IsInGame( ) ? 0 : std::max( 0, (int)std::round( g_cl.m_latency * 1000.f ) );
@@ -44,163 +38,6 @@ void Client::DrawHUD( ) {
 	render::esp.string( w - 15 - full_size + start_size, 17, colors::white.alpha( 255 ), end );
 }
 
-void Client::UnlockHiddenConvars( )
-{
-	if ( !g_csgo.m_cvar )
-		return;
-
-	auto p = **reinterpret_cast<ConVar***>( g_csgo.m_cvar + 0x34 );
-	for ( auto c = p->m_next; c != nullptr; c = c->m_next ) {
-		c->m_flags &= ~FCVAR_DEVELOPMENTONLY;
-		c->m_flags &= ~FCVAR_HIDDEN;
-	}
-}
-
-void Client::ClanTag( )
-{
-	auto SetClanTag = [&]( std::string tag ) -> void {
-		using SetClanTag_t = int( __fastcall* )( const char*, const char* );
-		static auto SetClanTagFn = pattern::find( g_csgo.m_engine_dll, XOR( "53 56 57 8B DA 8B F9 FF 15" ) ).as<SetClanTag_t>( );
-
-		SetClanTagFn( tag.c_str( ), " " );
-	};
-
-	static bool bReset = false;
-	if (g_menu.main.misc.clantag.get( )) {
-		static int time = g_csgo.m_globals->m_curtime;
-		std::vector<std::string> tag {
-			"wapicc ",
-			"wapica ",
-			"wapical ",
-			"wapicall",
-			"_apicall ",
-			"__icall ",
-			"__sicall ",
-			"__stcall ",
-			"__stdcall ",
-			"__stdcal ",
-			"__stdca ",
-			"__stdcc ",
-			"w_stdcc ",
-			"wastdcc ",
-			"waptdcc ",
-			"wapidcc ",
-			"wapicc ",
-		};
-		if (time != int( g_csgo.m_globals->m_curtime )) {
-			SetClanTag( tag[int( g_csgo.m_globals->m_curtime ) % tag.size( )] );
-			time = int( g_csgo.m_globals->m_curtime );
-		}
-
-		bReset = true;
-	}
-	else {
-		if (bReset) {
-			SetClanTag( "" );
-			bReset = false;
-		}
-	}
-}
-
-void Client::Skybox( )
-{
-	static auto sv_skyname = g_csgo.m_cvar->FindVar( HASH( "sv_skyname" ) );
-	if ( g_menu.main.misc.skyboxchange.get( ) ) {
-		switch ( g_menu.main.misc.skybox.get( ) ) {
-		case 0: //Tibet
-			//sv_skyname->SetValue("cs_tibet");
-			sv_skyname->SetValue( XOR( "cs_tibet" ) );
-			break;
-		case 1: //Embassy
-			//sv_skyname->SetValue("embassy");
-			sv_skyname->SetValue( XOR( "embassy" ) );
-			break;
-		case 2: //Italy
-			//sv_skyname->SetValue("italy");
-			sv_skyname->SetValue( XOR( "italy" ) );
-			break;
-		case 3: //Daylight 1
-			//sv_skyname->SetValue("sky_cs15_daylight01_hdr");
-			sv_skyname->SetValue( XOR( "sky_cs15_daylight01_hdr" ) );
-			break;
-		case 4: //Cloudy
-			//sv_skyname->SetValue("sky_csgo_cloudy01");
-			sv_skyname->SetValue( XOR( "sky_csgo_cloudy01" ) );
-			break;
-		case 5: //Night 1
-			sv_skyname->SetValue( XOR( "sky_csgo_night02" ) );
-			break;
-		case 6: //Night 2
-			//sv_skyname->SetValue("sky_csgo_night02b");
-			sv_skyname->SetValue( XOR( "sky_csgo_night02b" ) );
-			break;
-		case 7: //Night Flat
-			//sv_skyname->SetValue("sky_csgo_night_flat");
-			sv_skyname->SetValue( XOR( "sky_csgo_night_flat" ) );
-			break;
-		case 8: //Day HD
-			//sv_skyname->SetValue("sky_day02_05_hdr");
-			sv_skyname->SetValue( XOR( "sky_day02_05_hdr" ) );
-			break;
-		case 9: //Day
-			//sv_skyname->SetValue("sky_day02_05");
-			sv_skyname->SetValue( XOR( "sky_day02_05" ) );
-			break;
-		case 10: //Rural
-			//sv_skyname->SetValue("sky_l4d_rural02_ldr");
-			sv_skyname->SetValue( XOR( "sky_l4d_rural02_ldr" ) );
-			break;
-		case 11: //Vertigo HD
-			//sv_skyname->SetValue("vertigo_hdr");
-			sv_skyname->SetValue( XOR( "vertigo_hdr" ) );
-			break;
-		case 12: //Vertigo Blue HD
-			//sv_skyname->SetValue("vertigoblue_hdr");
-			sv_skyname->SetValue( XOR( "vertigoblue_hdr" ) );
-			break;
-		case 13: //Vertigo
-			//sv_skyname->SetValue("vertigo");
-			sv_skyname->SetValue( XOR( "vertigo" ) );
-			break;
-		case 14: //Vietnam
-			//sv_skyname->SetValue("vietnam");
-			sv_skyname->SetValue( XOR( "vietnam" ) );
-			break;
-		case 15: //Dusty Sky
-			//sv_skyname->SetValue("sky_dust");
-			sv_skyname->SetValue( XOR( "sky_dust" ) );
-			break;
-		case 16: //Jungle
-			sv_skyname->SetValue( XOR( "jungle" ) );
-			break;
-		case 17: //Nuke
-			sv_skyname->SetValue( XOR( "nukeblank" ) );
-			break;
-		case 18: //Office
-			sv_skyname->SetValue( XOR( "office" ) );
-			//game::SetSkybox(XOR("office"));
-			break;
-		default:
-			break;
-		}
-	}
-
-	float destiny = g_menu.main.visuals.Fogdensity.get( ) / 100.f;
-
-	static const auto fog_enable = g_csgo.m_cvar->FindVar( HASH( "fog_enable" ) );
-	fog_enable->SetValue( 1 ); //Включает туман на карте если он выключен по дефолту
-	static const auto fog_override = g_csgo.m_cvar->FindVar( HASH( "fog_override" ) );
-	fog_override->SetValue( g_menu.main.visuals.FogOverride.get( ) ); // Разрешает кастомизацию тумана
-	static const auto fog_color = g_csgo.m_cvar->FindVar( HASH( "fog_color" ) );
-	fog_color->SetValue( std::string( std::to_string( g_menu.main.visuals.FogColor.get( ).r( ) ) + " " + std::to_string( g_menu.main.visuals.FogColor.get( ).g( ) ) + " " + std::to_string( g_menu.main.visuals.FogColor.get( ).b( ) ) ).c_str( ) ); //Цвет тумана rgb
-	static const auto fog_start = g_csgo.m_cvar->FindVar( HASH( "fog_start" ) );
-	fog_start->SetValue( g_menu.main.visuals.FogStart.get( ) ); // Дистанция с которой туман появляется
-	static const auto fog_end = g_csgo.m_cvar->FindVar( HASH( "fog_end" ) );
-	fog_end->SetValue( g_menu.main.visuals.FogEnd.get( ) ); // Дистанция с которой туман пропадает
-	static const auto fog_destiny = g_csgo.m_cvar->FindVar( HASH( "fog_maxdensity" ) );
-	fog_destiny->SetValue( destiny ); //Максимальная насыщенность тумана(0-1)
-}
-
 void Client::KillFeed( ) {
 	if ( !g_menu.main.misc.killfeed.get( ) )
 		return;
@@ -224,16 +61,40 @@ void Client::KillFeed( ) {
 	}
 }
 
+void Client::ThirdPersonFSN( ) {
+	if ( !g_cl.m_local || !g_cl.m_local->alive( ) )
+		return;
+
+	if ( g_csgo.m_input->CAM_IsThirdPerson( ) )
+		*reinterpret_cast<ang_t*>( uintptr_t( g_cl.m_local ) + 0x31C4 + 0x4 ) = m_real_angle; // cancer.
+}
+
+void Client::AspectRatio( )
+{
+	static const auto r_aspectratio = g_csgo.m_cvar->FindVar( HASH( "r_aspectratio" ) );
+	if ( g_menu.main.misc.aspectratio.get( ) ) {
+		r_aspectratio->SetValue( g_menu.main.misc.aspectraio_val.get( ) / 100 );
+	}
+	else {
+		r_aspectratio->SetValue( 0 );
+	}
+}
+
 void Client::OnPaint( ) {
 	g_csgo.m_engine->GetScreenSize( m_width, m_height );
 
-	// render stuff.
+	AspectRatio( );
+	if ( g_csgo.m_engine->IsConnected( ) )
+	{
+		static const auto sv_cheats = g_csgo.m_cvar->FindVar( HASH( "sv_cheats" ) );
+		sv_cheats->SetValue( 1 );
+	}
+
 	g_visuals.think( );
 	g_grenades.paint( );
-	g_notify.think( );
+	g_notify.think( g_menu.main.config.menu_color.get( ) );
 
 	DrawHUD( );
-
 	KillFeed( );
 
 	g_gui.think( );
@@ -245,7 +106,7 @@ void Client::OnMapload( ) {
 
 	m_local = g_csgo.m_entlist->GetClientEntity< Player* >( g_csgo.m_engine->GetLocalPlayer( ) );
 
-	g_visuals.ModulateWorld( );
+	Visuals::ModulateWorld( );
 
 	g_skins.load( );
 
@@ -271,7 +132,25 @@ void Client::StartMove( CUserCmd* cmd ) {
 	if ( !m_local )
 		return;
 
-	m_max_lag = ( m_local->m_fFlags( ) & FL_ONGROUND ) ? 16 : 15;
+	g_csgo.m_net = g_csgo.m_engine->GetNetChannelInfo( );
+
+	if ( !g_csgo.m_net )
+		return;
+
+	if ( m_processing && m_tick_to_recharge > 0 && !m_charged && can_recharge ) {
+		m_tick_to_recharge--;
+		m_visual_shift_ticks++;
+		cmd->m_tick = INT_MAX;
+		*m_packet = true;
+	}
+
+	if ( can_recharge && m_tick_to_recharge == 0 )
+	{
+		m_charged = true;
+		can_recharge = false;
+	}
+
+	m_max_lag = 14;
 	m_lag = g_csgo.m_cl->m_choked_commands;
 	m_lerp = game::GetClientInterpAmount( );
 	m_latency = g_csgo.m_net->GetLatency( INetChannel::FLOW_OUTGOING );
@@ -283,6 +162,8 @@ void Client::StartMove( CUserCmd* cmd ) {
 	m_processing = m_local && m_local->alive( );
 	if ( !m_processing )
 		return;
+
+	MouseFix( cmd );
 
 	g_inputpred.update( );
 
@@ -391,11 +272,14 @@ void Client::DoMove( ) {
 void Client::EndMove( CUserCmd* cmd ) {
 	UpdateInformation( );
 
+	if ( !g_csgo.m_cl->m_choked_commands ) {
+		m_real_angle = m_cmd->m_view_angles;
+	}
+
 	if ( g_menu.main.config.mode.get( ) == 0 )
 		m_cmd->m_view_angles.SanitizeAngle( );
 
 	g_movement.FixMove( cmd, m_strafe_angles );
-	g_movement.MoonWalk( cmd );
 
 	if ( *m_packet ) {
 		g_hvh.m_step_switch = (bool)g_csgo.RandomInt( 0, 1 );
@@ -406,7 +290,6 @@ void Client::EndMove( CUserCmd* cmd ) {
 		m_radar.normalize( );
 
 		vec3_t cur = m_local->m_vecOrigin( );
-
 		vec3_t prev = m_net_pos.empty( ) ? cur : m_net_pos.front( ).m_pos;
 
 		m_lagcomp = ( cur - prev ).length_sqr( ) > 4096.f;
@@ -424,6 +307,17 @@ void Client::OnTick( CUserCmd* cmd ) {
 		g_csgo.ServerRankRevealAll( &msg );
 	}
 
+	if ( isShifting ) {
+		*m_packet = ticksToShift == 1;
+		cmd->m_buttons &= ~( IN_ATTACK | IN_ATTACK2 );
+		if ( ignoreallcmds ) {
+			cmd->m_tick = INT_MAX;
+		}
+		else
+			g_cl.doubletapCharge--;
+		return;
+	}
+
 	StartMove( cmd );
 
 	if ( !m_processing )
@@ -438,30 +332,44 @@ void Client::OnTick( CUserCmd* cmd ) {
 	BackupPlayers( true );
 
 	g_inputpred.restore( );
+
+	g_aimbot.DoubleTap( );
+}
+
+void Client::KeepCommunication( bool* send_packet, int command_number ) {
+	if ( !g_cl.m_processing || !g_csgo.m_engine->IsInGame( ) )
+		return;
+
+	auto chan = g_csgo.m_engine->GetNetChannelInfo( );
+	if ( !chan || !g_csgo.m_net ) {
+		g_cl.m_saved_command.clear( );
+		return;
+	}
+
+	if ( *send_packet )
+		g_cl.m_saved_command.push_back( command_number );
+
+	else {
+		const auto current_choke = g_csgo.m_net->m_choked_packets;
+		g_csgo.m_net->m_choked_packets = 0;
+		g_csgo.m_net->SendDatagram( );
+		--g_csgo.m_net->m_out_seq;
+		g_csgo.m_net->m_choked_packets = current_choke;
+	}
 }
 
 void Client::SetAngles( ) {
 	if ( !g_cl.m_local || !g_cl.m_processing )
 		return;
 
-	//g_cl.m_local->m_fEffects() |= EF_NOINTERP;
+	g_cl.m_local->m_fEffects( ) |= EF_NOINTERP;
 
-	// apply the rotation.
 	g_cl.m_local->SetAbsAngles( m_rotation );
 	g_cl.m_local->m_angRotation( ) = m_rotation;
 	g_cl.m_local->m_angNetworkAngles( ) = m_rotation;
 
-	// set radar angles.
 	if ( g_csgo.m_input->CAM_IsThirdPerson( ) )
 		g_csgo.m_prediction->SetLocalViewAngles( m_radar );
-}
-
-void Client::ThirdPersonFSN( ) {
-	if (!g_cl.m_local || !g_cl.m_local->alive( ))
-		return;
-
-	if (g_csgo.m_input->CAM_IsThirdPerson( ))
-		*reinterpret_cast<ang_t*>( uintptr_t( g_cl.m_local ) + 0x31C4 + 0x4 ) = m_real_angle; // cancer.
 }
 
 void Client::UpdateAnimations( ) {
@@ -472,85 +380,13 @@ void Client::UpdateAnimations( ) {
 	if ( !state )
 		return;
 
-	// prevent model sway on player.
-	g_cl.m_local->m_AnimOverlay( )[12].m_weight = 0.f;
-
-	m_poses[pose_params::jump_fall] = 0.f;
-
-	// update animations with last networked data.
-	g_cl.m_local->SetPoseParameters( g_cl.m_poses );
-
-	// update abs yaw with last networked abs yaw.
-	g_cl.m_local->SetAbsAngles( ang_t( 0.f, g_cl.m_abs_yaw, 0.f ) );
+	g_cl.m_local->SetAbsAngles( ang_t( 0.f, m_abs_yaw, 0.f ) );
 }
 
-void Client::UpdateInformation( ) {
-	if ( g_cl.m_lag > 0 )
-		return;
-
-	CCSGOPlayerAnimState* state = g_cl.m_local->m_PlayerAnimState( );
-	if ( !state )
-		return;
-
-	// update time.
-	m_anim_frame = g_csgo.m_globals->m_curtime - m_anim_time;
-	m_anim_time = g_csgo.m_globals->m_curtime;
-
-	// current angle will be animated.
-	m_angle = g_cl.m_cmd->m_view_angles;
-
-	math::clamp( m_angle.x, -90.f, 90.f );
-	m_angle.normalize( );
-
-	// write angles to model.
-	g_csgo.m_prediction->SetLocalViewAngles( m_angle );
-
-	// set lby to predicted value.
-	g_cl.m_local->m_flLowerBodyYawTarget( ) = m_body;
-
-	// CCSGOPlayerAnimState::Update, bypass already animated checks.
-	if ( state->m_frame == g_csgo.m_globals->m_frame )
-		state->m_frame -= 1;
-
-	// call original, bypass hook.
-	if ( g_hooks.m_UpdateClientSideAnimation ) //not real fix but why not
-		g_hooks.m_UpdateClientSideAnimation( g_cl.m_local );
-
-	// get last networked poses.
-	g_cl.m_local->GetPoseParameters( g_cl.m_poses );
-
-	// store updated abs yaw.
-	g_cl.m_abs_yaw = state->m_goal_feet_yaw;
-
-	// we landed.
-	if ( !m_ground && state->m_ground ) {
-		m_body = m_angle.y;
-		m_body_pred = m_anim_time;
-	}
-
-	// walking, delay lby update by .22.
-	else if ( state->m_speed > 0.1f ) {
-		if ( state->m_ground )
-			m_body = m_angle.y;
-
-		m_body_pred = m_anim_time + 0.22f;
-	}
-
-	// standing update every 1.1s
-	else if ( m_anim_time > m_body_pred ) {
-		m_body = m_angle.y;
-		m_body_pred = m_anim_time + 1.1f;
-	}
-
-	// save updated data.
-	m_rotation = g_cl.m_local->m_angAbsRotation( );
-	m_speed = state->m_speed;
-	m_ground = state->m_ground;
-}
-
-void Client::UpdateLocal( ) {
-	if (g_cl.m_lag > 0)
-		return;
+void Client::UpdateLocal( )
+{
+	//if ( m_lag > 0 )
+		//return;
 
 	CCSGOPlayerAnimState* state = g_cl.m_local->m_PlayerAnimState( );
 	if ( !state )
@@ -568,33 +404,34 @@ void Client::UpdateLocal( ) {
 	g_csgo.m_globals->m_curtime = g_cl.m_local->m_nTickBase( ) * g_csgo.m_globals->m_interval;
 	g_csgo.m_globals->m_frametime = g_csgo.m_globals->m_interval;
 
-	//math::clamp( m_real_angle.x, -90.f, 90.f );
+	math::clamp( m_real_angle.x, -90.f, 90.f );
 	m_real_angle.normalize( );
 
-	// CCSGOPlayerAnimState::Update, bypass already animated checks.
 	if ( state->m_frame >= v4 )
 		state->m_frame -= 1;
 
 	if ( g_csgo.m_globals->m_curtime != state->m_time )
 	{
+		g_cl.m_update_anims = true;
 		g_cl.m_local->UpdateAnimationState( state, vec3_t( m_real_angle.x, m_real_angle.y, m_real_angle.z ) );
 		g_cl.m_local->UpdateClientSideAnimation( );
 		m_abs_yaw = state->m_goal_feet_yaw;
+
+		g_cl.m_update_anims = false;
 
 		g_cl.m_local->GetAnimLayers( backup_animlayer );
 		g_cl.m_local->GetPoseParameters( backup_poses );
 	}
 
 	auto ApplyLocalPlayerModifications = [&]( ) -> void {
-		// havent got updated layers and poses.
 		if ( !backup_animlayer || !backup_poses )
 			return;
 
-		// prevent model sway on player.
 		if ( backup_animlayer )
 			backup_animlayer[12].m_weight = 0.f;
 	};
 	ApplyLocalPlayerModifications( );
+
 
 	if ( backup_animlayer )
 		g_cl.m_local->SetAnimLayers( backup_animlayer );
@@ -603,6 +440,45 @@ void Client::UpdateLocal( ) {
 
 	g_csgo.m_globals->m_curtime = backup_curtime;
 	g_csgo.m_globals->m_frametime = backup_frametime;
+}
+
+void Client::UpdateInformation( ) {
+	if ( g_cl.m_lag > 0 )
+		return;
+
+	CCSGOPlayerAnimState* state = g_cl.m_local->m_PlayerAnimState( );
+	if ( !state )
+		return;
+
+	m_anim_frame = g_csgo.m_globals->m_curtime - m_anim_time;
+	m_anim_time = g_csgo.m_globals->m_curtime;
+
+	m_angle = g_cl.m_cmd->m_view_angles;
+
+	math::clamp( m_angle.x, -90.f, 90.f );
+	m_angle.normalize( );
+
+	g_cl.m_local->m_flLowerBodyYawTarget( ) = m_body;
+
+	if ( state->m_ground ) {
+		const float CSGO_ANIM_LOWER_REALIGN_DELAY = 1.1f;
+
+		if ( state->m_speed > 0.1f || fabsf( state->m_fall_velocity ) > 100.f ) {
+			g_cl.m_body_pred = g_cl.m_anim_time + ( CSGO_ANIM_LOWER_REALIGN_DELAY * 0.2f );
+			g_cl.m_body = m_angle.y;
+		}
+
+		else {
+			if ( g_cl.m_anim_time > g_cl.m_body_pred ) {
+				g_cl.m_body_pred = g_cl.m_anim_time + CSGO_ANIM_LOWER_REALIGN_DELAY;
+				g_cl.m_body = m_angle.y;
+			}
+		}
+	}
+
+	m_rotation = g_cl.m_local->m_angAbsRotation( );
+	m_speed = state->m_speed;
+	m_ground = state->m_ground;
 }
 
 void Client::print( const std::string text, ... ) {
@@ -623,34 +499,29 @@ void Client::print( const std::string text, ... ) {
 
 	va_end( list );
 
-	g_csgo.m_cvar->ConsoleColorPrintf( colors::accent, XOR( "__stdcall " ) );
+	// print to console.
+	g_csgo.m_cvar->ConsoleColorPrintf( g_menu.main.config.menu_color.get( ), XOR( "__stdcall " ) );
 	g_csgo.m_cvar->ConsoleColorPrintf( colors::white, buf.c_str( ) );
 }
 
 bool Client::CanFireWeapon( ) {
-	// the player cant fire.
 	if ( !m_player_fire )
 		return false;
 
 	if ( m_weapon_type == WEAPONTYPE_GRENADE )
 		return false;
 
-	// if we have no bullets, we cant shoot.
 	if ( m_weapon_type != WEAPONTYPE_KNIFE && m_weapon->m_iClip1( ) < 1 )
 		return false;
 
-	// do we have any burst shots to handle?
 	if ( ( m_weapon_id == GLOCK || m_weapon_id == FAMAS ) && m_weapon->m_iBurstShotsRemaining( ) > 0 ) {
-		// new burst shot is coming out.
 		if ( g_csgo.m_globals->m_curtime >= m_weapon->m_fNextBurstShot( ) )
 			return true;
 	}
 
-	// r8 revolver.
 	if ( m_weapon_id == REVOLVER ) {
 		int act = m_weapon->m_Activity( );
 
-		// mouse1.
 		if ( !m_revolver_fire ) {
 			if ( ( act == 185 || act == 193 ) && m_revolver_cock == 0 )
 				return g_csgo.m_globals->m_curtime >= m_weapon->m_flNextPrimaryAttack( );
@@ -659,7 +530,6 @@ bool Client::CanFireWeapon( ) {
 		}
 	}
 
-	// yeez we have a normal gun.
 	if ( g_csgo.m_globals->m_curtime >= m_weapon->m_flNextPrimaryAttack( ) )
 		return true;
 
@@ -710,6 +580,74 @@ void Client::UpdateIncomingSequences( ) {
 		m_sequences.emplace_front( g_csgo.m_globals->m_realtime, g_csgo.m_net->m_in_rel_state, g_csgo.m_net->m_in_seq );
 	}
 
-	while ( m_sequences.size( ) > 2048 )
+	while ( m_sequences.size( ) > 128 )
 		m_sequences.pop_back( );
+}
+
+void Client::MouseFix( CUserCmd* cmd ) {
+	static ang_t delta_viewangles{ };
+	ang_t delta = cmd->m_view_angles - delta_viewangles;
+
+	static ConVar* sensitivity = g_csgo.m_cvar->FindVar( HASH( "sensitivity" ) );
+
+	if ( delta.x != 0.f ) {
+		static ConVar* m_pitch = g_csgo.m_cvar->FindVar( HASH( "m_pitch" ) );
+
+		int final_dy = static_cast<int>( ( delta.x / m_pitch->GetFloat( ) ) / sensitivity->GetFloat( ) );
+		if ( final_dy <= 32767 ) {
+			if ( final_dy >= -32768 ) {
+				if ( final_dy >= 1 || final_dy < 0 ) {
+					if ( final_dy <= -1 || final_dy > 0 )
+						final_dy = final_dy;
+					else
+						final_dy = -1;
+				}
+				else {
+					final_dy = 1;
+				}
+			}
+			else {
+				final_dy = 32768;
+			}
+		}
+		else {
+			final_dy = 32767;
+		}
+
+		cmd->m_mousedy = static_cast<short>( final_dy );
+	}
+
+	if ( delta.y != 0.f ) {
+		static ConVar* m_yaw = g_csgo.m_cvar->FindVar( HASH( "m_yaw" ) );
+
+		int final_dx = static_cast<int>( ( delta.y / m_yaw->GetFloat( ) ) / sensitivity->GetFloat( ) );
+		if ( final_dx <= 32767 ) {
+			if ( final_dx >= -32768 ) {
+				if ( final_dx >= 1 || final_dx < 0 ) {
+					if ( final_dx <= -1 || final_dx > 0 )
+						final_dx = final_dx;
+					else
+						final_dx = -1;
+				}
+				else {
+					final_dx = 1;
+				}
+			}
+			else {
+				final_dx = 32768;
+			}
+		}
+		else {
+			final_dx = 32767;
+		}
+
+		cmd->m_mousedx = static_cast<short>( final_dx );
+	}
+
+	delta_viewangles = cmd->m_view_angles;
+}
+
+int Client::GetNextUpdate( ) const {
+	auto tick = game::TIME_TO_TICKS( m_body_pred - game::TICKS_TO_TIME( g_cl.m_local->m_nTickBase( ) * g_csgo.m_globals->m_interval ) );
+	return tick;
 }

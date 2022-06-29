@@ -1,12 +1,12 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project DefaultTargets="Build" ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup Label="ProjectConfigurations">
-    <ProjectConfiguration Include="Beta|Win32">
-      <Configuration>Beta</Configuration>
-      <Platform>Win32</Platform>
-    </ProjectConfiguration>
     <ProjectConfiguration Include="Debug|Win32">
       <Configuration>Debug</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Dev|Win32">
+      <Configuration>Dev</Configuration>
       <Platform>Win32</Platform>
     </ProjectConfiguration>
     <ProjectConfiguration Include="ReleaseEx|Win32">
@@ -27,7 +27,6 @@
     <ProjectGuid>{099DE97A-54D6-47DE-A760-7CA4184D45DB}</ProjectGuid>
     <RootNamespace>supremacy_csgo</RootNamespace>
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
-    <ProjectName>csgo_internal</ProjectName>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
@@ -43,7 +42,7 @@
     <WholeProgramOptimization>true</WholeProgramOptimization>
     <CharacterSet>MultiByte</CharacterSet>
   </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Beta|Win32'" Label="Configuration">
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Dev|Win32'" Label="Configuration">
     <ConfigurationType>DynamicLibrary</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
     <PlatformToolset>v143</PlatformToolset>
@@ -75,7 +74,7 @@
   <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
   </ImportGroup>
-  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Beta|Win32'" Label="PropertySheets">
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Dev|Win32'" Label="PropertySheets">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
   </ImportGroup>
   <ImportGroup Condition="'$(Configuration)|$(Platform)'=='ReleaseEx|Win32'" Label="PropertySheets">
@@ -89,10 +88,14 @@
     <LinkIncremental>
     </LinkIncremental>
     <OutDir>.\output\release\</OutDir>
+    <IncludePath>C:\Users\sean\Desktop\good cobalt\minhook;$(IncludePath)</IncludePath>
+    <LibraryPath>C:\Users\sean\Desktop\good cobalt\minhook;C:\Users\sean\Desktop\good cobalt;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Beta|Win32'">
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Dev|Win32'">
     <LinkIncremental />
     <OutDir>.\output\release\</OutDir>
+    <IncludePath>C:\Sources\Include;C:\Users\sean\Desktop\good cobalt\minhook;$(IncludePath)</IncludePath>
+    <LibraryPath>C:\Sources\Include;C:\Users\sean\Desktop\good cobalt\minhook;C:\Users\sean\Desktop\good cobalt;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='ReleaseEx|Win32'">
     <LinkIncremental />
@@ -103,8 +106,8 @@
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <OutDir>.\output</OutDir>
-    <IncludePath>C:\Program Files %28x86%29\Microsoft DirectX SDK %28June 2010%29\Include;$(IncludePath)</IncludePath>
-    <LibraryPath>C:\Program Files %28x86%29\Microsoft DirectX SDK %28June 2010%29\Lib\x86;$(LibraryPath)</LibraryPath>
+    <IncludePath>C:\Sources\Include;$(VC_IncludePath);$(WindowsSDK_IncludePath);</IncludePath>
+    <LibraryPath>C:\Sources\Include;$(VC_LibraryPath_x86);$(WindowsSDK_LibraryPath_x86)</LibraryPath>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
@@ -149,7 +152,6 @@
       <FloatingPointModel>Fast</FloatingPointModel>
       <StringPooling>true</StringPooling>
       <Cpp0xSupport>true</Cpp0xSupport>
-      <LanguageStandard_C>stdc17</LanguageStandard_C>
     </ClCompile>
     <Link>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
@@ -158,7 +160,7 @@
       <FullProgramDatabaseFile>true</FullProgramDatabaseFile>
     </Link>
   </ItemDefinitionGroup>
-  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Beta|Win32'">
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Dev|Win32'">
     <ClCompile>
       <WarningLevel>TurnOffAllWarnings</WarningLevel>
       <Optimization>MaxSpeed</Optimization>
@@ -179,7 +181,6 @@
       <FloatingPointModel>Fast</FloatingPointModel>
       <StringPooling>true</StringPooling>
       <Cpp0xSupport>true</Cpp0xSupport>
-      <LanguageStandard_C>stdc17</LanguageStandard_C>
     </ClCompile>
     <Link>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
@@ -267,6 +268,7 @@
     <ClInclude Include="color.h" />
     <ClInclude Include="colorpicker.h" />
     <ClInclude Include="config.h" />
+    <ClInclude Include="CPlayerResource.h" />
     <ClInclude Include="csgo.h" />
     <ClInclude Include="cvar.h" />
     <ClInclude Include="datamap.h" />
@@ -287,6 +289,7 @@
     <ClInclude Include="grenades.h" />
     <ClInclude Include="gui.h" />
     <ClInclude Include="hash.h" />
+    <ClInclude Include="hitsounds.h" />
     <ClInclude Include="hooks.h" />
     <ClInclude Include="hud.h" />
     <ClInclude Include="hvh.h" />
@@ -304,7 +307,7 @@
     <ClInclude Include="matrix.h" />
     <ClInclude Include="memalloc.h" />
     <ClInclude Include="menu.h" />
-    <ClInclude Include="modelcahce.h" />
+    <ClInclude Include="modelcache.h" />
     <ClInclude Include="modules.h" />
     <ClInclude Include="movement.h" />
     <ClInclude Include="multidropdown.h" />
@@ -380,6 +383,7 @@
     <ClCompile Include="clientdll.cpp" />
     <ClCompile Include="shots.cpp" />
     <ClCompile Include="skins.cpp" />
+    <ClCompile Include="CPlayerResource.cpp" />
     <ClCompile Include="surface.cpp" />
     <ClCompile Include="math.cpp" />
     <ClCompile Include="movement.cpp" />
@@ -399,6 +403,10 @@
     <ClCompile Include="slider.cpp" />
     <ClCompile Include="visuals.cpp" />
     <ClCompile Include="wndproc.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <Library Include="minhook.lib" />
+    <Library Include="minhook\mihook-mtd.lib" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

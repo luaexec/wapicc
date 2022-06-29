@@ -37,6 +37,7 @@ struct CBaseTrace;
 #include "globalvars.h"
 #include "input.h"
 #include "surface.h"
+#include "modelcache.h"
 #include "glow.h"
 #include "studio.h"
 #include "prediction.h"
@@ -49,4 +50,3 @@ struct CBaseTrace;
 #include "beams.h"
 #include "networkstringtable.h"
 #include "sound.h"
-#include "modelcahce.h"

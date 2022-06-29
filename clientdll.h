@@ -35,10 +35,11 @@ public:
 		HUDPROCESSINPUT     = 10,
 		INACTIVATEMOUSE     = 15,
 		INKEYEVENT          = 20,
-		CREATEMOVE          = 21, // 21
+		CREATEMOVE          = 21,
 		RENDERVIEW          = 27,
-		FRAMESTAGENOTIFY    = 36, // 36
+		FRAMESTAGENOTIFY    = 36,
 		DISPATCHUSERMESSAGE = 37,
+		USRCMDTODELTABUFFER = 23,
 	};
 
 public:

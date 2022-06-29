@@ -20,24 +20,3 @@ void Hooks::PostDataUpdate( DataUpdateType_t type ) {
 
 	g_hooks.m_fire_bullets.GetOldMethod< PostDataUpdate_t >( 7 )( this, type );
 }
-
-void Hooks::StandardBlendingRules(int a2, int a3, int a4, int a5, int a6)
-{
-
-	// cast thisptr to player ptr.
-	Player* player = (Player*)this;
-
-	if (!player || (player->index() - 1) > 63)
-		return g_hooks.m_StandardBlendingRules(this, a2, a3, a4, a5, a6);
-
-	// disable interpolation.
-	//if (!(player->m_fEffects() & EF_NOINTERP))
-		//player->m_fEffects() |= EF_NOINTERP;
-
-	g_hooks.m_StandardBlendingRules(this, a2, a3, a4, a5, a6);
-
-	// restore interpolation.
-	//player->m_fEffects() &= ~EF_NOINTERP;
-
-
-}

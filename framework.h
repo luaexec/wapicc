@@ -11,7 +11,7 @@ namespace gui {
 	__forceinline float m_alpha( float _alpha = 255.f ) { return _alpha * m_anim; }
 
 	__forceinline void animate( bool condition, float speed, float& anim ) {
-		if ( condition ) { anim += speed * g_csgo.m_globals->m_frametime; }
+		if (condition) { anim += speed * g_csgo.m_globals->m_frametime; }
 		else { anim -= speed * g_csgo.m_globals->m_frametime; }
 		anim = std::clamp( anim, 0.f, 1.f );
 	}
@@ -95,17 +95,17 @@ namespace gui {
 		bool begin( std::string title ) {
 			animate( m_open, 4.5f, m_anim );
 
-			if ( g_input.GetKeyPress( VK_INSERT ) )
+			if (g_input.GetKeyPress( VK_INSERT ))
 				m_open = !m_open;
 
 			m_accent = config["menu_accent"].get_color( 255 );
 
 			static vec2_t c_pos{}, c_mpos{};
 			static auto c_press = false;
-			if ( g_input.hovered( m_pos, m_size.x / 2, 15 ) && g_input.GetKeyPress( 0x01 ) )
+			if (g_input.hovered( m_pos, m_size.x / 2, 15 ) && g_input.GetKeyPress( 0x01 ))
 				c_press = true;
 
-			if ( c_press ) {
+			if (c_press) {
 				m_pos.x = c_mpos.x + ( ( g_input.m_mouse.x ) - c_pos.x );
 				m_pos.y = c_mpos.y + ( ( g_input.m_mouse.y ) - c_pos.y );
 				c_press = g_input.GetKeyState( 0x01 );
@@ -114,10 +114,10 @@ namespace gui {
 
 			static vec2_t c_size{}, c_m_size{};
 			static auto c_spress = false;
-			if ( g_input.hovered( m_pos + m_size - vec2_t( 8, 8 ), 8, 8 ) && g_input.GetKeyPress( 0x01 ) )
+			if (g_input.hovered( m_pos + m_size - vec2_t( 8, 8 ), 8, 8 ) && g_input.GetKeyPress( 0x01 ))
 				c_spress = true;
 
-			if ( c_spress ) {
+			if (c_spress) {
 				m_size.x = c_m_size.x + ( ( g_input.m_mouse.x ) - c_size.x );
 				m_size.y = c_m_size.y + ( ( g_input.m_mouse.y ) - c_size.y );
 				c_spress = g_input.GetKeyState( 0x01 );
@@ -246,7 +246,7 @@ namespace gui {
 	public:
 		bool open{ false };
 	public:
-		dropdown_t( std::string _t, std::string _v, value_t def, std::vector<std::string> _e) {
+		dropdown_t( std::string _t, std::string _v, value_t def, std::vector<std::string> _e ) {
 			title = _t; var = _v; elements = _e;
 
 			bool found = config.find( var ) != config.end( );
@@ -263,7 +263,7 @@ namespace gui {
 			float size = tab_area( false ).x - 30.f;
 			render::rect_filled( area.x + 9, area.y + 15, size, 20, palette::med.alpha( m_alpha( ) ) );
 			render::rect( area.x + 9, area.y + 15, size, 20, palette::light.alpha( m_alpha( ) ) );
-				
+
 			render::esp.string( area.x + 12, area.y + 18, colors::white.alpha( m_alpha( ) ), elements[config[var].get<int>( )] );
 
 			if (g_input.GetKeyPress( 0x01 )) {
@@ -276,7 +276,7 @@ namespace gui {
 
 		void finish( vec2_t area ) {
 			float size = tab_area( false ).x - 30.f;
-			render::rect_filled( area.x + 9, area.y + 35, size, 10 + (elements.size( ) * 15), palette::med.alpha( m_alpha( 255.f * anim ) ) );
+			render::rect_filled( area.x + 9, area.y + 35, size, 10 + ( elements.size( ) * 15 ), palette::med.alpha( m_alpha( 255.f * anim ) ) );
 			render::rect( area.x + 9, area.y + 35, size, 10 + ( elements.size( ) * 15 ), palette::light.alpha( m_alpha( 255.f * anim ) ) );
 
 			int i{ 0 }, selection{ config[var].get<int>( ) };
@@ -286,7 +286,7 @@ namespace gui {
 
 				render::esp.string( area.x + 12 + ( selection == i ? 5 * anim : 0 ), area.y + 40 + ( i * 15 ), ( selection == i ? m_accent : colors::white ).alpha( m_alpha( 255.f * anim ) ), e );
 
-				if ( g_input.GetKeyPress( 0x01 ) && g_input.hovered( area.x + 9, area.y + 40 + ( i * 15 ), size, 15 ) ) {
+				if (g_input.GetKeyPress( 0x01 ) && g_input.hovered( area.x + 9, area.y + 40 + ( i * 15 ), size, 15 )) {
 					config[var].set<int>( i );
 					open = false;
 				}
@@ -346,8 +346,8 @@ namespace gui {
 
 			render::esp.string( area.x + 12, area.y + 18, colors::white.alpha( m_alpha( ) ), preview );
 
-			if ( g_input.GetKeyPress( 0x01 ) ) {
-				if ( (g_input.hovered( area.x + 9, area.y + 15, size, 20 ) && ( use || open ) ) || ( !g_input.hovered( area.x + 9, area.y + 35, size, 10 + ( items.size( ) * 15 ) ) && open ))
+			if (g_input.GetKeyPress( 0x01 )) {
+				if (( g_input.hovered( area.x + 9, area.y + 15, size, 20 ) && ( use || open ) ) || ( !g_input.hovered( area.x + 9, area.y + 35, size, 10 + ( items.size( ) * 15 ) ) && open ))
 					open = !open;
 			}
 
@@ -418,7 +418,8 @@ namespace gui {
 				render::round_rect( draw.x + size - 15 - ( float( sz ) / 2.f ), draw.y - 5 - ( 5 * hanim ), sz, 15, 2, palette::light.alpha( m_alpha( 255.f * hanim ) ) );
 				render::round_rect( draw.x + size - 14 - ( float( sz ) / 2.f ), draw.y - 4 - ( 5 * hanim ), sz - 2, 13, 2, palette::med.alpha( m_alpha( 255.f * hanim ) ) );
 				render::esp.string( draw.x + size - 10 - ( float( sz ) / 2.f ), draw.y - 3 - ( 5 * hanim ), colors::white.alpha( m_alpha( 255.f * hanim ) ), title );
-			} else
+			}
+			else
 				hanim -= 4.f * g_csgo.m_globals->m_frametime;
 			hanim = std::clamp( hanim, 0.f, 1.f );
 
@@ -440,7 +441,7 @@ namespace gui {
 			auto tab = tab_area( false ).x - 20 - 2;
 			auto size = vec2_t( 200, 200 );
 			auto draw = area - ( in_line ? vec2_t( 0, 20 ) : vec2_t( 0, 0 ) ) + offset + vec2_t( tab, 0.f ) - vec2_t( size.x, 0.f );
-			
+
 			auto rgb{ config[var].get_color( ) };
 			auto hsv{ Color::rgb_to_hsv( rgb.r( ), rgb.g( ), rgb.b( ) ) };
 
@@ -602,13 +603,13 @@ namespace gui {
 				binding = !binding;
 			}
 
-			if ( binding ) {
+			if (binding) {
 				for (int _key = 2; _key < 256; _key++) {
-					if ( g_input.GetKeyPress( _key ) ) {
-						if ( _key == VK_ESCAPE ) {
+					if (g_input.GetKeyPress( _key )) {
+						if (_key == VK_ESCAPE) {
 							binding = false;
 						}
-						else if ( _key == VK_BACK ) {
+						else if (_key == VK_BACK) {
 							config[var].set<int>( 0 );
 							binding = false;
 						}
@@ -641,7 +642,7 @@ namespace gui {
 			for (auto m : modes) {
 				bool s = config[mode].get<int>( ) == i;
 
-				if ( s )
+				if (s)
 					render::gradient1337( area.x + tab - size.x + 2, area.y + 7 + ( i * 15 ), size.x - 4, 11, m_accent.alpha( m_alpha( 55 ) ), colors::black.alpha( m_alpha( 0 ) ) );
 
 				render::esp.string( area.x + tab - size.x + 9 + ( 5 * int( s ) ), area.y + 5 + ( i * 15 ), ( s ? m_accent : colors::white ).alpha( m_alpha( ) ), m );
@@ -741,7 +742,7 @@ namespace gui {
 			if (colorpicker.has_value( ) && ( colorpicker->primary || colorpicker->secondary ))
 				return colorpicker->finish( area );
 
-			if (hotkey.has_value( ) && hotkey->open )
+			if (hotkey.has_value( ) && hotkey->open)
 				return hotkey->finish( area );
 		}
 

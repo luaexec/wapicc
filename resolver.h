@@ -26,35 +26,35 @@ public:
 	};
 
 public:
-	LagRecord* FindIdealRecord(AimPlayer* data);
-	LagRecord* FindLastRecord(AimPlayer* data);
+	LagRecord* FindIdealRecord( AimPlayer* data );
+	LagRecord* FindLastRecord( AimPlayer* data );
 
-	bool ResolveBodyUpdates(Player* player, LagRecord* record);
-	void OnBodyUpdate(Player* player, float value);
-	float GetAwayAngle(LagRecord* record);
+	bool ResolveBodyUpdates( Player* player, LagRecord* record );
+	void OnBodyUpdate( Player* player, float value );
+	float GetAwayAngle( LagRecord* record );
 
-	bool MatchShot(AimPlayer* data, LagRecord* record);
-	void SetMode(LagRecord* record);
+	bool MatchShot( AimPlayer* data, LagRecord* record );
+	void SetMode( LagRecord* record );
 
-	void collect_wall_detect(const Stage_t stage);
-	bool AntiFreestanding(Player* entity, AimPlayer* data, float& yaw);
+	void collect_wall_detect( const Stage_t stage );
+	bool AntiFreestanding( Player* entity, AimPlayer* data, float& yaw );
 
-	void ResolveAngles(Player* player, LagRecord* record);
-	void ResolveWalk(AimPlayer* data, LagRecord* record);
-	void FindBestAngle(LagRecord* record);
-	Directions HandleDirections(AimPlayer* data);
-	void ResolveStand(AimPlayer* data, LagRecord* record);
-	void ResolveAir(AimPlayer* data, LagRecord* record);
-	void ResolvePoses(Player* player, LagRecord* record);
+	void ResolveAngles( Player* player, LagRecord* record );
+	void ResolveWalk( AimPlayer* data, LagRecord* record );
+	void FindBestAngle( LagRecord* record );
+	Directions HandleDirections( AimPlayer* data, int ticks = 10, float threshold = 20.f );
+	void ResolveStand( AimPlayer* data, LagRecord* record );
+	void ResolveAir( AimPlayer* data, LagRecord* record );
+	void ResolvePoses( Player* player, LagRecord* record );
 
 public:
 	std::array< vec3_t, 64 > m_impacts;
 	int m_runtime[64];
 
 	// check if the players yaw is sideways.
-	__forceinline bool IsLastMoveValid(LagRecord* record, float m_yaw) {
-		const auto away = GetAwayAngle(record);
-		const float delta = fabs(math::NormalizedAngle(away - m_yaw));
+	__forceinline bool IsLastMoveValid( LagRecord* record, float m_yaw ) {
+		const auto away = GetAwayAngle( record );
+		const float delta = fabs( math::NormalizedAngle( away - m_yaw ) );
 		return delta > 20.f && delta < 160.f;
 	}
 

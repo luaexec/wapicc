@@ -18,25 +18,25 @@ public:
 		CBoneCache* cache = &player->m_BoneCache( );
 
 		// store bone data.
-		m_bones      = cache->m_pCachedBones;
+		m_bones = cache->m_pCachedBones;
 		m_bone_count = cache->m_CachedBoneCount;
-		m_origin     = player->m_vecOrigin( );
-		m_mins       = player->m_vecMins( );
-		m_maxs       = player->m_vecMaxs( );
+		m_origin = player->m_vecOrigin( );
+		m_mins = player->m_vecMins( );
+		m_maxs = player->m_vecMaxs( );
 		m_abs_origin = player->GetAbsOrigin( );
-		m_abs_ang    = player->GetAbsAngles( );
+		m_abs_ang = player->GetAbsAngles( );
 	}
 
 	__forceinline void restore( Player* player ) {
 		// get bone cache ptr.
 		CBoneCache* cache = &player->m_BoneCache( );
 
-		cache->m_pCachedBones    = m_bones;
+		cache->m_pCachedBones = m_bones;
 		cache->m_CachedBoneCount = m_bone_count;
 
 		player->m_vecOrigin( ) = m_origin;
-		player->m_vecMins( )   = m_mins;
-		player->m_vecMaxs( )   = m_maxs;
+		player->m_vecMins( ) = m_mins;
+		player->m_vecMaxs( ) = m_maxs;
 		player->SetAbsAngles( m_abs_ang );
 		player->SetAbsOrigin( m_origin );
 	}
@@ -66,8 +66,8 @@ public:
 	float  m_duck;
 
 	// anim stuff.
-	C_AnimationLayer m_layers[ 13 ];
-	float            m_poses[ 24 ];
+	C_AnimationLayer m_layers[13];
+	float            m_poses[24];
 	vec3_t           m_anim_velocity;
 
 	// bone stuff.
@@ -83,40 +83,43 @@ public:
 
 	// resolver stuff.
 	size_t m_mode;
-	bool   m_fake_walk;
+	bool   m_fake_walk, m_fake_flick;
 	bool   m_shot;
 	float  m_away;
 	float  m_anim_time;
 
 	// other stuff.
 	float  m_interp_time;
+	float  m_choke_time;
 
-	std::string m_resolver = XOR("def");
+	std::string m_resolver = XOR( "def" );
 public:
 
 	// default ctor.
-	__forceinline LagRecord( ) : 
-		m_setup{ false }, 
+	__forceinline LagRecord( ) :
+		m_setup{ false },
 		m_broke_lc{ false },
-		m_fake_walk{ false }, 
-		m_shot{ false }, 
-		m_lag{}, 
+		m_fake_walk{ false },
+		m_fake_flick{ false },
+		m_shot{ false },
+		m_lag{},
 		m_bones{} {}
 
 	// ctor.
-	__forceinline LagRecord( Player* player ) : 
-		m_setup{ false }, 
+	__forceinline LagRecord( Player* player ) :
+		m_setup{ false },
 		m_broke_lc{ false },
 		m_fake_walk{ false },
-		m_shot{ false }, 
-		m_lag{}, 
+		m_fake_flick{ false },
+		m_shot{ false },
+		m_lag{},
 		m_bones{} {
 
 		store( player );
 	}
 
 	// dtor.
-	__forceinline ~LagRecord( ){
+	__forceinline ~LagRecord( ) {
 		// free heap allocated game mem.
 		g_csgo.m_mem_alloc->Free( m_bones );
 	}
@@ -129,31 +132,31 @@ public:
 		m_setup = false;
 
 		// allocate new memory.
-		m_bones = ( BoneArray* )g_csgo.m_mem_alloc->Alloc( sizeof( BoneArray ) * 128 );
+		m_bones = (BoneArray*)g_csgo.m_mem_alloc->Alloc( sizeof( BoneArray ) * 128 );
 	}
 
 	// function: allocates memory for SetupBones and stores relevant data.
 	void store( Player* player ) {
 		// allocate game heap.
-		m_bones = ( BoneArray* )g_csgo.m_mem_alloc->Alloc( sizeof( BoneArray ) * 128 );
+		m_bones = (BoneArray*)g_csgo.m_mem_alloc->Alloc( sizeof( BoneArray ) * 128 );
 
 		// player data.
-		m_player    = player;
-		m_immune    = player->m_fImmuneToGunGameDamageTime( );
-		m_tick      = g_csgo.m_cl->m_server_tick;
-	
+		m_player = player;
+		m_immune = player->m_fImmuneToGunGameDamageTime( );
+		m_tick = g_csgo.m_cl->m_server_tick;
+
 		// netvars.
-		m_pred_time     = m_sim_time = player->m_flSimulationTime( );
-		m_old_sim_time  = player->m_flOldSimulationTime( );
-		m_pred_flags    = m_flags  = player->m_fFlags( );
-		m_pred_origin   = m_origin = player->m_vecOrigin( );
-		m_old_origin    = player->m_vecOldOrigin( );
-		m_eye_angles    = player->m_angEyeAngles( );
-		m_abs_ang       = player->GetAbsAngles( );
-		m_body          = player->m_flLowerBodyYawTarget( );
-		m_mins          = player->m_vecMins( );
-		m_maxs          = player->m_vecMaxs( );
-		m_duck          = player->m_flDuckAmount( );
+		m_pred_time = m_sim_time = player->m_flSimulationTime( );
+		m_old_sim_time = player->m_flOldSimulationTime( );
+		m_pred_flags = m_flags = player->m_fFlags( );
+		m_pred_origin = m_origin = player->m_vecOrigin( );
+		m_old_origin = player->m_vecOldOrigin( );
+		m_eye_angles = player->m_angEyeAngles( );
+		m_abs_ang = player->GetAbsAngles( );
+		m_body = player->m_flLowerBodyYawTarget( );
+		m_mins = player->m_vecMins( );
+		m_maxs = player->m_vecMaxs( );
+		m_duck = player->m_flDuckAmount( );
 		m_pred_velocity = m_velocity = player->m_vecVelocity( );
 
 		// save networked animlayers.
@@ -172,11 +175,11 @@ public:
 
 	// function: restores 'predicted' variables to their original.
 	__forceinline void predict( ) {
-		m_broke_lc      = false;
-		m_pred_origin   = m_origin;
+		m_broke_lc = false;
+		m_pred_origin = m_origin;
 		m_pred_velocity = m_velocity;
-		m_pred_time     = m_sim_time;
-		m_pred_flags    = m_flags;
+		m_pred_time = m_sim_time;
+		m_pred_flags = m_flags;
 	}
 
 	// function: writes current record to bone cache.
@@ -184,12 +187,12 @@ public:
 		// get bone cache ptr.
 		CBoneCache* cache = &m_player->m_BoneCache( );
 
-		cache->m_pCachedBones    = m_bones;
+		cache->m_pCachedBones = m_bones;
 		cache->m_CachedBoneCount = 128;
 
 		m_player->m_vecOrigin( ) = m_pred_origin;
-		m_player->m_vecMins( )   = m_mins;
-		m_player->m_vecMaxs( )   = m_maxs;
+		m_player->m_vecMins( ) = m_mins;
+		m_player->m_vecMaxs( ) = m_maxs;
 
 		m_player->SetAbsAngles( m_abs_ang );
 		m_player->SetAbsOrigin( m_pred_origin );
@@ -205,8 +208,8 @@ public:
 
 	// function: checks if LagRecord obj is hittable if we were to fire at it now.
 	bool valid( ) {
-		// use prediction curtime for this.
-		float curtime = game::TICKS_TO_TIME( g_cl.m_local->m_nTickBase( ) );
+		// use prediction curtime for this, account for tickbase shifting.
+		float curtime = game::TICKS_TO_TIME( g_cl.m_local->m_nTickBase( ) - g_cl.ticksToShift );
 
 		// correct is the amount of time we have to correct game time,
 		float correct = g_cl.m_lerp + g_cl.m_latency;
@@ -218,8 +221,13 @@ public:
 		// check bounds [ 0, sv_maxunlag ]
 		math::clamp( correct, 0.f, g_csgo.sv_maxunlag->GetFloat( ) );
 
+		float delta = fabsf( correct - ( curtime - m_sim_time ) );
+
+		if (delta > 0.2f)
+			return false;
+
 		// calculate difference between tick sent by player and our latency based tick.
 		// ensure this record isn't too old.
-		return std::abs( correct - ( curtime - m_sim_time ) ) < 0.19f;
+		return true;
 	}
 };

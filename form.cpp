@@ -1,4 +1,4 @@
-#include "includes.h"
+﻿#include "includes.h"
 
 void Form::draw( ) {
 	// opacity should reach 1 in 500 milliseconds.
@@ -14,77 +14,96 @@ void Form::draw( ) {
 	// clamp the opacity.
 	math::clamp( m_opacity, 0.f, 1.f );
 
-	m_alpha = 0xff * m_opacity;
-	if( !m_alpha )
+	m_alpha = 255;
+	if (!m_open)
 		return;
 
-	// get gui color.
-	Color color = g_gui.m_color;
-	color.a( ) = m_alpha;
-
 	// background.
-	render::rect_filled( m_x, m_y, m_width, m_height, { 252,252,252, m_alpha } );
+	render::rect_filled( m_x, m_y, m_width, m_height, g_gui.background );
+
+	// élement "gr oupboxes"
+	for (int i = 0; i < 2; ++i)
+	{
+		//bg
+		render::rect_filled( m_x + 11 + ( i * ( ( m_width / 2 ) - 5 ) - 1 ), m_y + 10, ( m_width / 2 ) - 15, m_height - 22, g_gui.background );
+
+		//render::gradient(m_x + 11 + (i * ((m_width / 2) - 5) - 1) + 1, m_y + 10 + 1, ((m_width / 2) - 15) / 2, 1, Color(0, 0, 0, 0), g_gui.m_color, true);
+		//render::gradient(m_x + 11 + (i * ((m_width / 2) - 5) - 1) + 1 + ((m_width / 2) - 15) / 2, m_y + 10 + 1, ((m_width / 2) - 15) / 2, 1, g_gui.m_color, Color(0, 0, 0, 0), true);
 
 
-	// border.
-	render::rect( m_x, m_y, m_width, m_height, { 5, 5, 5, m_alpha } );
-	render::rect( m_x + 1, m_y + 1, m_width - 2, m_height - 2, { 224,224,224, m_alpha } );
-	render::rect( m_x + 2, m_y + 2, m_width - 4, m_height - 4, { 224,224,224, m_alpha } );
-	render::rect( m_x + 3, m_y + 3, m_width - 6, m_height - 6, { 224,224,224, m_alpha } );
-	render::rect( m_x + 4, m_y + 4, m_width - 8, m_height - 8, { 224,224,224, m_alpha } );
-	render::rect( m_x + 5, m_y + 5, m_width - 10, m_height - 10, { 224,224,224, m_alpha } );
+		//outline
+		render::rect( m_x + 11 + ( i * ( ( m_width / 2 ) - 5 ) - 1 ), m_y + 10, ( m_width / 2 ) - 15, m_height - 22, g_gui.dark_border );
+		render::rect( m_x + 11 + ( i * ( ( m_width / 2 ) - 5 ) - 1 ) - 1, m_y + 10 - 1, ( m_width / 2 ) - 15 + 2, m_height - 22 + 2, g_gui.light_border );
 
-	// draw tabs if we have any.
-	if( !m_tabs.empty( ) ) {
+	}
+
+
+	if (!m_tabs.empty( )) {
 		// tabs background and border.
 		Rect tabs_area = GetTabsRect( );
+		render::rect_filled( tabs_area.x, tabs_area.y, tabs_area.w, tabs_area.h, g_gui.background );
+		//render::gradient(tabs_area.x + 1, tabs_area.y + 1, tabs_area.w / 2, 1, Color(0, 0, 0, 0), g_gui.m_color, true);
+		//render::gradient(tabs_area.x + 1 + tabs_area.w / 2, tabs_area.y + 1, tabs_area.w / 2, 1, g_gui.m_color, Color(0, 0, 0, 0), true);
+		render::rect( tabs_area.x, tabs_area.y, tabs_area.w, tabs_area.h, g_gui.light_border );
+		for (short i = 1; i < 4; i++)
+			render::rect( tabs_area.x - i, tabs_area.y - i, tabs_area.w + i * 2, tabs_area.h + i * 2, g_gui.wide_border );
+		render::rect( tabs_area.x - 1, tabs_area.y - 1, tabs_area.w + 2, tabs_area.h + 2, g_gui.dark_border );
+		size_t font_w = 8;
 
-		render::rect_filled( tabs_area.x, tabs_area.y, tabs_area.w, tabs_area.h, { 241,241,241, m_alpha } );
-		render::rect( tabs_area.x, tabs_area.y, tabs_area.w, tabs_area.h, { 224,224,224, m_alpha } );
-		render::rect( tabs_area.x + 1, tabs_area.y + 1, tabs_area.w - 2, tabs_area.h - 2, { 224,224,224, m_alpha } );
+		render::rect( tabs_area.x - 1, tabs_area.y - 1, tabs_area.w + 2, tabs_area.h + 2, g_gui.dark_border );
+		render::menu.string( tabs_area.x + tabs_area.w - render::menu.size( XOR( "wapicc" ) ).m_width - 5, tabs_area.y + 6, g_gui.font_color, XOR( "wapicc" ) );
+		//render::gradient(m_x + 1, m_y + 1, m_width / 2, 1, Color(0, 0, 0, 0), g_gui.m_color, true);
+		//render::gradient(m_x + 1 + m_width / 2, m_y + 1, m_width / 2, 1, g_gui.m_color, Color(0, 0, 0, 0), true);
+		render::rect( m_x, m_y, m_width, m_height, g_gui.light_border );
+		for (short i = 1; i < 4; i++)
+			render::rect( m_x - i, m_y - i, m_width + i * 2, m_height + i * 2, g_gui.wide_border );
+		render::rect( m_x - 1, m_y - 1, m_width + 2, m_height + 2, g_gui.dark_border );
+		for (size_t i{}; i < m_tabs.size( ); ++i) {
+			const auto& t = m_tabs[i];
 
-		for( size_t i{}; i < m_tabs.size( ); ++i ) {
-			const auto& t = m_tabs[ i ];
+			// text
+			render::menu.string( tabs_area.x + font_w, tabs_area.y + 6,
+				t == m_active_tab ? g_gui.m_color : g_gui.font_color, t->m_title );
+			font_w += render::menu.size( t->m_title ).m_width + 5;
 
-			render::menu_shade.string( tabs_area.x + 10, tabs_area.y + 5 + ( i * 16 ),
-							 t == m_active_tab ? color : Color{ 152, 152, 152, m_alpha },
-							 t->m_title );
+			// active tab indicator
+	/*		render::rect_filled_fade(tabs_area.x + (i * (tabs_area.w / m_tabs.size())) + 10, tabs_area.y + 14,
+				font_width + 11, 2,
+				t == m_active_tab ? Color{ 0, 0, 0, 0 } : Color{ 0, 0, 0, m_alpha }, 0, 150);*/
+
+
 		}
 
 		// this tab has elements.
-		if( !m_active_tab->m_elements.empty( ) ) {
+		if (!m_active_tab->m_elements.empty( )) {
 			// elements background and border.
 			Rect el = GetElementsRect( );
 
-			render::rect_filled( el.x, el.y, el.w, el.h, { 241,241,241, m_alpha } );
-			render::rect( el.x, el.y, el.w, el.h, { 224,224,224, m_alpha } );
-			render::rect( el.x + 1, el.y + 1, el.w - 2, el.h - 2, { 224,224,224, m_alpha } );
-
-            std::string date = XOR( __DATE__ );
-
-			std::string text = tfm::format( XOR( "%s | %s" ), date.c_str( ), g_cl.m_user );
-			render::menu_shade.string( el.x + el.w - 5, el.y + el.h - 16, { 152, 152, 152, m_alpha }, text, render::ALIGN_RIGHT );
-
 			// iterate elements to display.
-			for( const auto& e : m_active_tab->m_elements ) {
+			for (const auto& e : m_active_tab->m_elements) {
 
 				// draw the active element last.
-				if( !e || ( m_active_element && e == m_active_element ) )
+				if (!e || ( m_active_element && e == m_active_element ))
 					continue;
 
-				if( !e->m_show )
+				if (!e->m_show)
 					continue;
 
 				// this element we dont draw.
-				if( !( e->m_flags & ElementFlags::DRAW ) )
+				if (!( e->m_flags & ElementFlags::DRAW ))
 					continue;
 
 				e->draw( );
 			}
 
 			// we still have to draw one last fucker.
-			if( m_active_element && m_active_element->m_show )
+			if (m_active_element && m_active_element->m_show)
 				m_active_element->draw( );
 		}
+		//so other shit doesnt overlap it
+		// border.
+
+
+
 	}
 }

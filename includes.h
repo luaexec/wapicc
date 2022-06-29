@@ -13,6 +13,9 @@
 #define WIN32_LEAN_AND_MEAN
 #define NOMINMAX
 
+#pragma comment( lib, "minhook.lib" )
+#pragma comment( lib, "mihook-mtd.lib" )
+
 using ulong_t = unsigned long;
 
 // windows / stl includes.
@@ -65,6 +68,7 @@ using ulong_t = unsigned long;
 #include "csgo.h"
 #include "penetration.h"
 #include "netvars.h"
+#include "CPlayerResource.h"
 #include "entoffsets.h"
 #include "entity.h"
 #include "client.h"

@@ -7,9 +7,9 @@ public:
 
 public:
 	// ctor.
-	__forceinline AdaptiveAngle(float yaw, float penalty = 0.f) {
+	__forceinline AdaptiveAngle( float yaw, float penalty = 0.f ) {
 		// set yaw.
-		m_yaw = math::NormalizedAngle(yaw);
+		m_yaw = math::NormalizedAngle( yaw );
 
 		// init distance.
 		m_dist = 0.f;
@@ -39,6 +39,7 @@ public:
 	size_t m_base_angle;
 	float  m_auto_time;
 
+	bool fakeflick_side;
 	bool   m_step_switch;
 	int    m_random_lag;
 	float  m_next_random_update;
@@ -49,18 +50,28 @@ public:
 	float  m_auto_last;
 	float  m_view;
 
-	bool   m_left, m_right, m_back;
-
 public:
-	void IdealPitch();
-	void AntiAimPitch();
-	void AutoDirection();
-	void GetAntiAimDirection();
-	bool DoEdgeAntiAim(Player* player, ang_t& out);
-	void DoRealAntiAim();
-	void DoFakeAntiAim();
-	void AntiAim();
-	void SendPacket();
+	void IdealPitch( );
+	void AntiAimPitch( );
+	void AutoDirection( );
+	void GetAntiAimDirection( );
+	void DoExploitWalk();
+    bool DoEdgeAntiAim( Player *player, ang_t &out );
+	void DoRealAntiAim( );
+	void DoFakeAntiAim( );
+	void AntiAim( );
+	void SendPacket( );
+	void SendFakeFlick();
+	void fake_flick();
+
+	enum class Directions : int {
+		YAW_RIGHT = -1,
+		YAW_BACK,
+		YAW_LEFT,
+		YAW_NONE,
+	};
+
+	Directions HandleDirection();
 };
 
 extern HVH g_hvh;

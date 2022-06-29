@@ -1,81 +1,95 @@
 #include "includes.h"
+#include <math.h>
 
 HVH g_hvh{ };;
 
-void HVH::IdealPitch() {
-	CCSGOPlayerAnimState* state = g_cl.m_local->m_PlayerAnimState();
-	if (!state)
-		return;
-
-	g_cl.m_cmd->m_view_angles.x = state->m_min_pitch;
-}
-
-void HVH::AntiAimPitch() {
-	bool safe = g_menu.main.config.mode.get() == 0;
-
-	switch (m_pitch) {
-	case 1:
-		// down.
-		g_cl.m_cmd->m_view_angles.x = 89.f;
-		break;
-
-	case 2:
-		// up.
-		g_cl.m_cmd->m_view_angles.x = -89.f;
-		break;
-
-	case 3:
-		// random.
-		g_cl.m_cmd->m_view_angles.x = g_csgo.RandomFloat(safe ? -89.f : -720.f, safe ? 89.f : 720.f);
-		break;
-
-	case 4:
-		// ideal.
-		IdealPitch();
-		break;
-
-	default:
-		break;
+void HVH::SendFakeFlick( ) {
+	if ( g_cl.m_didFakeFlick ) {
+		g_cl.ticksToShift = 14;
+		g_cl.ignoreallcmds = true;
+		g_cl.m_didFakeFlick = false;
+		g_cl.m_fake_flick_side = !g_cl.m_fake_flick_side;
 	}
 }
 
-void HVH::AutoDirection() {
+void HVH::fake_flick( )
+{
+	if ( !( cfg_t::get_hotkey( "aa_fflick", "aa_fflick_mode" ) ) || !g_cl.m_local || !g_cl.m_local->alive( ) )
+		return;
+
+	if ( g_cl.m_local->m_vecVelocity( ).length_2d( ) < 15.f ) {
+		if ( g_csgo.m_cl->m_choked_commands == 0 ) {
+			if ( g_cl.m_anim_time < g_cl.m_body_pred ) {
+				if ( g_cl.lastShiftedCmdNr != g_csgo.m_cl->m_last_outgoing_command ) {
+					g_cl.m_cmd->m_view_angles.y += 113.f;
+					if ( g_cl.m_local->m_vecVelocity( ).length_2d( ) < 11.f ) {
+						static bool switcher = false;
+						g_cl.m_cmd->m_side_move = switcher ? -13.37f : 13.37f;
+						switcher = !switcher;
+					}
+					g_cl.m_didFakeFlick = true;
+				}
+			}
+		}
+	}
+}
+
+void HVH::AntiAimPitch( ) {
+	bool safe = config["menu_ut"].get<bool>( );
+
+	switch ( config["aa_pitch"].get<int>( ) ) {
+		case 1:
+			// down.
+			g_cl.m_cmd->m_view_angles.x = safe ? 89.f : 720.f;
+			break;
+
+		case 2:
+			// up.
+			g_cl.m_cmd->m_view_angles.x = safe ? -89.f : -720.f;
+			break;
+
+		default:
+			break;
+	}
+}
+
+void HVH::AutoDirection( ) {
 	// constants.
 	constexpr float STEP{ 4.f };
-	constexpr float RANGE{ 32.f };
+	constexpr float RANGE{ 35.f };
 
 	// best target.
 	struct AutoTarget_t { float fov; Player* player; };
 	AutoTarget_t target{ 180.f + 1.f, nullptr };
 
 	// iterate players.
-	for (int i{ 1 }; i <= g_csgo.m_globals->m_max_clients; ++i) {
-		Player* player = g_csgo.m_entlist->GetClientEntity< Player* >(i);
+	for ( int i{ 1 }; i <= g_csgo.m_globals->m_max_clients; ++i ) {
+		Player* player = g_csgo.m_entlist->GetClientEntity< Player* >( i );
 
 		// validate player.
-		if (!g_aimbot.IsValidTarget(player))
+		if ( !g_aimbot.IsValidTarget( player ) )
 			continue;
 
 		// skip dormant players.
-		if (player->dormant())
+		if ( player->dormant( ) )
 			continue;
 
 		// get best target based on fov.
-		float fov = math::GetFOV(g_cl.m_view_angles, g_cl.m_shoot_pos, player->WorldSpaceCenter());
+		float fov = math::GetFOV( g_cl.m_view_angles, g_cl.m_shoot_pos, player->WorldSpaceCenter( ) );
 
-		if (fov < target.fov) {
+		if ( fov < target.fov ) {
 			target.fov = fov;
 			target.player = player;
 		}
 	}
 
-	if (!target.player) {
+	if ( !target.player ) {
 		// we have a timeout.
-		if (m_auto_last > 0.f && m_auto_time > 0.f && g_csgo.m_globals->m_curtime < (m_auto_last + m_auto_time))
+		if ( m_auto_last > 0.f && m_auto_time > 0.f && g_csgo.m_globals->m_curtime < ( m_auto_last + m_auto_time ) )
 			return;
 
 		// set angle to backwards.
-		m_auto = math::NormalizedAngle(m_view - 180.f);
+		m_auto = math::NormalizedAngle( m_view - 180.f );
 		m_auto_dist = -1.f;
 		return;
 	}
@@ -87,23 +101,23 @@ void HVH::AutoDirection() {
 
 	// construct vector of angles to test.
 	std::vector< AdaptiveAngle > angles{ };
-	angles.emplace_back(m_view - 180.f);
-	angles.emplace_back(m_view + 90.f);
-	angles.emplace_back(m_view - 90.f);
+	angles.emplace_back( m_view - 180.f );
+	angles.emplace_back( m_view + 90.f );
+	angles.emplace_back( m_view - 90.f );
 
 	// start the trace at the enemy shoot pos.
-	vec3_t start = target.player->GetShootPosition();
+	vec3_t start = target.player->GetShootPosition( );
 
 	// see if we got any valid result.
 	// if this is false the path was not obstructed with anything.
 	bool valid{ false };
 
 	// iterate vector of angles.
-	for (auto it = angles.begin(); it != angles.end(); ++it) {
+	for ( auto it = angles.begin( ); it != angles.end( ); ++it ) {
 
 		// compute the 'rough' estimation of where our head will be.
-		vec3_t end{ g_cl.m_shoot_pos.x + std::cos(math::deg_to_rad(it->m_yaw)) * RANGE,
-			g_cl.m_shoot_pos.y + std::sin(math::deg_to_rad(it->m_yaw)) * RANGE,
+		vec3_t end{ g_cl.m_shoot_pos.x + std::cos( math::deg_to_rad( it->m_yaw ) ) * RANGE,
+			g_cl.m_shoot_pos.y + std::sin( math::deg_to_rad( it->m_yaw ) ) * RANGE,
 			g_cl.m_shoot_pos.z };
 
 		// draw a line for debugging purposes.
@@ -111,224 +125,140 @@ void HVH::AutoDirection() {
 
 		// compute the direction.
 		vec3_t dir = end - start;
-		float len = dir.normalize();
+		float len = dir.normalize( );
 
 		// should never happen.
-		if (len <= 0.f)
+		if ( len <= 0.f )
 			continue;
 
 		// step thru the total distance, 4 units per step.
-		for (float i{ 0.f }; i < len; i += STEP) {
+		for ( float i{ 0.f }; i < len; i += STEP ) {
 			// get the current step position.
-			vec3_t point = start + (dir * i);
+			vec3_t point = start + ( dir * i );
 
 			// get the contents at this point.
-			int contents = g_csgo.m_engine_trace->GetPointContents(point, MASK_SHOT_HULL);
+			int contents = g_csgo.m_engine_trace->GetPointContents( point, MASK_SHOT_HULL );
 
 			// contains nothing that can stop a bullet.
-			if (!(contents & MASK_SHOT_HULL))
+			if ( !( contents & MASK_SHOT_HULL ) )
 				continue;
 
 			float mult = 1.f;
 
 			// over 50% of the total length, prioritize this shit.
-			if (i > (len * 0.5f))
-				mult = 1.25f;
-
-			// over 75% of the total length, prioritize this shit.
-			if (i > (len * 0.75f))
+			if ( i > ( len * 0.5f ) )
 				mult = 1.25f;
 
 			// over 90% of the total length, prioritize this shit.
-			if (i > (len * 0.9f))
+			if ( i > ( len * 0.75f ) )
+				mult = 1.25f;
+
+			// over 90% of the total length, prioritize this shit.
+			if ( i > ( len * 0.9f ) )
 				mult = 2.f;
 
 			// append 'penetrated distance'.
-			it->m_dist += (STEP * mult);
+			it->m_dist += ( STEP * mult );
 
 			// mark that we found anything.
 			valid = true;
 		}
 	}
 
-	if (!valid) {
+	if ( !valid ) {
 		// set angle to backwards.
-		m_auto = math::NormalizedAngle(m_view - 180.f);
+		m_auto = math::NormalizedAngle( m_view - 180.f );
 		m_auto_dist = -1.f;
 		return;
 	}
 
 	// put the most distance at the front of the container.
-	std::sort(angles.begin(), angles.end(),
-		[](const AdaptiveAngle& a, const AdaptiveAngle& b) {
-			return a.m_dist > b.m_dist;
-		});
+	std::sort( angles.begin( ), angles.end( ),
+			   []( const AdaptiveAngle& a, const AdaptiveAngle& b ) {
+				   return a.m_dist > b.m_dist;
+			   } );
 
 	// the best angle should be at the front now.
-	AdaptiveAngle* best = &angles.front();
+	AdaptiveAngle* best = &angles.front( );
 
 	// check if we are not doing a useless change.
-	if (best->m_dist != m_auto_dist) {
+	if ( best->m_dist != m_auto_dist ) {
 		// set yaw to the best result.
-		m_auto = math::NormalizedAngle(best->m_yaw);
+		m_auto = math::NormalizedAngle( best->m_yaw );
 		m_auto_dist = best->m_dist;
 		m_auto_last = g_csgo.m_globals->m_curtime;
 	}
 }
 
-void HVH::GetAntiAimDirection() {
-	// edge aa.
-	if (g_menu.main.antiaim.edge.get() && g_cl.m_local->m_vecVelocity().length() < 320.f) {
+void HVH::GetAntiAimDirection( ) {
+	float  best_fov{ std::numeric_limits< float >::max( ) };
+	float  best_dist{ std::numeric_limits< float >::max( ) };
+	float  fov, dist;
+	Player* target, * best_target{ nullptr };
 
-		ang_t ang;
-		if (DoEdgeAntiAim(g_cl.m_local, ang)) {
-			m_direction = ang.y;
-			return;
+	for ( int i{ 1 }; i <= g_csgo.m_globals->m_max_clients; ++i ) {
+		target = g_csgo.m_entlist->GetClientEntity< Player* >( i );
+		if ( !target )
+			continue;
+
+		if ( !target->alive( ) )
+			continue;
+
+		fov = math::GetFOV( g_cl.m_view_angles, g_cl.m_shoot_pos, target->WorldSpaceCenter( ) );
+		if ( fov < best_fov ) {
+			best_fov = fov;
+			best_target = target;
 		}
 	}
 
-	// lock while standing..
-	bool lock = g_menu.main.antiaim.dir_lock.get();
+	if ( config["aa_at"].get<bool>( ) ) {
+		if ( best_target ) {
+			// todo - dex; calculate only the yaw needed for this (if we're not going to use the x component that is).
+			ang_t angle;
+			math::VectorAngles( best_target->m_vecOrigin( ) - g_cl.m_local->m_vecOrigin( ), angle );
+			m_view = angle.y;
+		}
+	}
 
-	// save view, depending if locked or not.
-	if ((lock && g_cl.m_speed > 0.1f) || !lock)
-		m_view = g_cl.m_cmd->m_view_angles.y;
+	m_direction = m_view + 180.f;
 
-	if (m_base_angle > 0) {
-		// 'static'.
-		if (m_base_angle == 1)
-			m_view = 0.f;
+	if ( config["aa_yaw"].get<int>( ) == 1 && m_mode == AntiAimMode::AIR )
+		m_direction = m_view + 150.f + ( sin( g_csgo.m_globals->m_curtime * 3.f ) * 60.f );
 
-		// away options.
-		else {
-			float  best_fov{ std::numeric_limits< float >::max() };
-			float  best_dist{ std::numeric_limits< float >::max() };
-			float  fov, dist;
-			Player* target, * best_target{ nullptr };
+	if ( config["aa_fs"].get<bool>( ) ) {
+		if ( best_target != nullptr ) {
+			bool first = best_target->enemy( g_cl.m_local ) || best_target->dormant( ) || !best_target->alive( );
+			if ( first ) {
+				AimPlayer data = g_aimbot.m_players[best_target->index( ) - 1];
+				auto direction = g_resolver.HandleDirections( &data );
 
-			for (int i{ 1 }; i <= g_csgo.m_globals->m_max_clients; ++i) {
-				target = g_csgo.m_entlist->GetClientEntity< Player* >(i);
-
-				if (!g_aimbot.IsValidTarget(target))
-					continue;
-
-				if (target->dormant())
-					continue;
-
-				// 'away crosshair'.
-				if (m_base_angle == 2) {
-
-					// check if a player was closer to our crosshair.
-					fov = math::GetFOV(g_cl.m_view_angles, g_cl.m_shoot_pos, target->WorldSpaceCenter());
-					if (fov < best_fov) {
-						best_fov = fov;
-						best_target = target;
-					}
-				}
-
-				// 'away distance'.
-				else if (m_base_angle == 3) {
-
-					// check if a player was closer to us.
-					dist = (target->m_vecOrigin() - g_cl.m_local->m_vecOrigin()).length_sqr();
-					if (dist < best_dist) {
-						best_dist = dist;
-						best_target = target;
-					}
-				}
-			}
-
-			if (best_target) {
-				// todo - dex; calculate only the yaw needed for this (if we're not going to use the x component that is).
-				ang_t angle;
-				math::VectorAngles(best_target->m_vecOrigin() - g_cl.m_local->m_vecOrigin(), angle);
-				m_view = angle.y;
+				if ( direction == Resolver::Directions::YAW_LEFT )
+					m_direction = m_view + 90.f;
+				else if ( direction == Resolver::Directions::YAW_RIGHT )
+					m_direction = m_view - 90.f;
 			}
 		}
 	}
 
-	// switch direction modes.
-	switch (m_dir) {
-
-		// auto.
-	case 0:
-		AutoDirection();
-		m_direction = m_auto;
-
-		if (g_hvh.m_left)
-			m_direction = m_view + 90.f;
-		if (g_hvh.m_right)
-			m_direction = m_view - 90.f;
-		if (g_hvh.m_back)
-			m_direction = m_view + 180.f;
-		break;
-
-		// backwards.
-	case 1:
-		m_direction = m_view + 180.f;
-
-		if (g_hvh.m_left)
-			m_direction = m_view + 90.f;
-		if (g_hvh.m_right)
-			m_direction = m_view - 90.f;
-		if (g_hvh.m_back)
-			m_direction = m_view + 180.f;
-		break;
-
-		// left.
-	case 2:
-		m_direction = m_view + 90.f;
-		if (g_hvh.m_left)
-			m_direction = m_view + 90.f;
-		if (g_hvh.m_right)
-			m_direction = m_view - 90.f;
-		if (g_hvh.m_back)
-			m_direction = m_view + 180.f;
-		break;
-
-		// right.
-	case 3:
-		m_direction = m_view - 90.f;
-		if (g_hvh.m_left)
-			m_direction = m_view + 90.f;
-		if (g_hvh.m_right)
-			m_direction = m_view - 90.f;
-		if (g_hvh.m_back)
-			m_direction = m_view + 180.f;
-		break;
-
-		// custom.
-	case 4:
-		m_direction = m_view + m_dir_custom;
-		if (g_hvh.m_left)
-			m_direction = m_view + 90.f;
-		if (g_hvh.m_right)
-			m_direction = m_view - 90.f;
-		if (g_hvh.m_back)
-			m_direction = m_view + 180.f;
-		break;
-
-	default:
-		break;
-	}
+	m_direction += config["aa_offset"].get<int>( );
 
 	// normalize the direction.
-	math::NormalizeAngle(m_direction);
+	math::NormalizeAngle( m_direction );
 }
 
-bool HVH::DoEdgeAntiAim(Player* player, ang_t& out) {
+bool HVH::DoEdgeAntiAim( Player* player, ang_t& out ) {
 	CGameTrace trace;
 	static CTraceFilterSimple_game filter{ };
 
-	if (player->m_MoveType() == MOVETYPE_LADDER)
+	if ( player->m_MoveType( ) == MOVETYPE_LADDER )
 		return false;
 
 	// skip this player in our traces.
-	filter.SetPassEntity(player);
+	filter.SetPassEntity( player );
 
 	// get player bounds.
-	vec3_t mins = player->m_vecMins();
-	vec3_t maxs = player->m_vecMaxs();
+	vec3_t mins = player->m_vecMins( );
+	vec3_t maxs = player->m_vecMaxs( );
 
 	// make player bounds bigger.
 	mins.x -= 20.f;
@@ -337,13 +267,13 @@ bool HVH::DoEdgeAntiAim(Player* player, ang_t& out) {
 	maxs.y += 20.f;
 
 	// get player origin.
-	vec3_t start = player->GetAbsOrigin();
+	vec3_t start = player->GetAbsOrigin( );
 
 	// offset the view.
 	start.z += 56.f;
 
-	g_csgo.m_engine_trace->TraceRay(Ray(start, start, mins, maxs), CONTENTS_SOLID, (ITraceFilter*)&filter, &trace);
-	if (!trace.m_startsolid)
+	g_csgo.m_engine_trace->TraceRay( Ray( start, start, mins, maxs ), CONTENTS_SOLID, (ITraceFilter*)&filter, &trace );
+	if ( !trace.m_startsolid )
 		return false;
 
 	float  smallest = 1.f;
@@ -351,18 +281,18 @@ bool HVH::DoEdgeAntiAim(Player* player, ang_t& out) {
 
 	// trace around us in a circle, in 20 steps (anti-degree conversion).
 	// find the closest object.
-	for (float step{ }; step <= math::pi_2; step += (math::pi / 10.f)) {
+	for ( float step{ }; step <= math::pi_2; step += ( math::pi / 10.f ) ) {
 		// extend endpoint x units.
 		vec3_t end = start;
 
 		// set end point based on range and step.
-		end.x += std::cos(step) * 32.f;
-		end.y += std::sin(step) * 32.f;
+		end.x += std::cos( step ) * 32.f;
+		end.y += std::sin( step ) * 32.f;
 
-		g_csgo.m_engine_trace->TraceRay(Ray(start, end, { -1.f, -1.f, -8.f }, { 1.f, 1.f, 8.f }), CONTENTS_SOLID, (ITraceFilter*)&filter, &trace);
+		g_csgo.m_engine_trace->TraceRay( Ray( start, end, { -1.f, -1.f, -8.f }, { 1.f, 1.f, 8.f } ), CONTENTS_SOLID, (ITraceFilter*)&filter, &trace );
 
 		// we found an object closer, then the previouly found object.
-		if (trace.m_fraction < smallest) {
+		if ( trace.m_fraction < smallest ) {
 			// save the normal of the object.
 			plane = trace.m_plane.m_normal;
 			smallest = trace.m_fraction;
@@ -370,31 +300,31 @@ bool HVH::DoEdgeAntiAim(Player* player, ang_t& out) {
 	}
 
 	// no valid object was found.
-	if (smallest == 1.f || plane.z >= 0.1f)
+	if ( smallest == 1.f || plane.z >= 0.1f )
 		return false;
 
 	// invert the normal of this object
 	// this will give us the direction/angle to this object.
 	vec3_t inv = -plane;
 	vec3_t dir = inv;
-	dir.normalize();
+	dir.normalize( );
 
 	// extend point into object by 24 units.
 	vec3_t point = start;
-	point.x += (dir.x * 24.f);
-	point.y += (dir.y * 24.f);
+	point.x += ( dir.x * 24.f );
+	point.y += ( dir.y * 24.f );
 
 	// check if we can stick our head into the wall.
-	if (g_csgo.m_engine_trace->GetPointContents(point, CONTENTS_SOLID) & CONTENTS_SOLID) {
+	if ( g_csgo.m_engine_trace->GetPointContents( point, CONTENTS_SOLID ) & CONTENTS_SOLID ) {
 		// trace from 72 units till 56 units to see if we are standing behind something.
-		g_csgo.m_engine_trace->TraceRay(Ray(point + vec3_t{ 0.f, 0.f, 16.f }, point), CONTENTS_SOLID, (ITraceFilter*)&filter, &trace);
+		g_csgo.m_engine_trace->TraceRay( Ray( point + vec3_t{ 0.f, 0.f, 16.f }, point ), CONTENTS_SOLID, (ITraceFilter*)&filter, &trace );
 
 		// we didnt start in a solid, so we started in air.
 		// and we are not in the ground.
-		if (trace.m_fraction < 1.f && !trace.m_startsolid && trace.m_plane.m_normal.z > 0.7f) {
+		if ( trace.m_fraction < 1.f && !trace.m_startsolid && trace.m_plane.m_normal.z > 0.7f ) {
 			// mean we are standing behind a solid object.
 			// set our angle to the inversed normal of this object.
-			out.y = math::rad_to_deg(std::atan2(inv.y, inv.x));
+			out.y = math::rad_to_deg( std::atan2( inv.y, inv.x ) );
 			return true;
 		}
 	}
@@ -403,44 +333,44 @@ bool HVH::DoEdgeAntiAim(Player* player, ang_t& out) {
 	// we can still see if we can stick our head behind/asides the wall.
 
 	// adjust bounds for traces.
-	mins = { (dir.x * -3.f) - 1.f, (dir.y * -3.f) - 1.f, -1.f };
-	maxs = { (dir.x * 3.f) + 1.f, (dir.y * 3.f) + 1.f, 1.f };
+	mins = { ( dir.x * -3.f ) - 1.f, ( dir.y * -3.f ) - 1.f, -1.f };
+	maxs = { ( dir.x * 3.f ) + 1.f, ( dir.y * 3.f ) + 1.f, 1.f };
 
 	// move this point 48 units to the left 
 	// relative to our wall/base point.
 	vec3_t left = start;
-	left.x = point.x - (inv.y * 48.f);
-	left.y = point.y - (inv.x * -48.f);
+	left.x = point.x - ( inv.y * 48.f );
+	left.y = point.y - ( inv.x * -48.f );
 
-	g_csgo.m_engine_trace->TraceRay(Ray(left, point, mins, maxs), CONTENTS_SOLID, (ITraceFilter*)&filter, &trace);
+	g_csgo.m_engine_trace->TraceRay( Ray( left, point, mins, maxs ), CONTENTS_SOLID, (ITraceFilter*)&filter, &trace );
 	float l = trace.m_startsolid ? 0.f : trace.m_fraction;
 
 	// move this point 48 units to the right 
 	// relative to our wall/base point.
 	vec3_t right = start;
-	right.x = point.x + (inv.y * 48.f);
-	right.y = point.y + (inv.x * -48.f);
+	right.x = point.x + ( inv.y * 48.f );
+	right.y = point.y + ( inv.x * -48.f );
 
-	g_csgo.m_engine_trace->TraceRay(Ray(right, point, mins, maxs), CONTENTS_SOLID, (ITraceFilter*)&filter, &trace);
+	g_csgo.m_engine_trace->TraceRay( Ray( right, point, mins, maxs ), CONTENTS_SOLID, (ITraceFilter*)&filter, &trace );
 	float r = trace.m_startsolid ? 0.f : trace.m_fraction;
 
 	// both are solid, no edge.
-	if (l == 0.f && r == 0.f)
+	if ( l == 0.f && r == 0.f )
 		return false;
 
 	// set out to inversed normal.
-	out.y = math::rad_to_deg(std::atan2(inv.y, inv.x));
+	out.y = math::rad_to_deg( std::atan2( inv.y, inv.x ) );
 
 	// left started solid.
 	// set angle to the left.
-	if (l == 0.f) {
+	if ( l == 0.f ) {
 		out.y += 90.f;
 		return true;
 	}
 
 	// right started solid.
 	// set angle to the right.
-	if (r == 0.f) {
+	if ( r == 0.f ) {
 		out.y -= 90.f;
 		return true;
 	}
@@ -448,159 +378,70 @@ bool HVH::DoEdgeAntiAim(Player* player, ang_t& out) {
 	return false;
 }
 
-void HVH::DoRealAntiAim() {
+void HVH::DoExploitWalk( )
+{
+	if ( !cfg_t::get_hotkey( "aa_lwalk", "aa_lwalk_mode" ) )
+		return;
+
+	static int old_cmds = 0;
+	if ( old_cmds != g_cl.m_cmd->m_command_number )
+		old_cmds = g_cl.m_cmd->m_command_number;
+
+	g_cl.m_cmd->m_command_number = old_cmds;
+	g_cl.m_cmd->m_tick = INT_MAX / 2;
+}
+
+void HVH::DoRealAntiAim( ) {
+	DoExploitWalk( );
+
 	// if we have a yaw antaim.
-	if (m_yaw > 0) {
+	if ( true ) {
 
 		// if we have a yaw active, which is true if we arrived here.
 		// set the yaw to the direction before applying any other operations.
 		g_cl.m_cmd->m_view_angles.y = m_direction;
 
-		bool stand = g_menu.main.antiaim.body_fake_stand.get() > 0 && m_mode == AntiAimMode::STAND;
-		bool air = g_menu.main.antiaim.body_fake_air.get() > 0 && m_mode == AntiAimMode::AIR;
+		bool stand = m_mode == AntiAimMode::STAND;
+		bool air = m_mode == AntiAimMode::AIR;
 
-		// one tick before the update.
-		if (stand && !g_cl.m_lag && g_csgo.m_globals->m_curtime >= (g_cl.m_body_pred - g_cl.m_anim_frame) && g_csgo.m_globals->m_curtime < g_cl.m_body_pred) {
-			// z mode.
-			if (g_menu.main.antiaim.body_fake_stand.get() == 4)
-				g_cl.m_cmd->m_view_angles.y -= 90.f;
-		}
+		// todo: figure out later wat eso does with this shit.
+		float goal_feet_yaw = g_cl.m_abs_yaw;
+		float eye_delta = math::NormalizedAngle( goal_feet_yaw - g_cl.m_cmd->m_view_angles.y );
 
-		float custom = g_menu.main.antiaim.body_fake_stand_custom.get() * 2.5;
-		static int negative = false;
-
-			// check if we will have a lby fake this tick.
-		if (!g_cl.m_lag && g_csgo.m_globals->m_curtime >= g_cl.m_body_pred && (stand || air) && !g_input.GetKeyState(g_menu.main.movement.fakewalk.get())) {
+		// check if we will have a lby fake this tick.
+		if ( !g_cl.m_lag && g_csgo.m_globals->m_curtime >= g_cl.m_body_pred && stand ) {
 			// there will be an lbyt update on this tick.
-			if (g_menu.main.antiaim.body_fake_stand_fakewalk.get()) {
-				if (stand) {
-					switch (g_menu.main.antiaim.body_fake_stand.get()) {
+			*g_cl.m_packet = true;
+			if ( config["aa_fb"].get<bool>( ) ) {
 
-						// left.
-					case 1:
-						g_cl.m_cmd->m_view_angles.y += 110.f;
-						////if (g_menu.main.antiaim.pitch_fake_stand.get())
-						//	//	g_cl.m_cmd->m_view_angles.x = -89.f;
-						break;
+				g_cl.m_cmd->m_view_angles.y += eye_delta + config["aa_fb_ang"].get<int>( );
 
-						// right.
-					case 2:
-						g_cl.m_cmd->m_view_angles.y -= 110.f;
-						////if (g_menu.main.antiaim.pitch_fake_stand.get())
-						//	//	g_cl.m_cmd->m_view_angles.x = -89.f;
-						break;
-
-						// opposite.
-					case 3:
-						g_cl.m_cmd->m_view_angles.y += 180.f;
-						//if (g_menu.main.antiaim.pitch_fake_stand.get())
-							//	g_cl.m_cmd->m_view_angles.x = -89.f;
-						break;
-
-						// z.
-					case 4:
-						g_cl.m_cmd->m_view_angles.y += 90.f;
-						//if (g_menu.main.antiaim.pitch_fake_stand.get())
-							//	g_cl.m_cmd->m_view_angles.x = -89.f;
-						break;
-
-					case 5:
-						g_cl.m_cmd->m_view_angles.y += custom;
-						//if (g_menu.main.antiaim.pitch_fake_stand.get())
-							//	g_cl.m_cmd->m_view_angles.x = -89.f;
-						break;
-
-					case 6:
-						//g_cl.m_cmd->m_view_angles.y += 180.f;
-						negative ? g_cl.m_cmd->m_view_angles.y += 110.f : g_cl.m_cmd->m_view_angles.y -= 110.f;
-						negative = !negative;
-						//if (g_menu.main.antiaim.pitch_fake_stand.get())
-							//	g_cl.m_cmd->m_view_angles.x = -89.f;
-						break;
-					}
-
-				}
-
-				else if (air) {
-					switch (g_menu.main.antiaim.body_fake_air.get()) {
-
-						// left.
-					case 1:
-						g_cl.m_cmd->m_view_angles.y += 90.f;
-						break;
-
-						// right.
-					case 2:
-						g_cl.m_cmd->m_view_angles.y -= 90.f;
-						break;
-
-						// opposite.
-					case 3:
-						g_cl.m_cmd->m_view_angles.y += 180.f;
-						break;
-					}
-				}
 			}
 		}
 
-		// run normal aa code.
-		else {
-			switch (m_yaw) {
+		fake_flick( );
+	}
 
-				// direction.
-			case 1:
-				// do nothing, yaw already is direction.
-				break;
 
-				// jitter.
-			case 2: {
+	if ( config["aa_dshift"].get<bool>( ) && m_mode == AntiAimMode::STAND ) {
+		auto force_turn = config["aa_dturn"].get<bool>( );
+		float distortion_delta;
 
-				// get the range from the menu.
-				float range = m_jitter_range / 2.f;
+		distortion_delta = sin( g_csgo.m_globals->m_curtime * 3.f ) * config["aa_dangle"].get<float>( );
 
-				// set angle.
-				g_cl.m_cmd->m_view_angles.y += g_csgo.RandomFloat(-range, range);
-				break;
-			}
+		if ( force_turn )
+			distortion_delta += ( 360.f * ( ( g_cl.m_body_pred - g_csgo.m_globals->m_curtime ) / 1.1f ) ) * ( abs( distortion_delta ) / distortion_delta );
 
-				  // rotate.
-			case 3: {
-				// set base angle.
-				g_cl.m_cmd->m_view_angles.y = (m_direction - m_rot_range / 2.f);
+		math::NormalizeAngle( distortion_delta );
 
-				// apply spin.
-				g_cl.m_cmd->m_view_angles.y += std::fmod(g_csgo.m_globals->m_curtime * (m_rot_speed * 20.f), m_rot_range);
-
-				break;
-			}
-
-				  // random.
-			case 4:
-				// check update time.
-				if (g_csgo.m_globals->m_curtime >= m_next_random_update) {
-
-					// set new random angle.
-					m_random_angle = g_csgo.RandomFloat(-180.f, 180.f);
-
-					// set next update time
-					m_next_random_update = g_csgo.m_globals->m_curtime + m_rand_update;
-				}
-
-				// apply angle.
-				g_cl.m_cmd->m_view_angles.y = m_random_angle;
-				break;
-
-			default:
-				break;
-			}
-		}
+		g_cl.m_cmd->m_view_angles.y += distortion_delta;
 	}
 
 	// normalize angle.
-	math::NormalizeAngle(g_cl.m_cmd->m_view_angles.y);
+	math::NormalizeAngle( g_cl.m_cmd->m_view_angles.y );
 }
 
-void HVH::DoFakeAntiAim() {
+void HVH::DoFakeAntiAim( ) {
 	// do fake yaw operations.
 
 	// enforce this otherwise low fps dies.
@@ -608,274 +449,216 @@ void HVH::DoFakeAntiAim() {
 	// the fake became the real, think this fixed it.
 	*g_cl.m_packet = true;
 
-	switch (g_menu.main.antiaim.fake_yaw.get()) {
+	if ( config["aa_fake"].get<bool>( ) )
+		g_cl.m_cmd->m_view_angles.y = m_direction + config["aa_fake_offset"].get<float>( );
 
-		// default.
-	case 1:
-		// set base to opposite of direction.
-		g_cl.m_cmd->m_view_angles.y = m_direction + 180.f;
-
-		// apply 45 degree jitter.
-		g_cl.m_cmd->m_view_angles.y += g_csgo.RandomFloat(-90.f, 90.f);
-		break;
-
-		// relative.
-	case 2:
-		// set base to opposite of direction.
-		g_cl.m_cmd->m_view_angles.y = m_direction + 180.f;
-
-		// apply offset correction.
-		g_cl.m_cmd->m_view_angles.y += g_menu.main.antiaim.fake_relative.get();
-		break;
-
-		// relative jitter.
-	case 3: {
-		// get fake jitter range from menu.
-		float range = g_menu.main.antiaim.fake_jitter_range.get() / 2.f;
-
-		// set base to opposite of direction.
-		g_cl.m_cmd->m_view_angles.y = m_direction + 180.f;
-
-		// apply jitter.
-		g_cl.m_cmd->m_view_angles.y += g_csgo.RandomFloat(-range, range);
-		break;
-	}
-
-		  // rotate.
-	case 4:
-		g_cl.m_cmd->m_view_angles.y = m_direction + 90.f + std::fmod(g_csgo.m_globals->m_curtime * 360.f, 180.f);
-		break;
-
-		// random.
-	case 5:
-		g_cl.m_cmd->m_view_angles.y = g_csgo.RandomFloat(-180.f, 180.f);
-		break;
-
-		// local view.
-	case 6:
-		g_cl.m_cmd->m_view_angles.y = g_cl.m_view_angles.y;
-		break;
-
-	default:
-		break;
-	}
+	SendFakeFlick( );
 
 	// normalize fake angle.
-	math::NormalizeAngle(g_cl.m_cmd->m_view_angles.y);
+	math::NormalizeAngle( g_cl.m_cmd->m_view_angles.y );
 }
 
-void HVH::AntiAim() {
+void HVH::AntiAim( ) {
 	bool attack, attack2;
-
-	if (!g_menu.main.antiaim.enable.get())
-		return;
 
 	attack = g_cl.m_cmd->m_buttons & IN_ATTACK;
 	attack2 = g_cl.m_cmd->m_buttons & IN_ATTACK2;
 
-	if (g_cl.m_weapon && g_cl.m_weapon_fire) {
+	if ( g_cl.m_weapon && g_cl.m_weapon_fire ) {
 		bool knife = g_cl.m_weapon_type == WEAPONTYPE_KNIFE && g_cl.m_weapon_id != ZEUS;
 		bool revolver = g_cl.m_weapon_id == REVOLVER;
 
 		// if we are in attack and can fire, do not anti-aim.
-		if (attack || (attack2 && (knife || revolver)))
+		if ( attack || ( attack2 && ( knife || revolver ) ) )
 			return;
 	}
 
 	// disable conditions.
-	if (g_csgo.m_gamerules->m_bFreezePeriod() || (g_cl.m_flags & FL_FROZEN) || (g_cl.m_cmd->m_buttons & IN_USE))
+	if ( g_csgo.m_gamerules->m_bFreezePeriod( ) || ( g_cl.m_flags & FL_FROZEN ) || ( g_cl.m_cmd->m_buttons & IN_USE ) )
 		return;
 
 	// grenade throwing
 	// CBaseCSGrenade::ItemPostFrame()
 	// https://github.com/VSES/SourceEngine2007/blob/master/src_main/game/shared/cstrike/weapon_basecsgrenade.cpp#L209
-	if (g_cl.m_weapon_type == WEAPONTYPE_GRENADE
-		&& (!g_cl.m_weapon->m_bPinPulled() || attack || attack2)
-		&& g_cl.m_weapon->m_fThrowTime() > 0.f && g_cl.m_weapon->m_fThrowTime() < g_csgo.m_globals->m_curtime)
+	if ( g_cl.m_weapon_type == WEAPONTYPE_GRENADE
+		 && ( !g_cl.m_weapon->m_bPinPulled( ) || attack || attack2 )
+		 && g_cl.m_weapon->m_fThrowTime( ) > 0.f && g_cl.m_weapon->m_fThrowTime( ) < g_csgo.m_globals->m_curtime )
 		return;
 
 	m_mode = AntiAimMode::STAND;
 
-	if ((g_cl.m_buttons & IN_JUMP) || !(g_cl.m_flags & FL_ONGROUND))
+	if ( ( g_cl.m_buttons & IN_JUMP ) || !( g_cl.m_flags & FL_ONGROUND ) )
 		m_mode = AntiAimMode::AIR;
 
-	else if (g_cl.m_speed > 0.1f)
+	else if ( g_cl.m_speed > 0.1f || g_input.GetKeyState( g_menu.main.antiaim.fake_flick.get( ) ) )
 		m_mode = AntiAimMode::WALK;
 
 	// load settings.
-	if (m_mode == AntiAimMode::STAND) {
-		m_pitch = g_menu.main.antiaim.pitch_stand.get();
-		m_yaw = g_menu.main.antiaim.yaw_stand.get();
-		m_jitter_range = g_menu.main.antiaim.jitter_range_stand.get();
-		m_rot_range = g_menu.main.antiaim.rot_range_stand.get();
-		m_rot_speed = g_menu.main.antiaim.rot_speed_stand.get();
-		m_rand_update = g_menu.main.antiaim.rand_update_stand.get();
-		m_dir = g_menu.main.antiaim.dir_stand.get();
-		m_dir_custom = g_menu.main.antiaim.dir_custom_stand.get();
-		m_base_angle = g_menu.main.antiaim.base_angle_stand.get();
-		m_auto_time = g_menu.main.antiaim.dir_time_stand.get();
+	if ( m_mode == AntiAimMode::STAND ) {
+		m_pitch = g_menu.main.antiaim.pitch_stand.get( );
+		m_yaw = g_menu.main.antiaim.yaw_stand.get( );
+		m_jitter_range = g_menu.main.antiaim.jitter_range_stand.get( );
+		m_rot_range = g_menu.main.antiaim.rot_range_stand.get( );
+		m_rot_speed = g_menu.main.antiaim.rot_speed_stand.get( );
+		m_rand_update = g_menu.main.antiaim.rand_update_stand.get( );
+		m_dir = g_menu.main.antiaim.dir_stand.get( );
+		m_dir_custom = g_menu.main.antiaim.dir_custom_stand.get( );
+		m_base_angle = g_menu.main.antiaim.base_angle_stand.get( );
+		m_auto_time = g_menu.main.antiaim.dir_time_stand.get( );
 	}
 
-	else if (m_mode == AntiAimMode::WALK) {
-		m_pitch = g_menu.main.antiaim.pitch_walk.get();
-		m_yaw = g_menu.main.antiaim.yaw_walk.get();
-		m_jitter_range = g_menu.main.antiaim.jitter_range_walk.get();
-		m_rot_range = g_menu.main.antiaim.rot_range_walk.get();
-		m_rot_speed = g_menu.main.antiaim.rot_speed_walk.get();
-		m_rand_update = g_menu.main.antiaim.rand_update_walk.get();
-		m_dir = g_menu.main.antiaim.dir_walk.get();
-		m_dir_custom = g_menu.main.antiaim.dir_custom_walk.get();
-		m_base_angle = g_menu.main.antiaim.base_angle_walk.get();
-		m_auto_time = g_menu.main.antiaim.dir_time_walk.get();
+	else if ( m_mode == AntiAimMode::WALK ) {
+		m_pitch = g_menu.main.antiaim.pitch_walk.get( );
+		m_yaw = g_menu.main.antiaim.yaw_walk.get( );
+		m_jitter_range = g_menu.main.antiaim.jitter_range_walk.get( );
+		m_rot_range = g_menu.main.antiaim.rot_range_walk.get( );
+		m_rot_speed = g_menu.main.antiaim.rot_speed_walk.get( );
+		m_rand_update = g_menu.main.antiaim.rand_update_walk.get( );
+		m_dir = g_menu.main.antiaim.dir_walk.get( );
+		m_dir_custom = g_menu.main.antiaim.dir_custom_walk.get( );
+		m_base_angle = g_menu.main.antiaim.base_angle_walk.get( );
+		m_auto_time = g_menu.main.antiaim.dir_time_walk.get( );
 	}
 
-	else if (m_mode == AntiAimMode::AIR) {
-		m_pitch = g_menu.main.antiaim.pitch_air.get();
-		m_yaw = g_menu.main.antiaim.yaw_air.get();
-		m_jitter_range = g_menu.main.antiaim.jitter_range_air.get();
-		m_rot_range = g_menu.main.antiaim.rot_range_air.get();
-		m_rot_speed = g_menu.main.antiaim.rot_speed_air.get();
-		m_rand_update = g_menu.main.antiaim.rand_update_air.get();
-		m_dir = g_menu.main.antiaim.dir_air.get();
-		m_dir_custom = g_menu.main.antiaim.dir_custom_air.get();
-		m_base_angle = g_menu.main.antiaim.base_angle_air.get();
-		m_auto_time = g_menu.main.antiaim.dir_time_air.get();
+	else if ( m_mode == AntiAimMode::AIR ) {
+		m_pitch = g_menu.main.antiaim.pitch_air.get( );
+		m_yaw = g_menu.main.antiaim.yaw_air.get( );
+		m_jitter_range = g_menu.main.antiaim.jitter_range_air.get( );
+		m_rot_range = g_menu.main.antiaim.rot_range_air.get( );
+		m_rot_speed = g_menu.main.antiaim.rot_speed_air.get( );
+		m_rand_update = g_menu.main.antiaim.rand_update_air.get( );
+		m_dir = g_menu.main.antiaim.dir_air.get( );
+		m_dir_custom = g_menu.main.antiaim.dir_custom_air.get( );
+		m_base_angle = g_menu.main.antiaim.base_angle_air.get( );
+		m_auto_time = g_menu.main.antiaim.dir_time_air.get( );
 	}
 
 	// set pitch.
-	AntiAimPitch();
+	AntiAimPitch( );
 
 	// if we have any yaw.
-	if (m_yaw > 0) {
+	if ( m_yaw > 0 ) {
 		// set direction.
-		GetAntiAimDirection();
+		GetAntiAimDirection( );
 	}
 
 	// we have no real, but we do have a fake.
-	else if (g_menu.main.antiaim.fake_yaw.get() > 0)
+	else if ( !config["aa_fake"].get<bool>( ) )
 		m_direction = g_cl.m_cmd->m_view_angles.y;
 
-	if (g_menu.main.antiaim.fake_yaw.get()) {
+	if ( config["aa_fake"].get<bool>( ) ) {
 		// do not allow 2 consecutive sendpacket true if faking angles.
-		if (*g_cl.m_packet && g_cl.m_old_packet)
+		if ( *g_cl.m_packet && g_cl.m_old_packet )
 			*g_cl.m_packet = false;
 
 		// run the real on sendpacket false.
-		if (!*g_cl.m_packet || !*g_cl.m_final_packet)
-			DoRealAntiAim();
+		if ( !*g_cl.m_packet || !*g_cl.m_final_packet )
+			DoRealAntiAim( );
 
 		// run the fake on sendpacket true.
-		else DoFakeAntiAim();
+		else DoFakeAntiAim( );
 	}
 
 	// no fake, just run real.
-	else DoRealAntiAim();
-
-	int speed = 5;
-	int cycle = g_csgo.m_globals->m_tick_count % int( speed + 1 );
-	if (cfg_t::get_hotkey( "aa_fflick", "aa_fflick_mode" )) {
-		if (*g_cl.m_packet) {
-			if (cycle == speed) {
-				g_cl.m_cmd->m_view_angles.y += 90.f;
-				g_cl.m_cmd->m_side_move = 450.f;
-			}
-			else if (cycle == 0) {
-				g_cl.m_cmd->m_view_angles.y -= 90.f;
-				g_cl.m_cmd->m_side_move = -450.f;
-			}
-		}
-		else {
-			if (cycle == speed) {
-				g_cl.m_cmd->m_view_angles.y += 90.f;
-			}
-			else if (cycle == 0) {
-				g_cl.m_cmd->m_view_angles.y -= 90.f;
-			}
-		}
-	}
+	else DoRealAntiAim( );
 }
 
-void HVH::SendPacket() {
-	if (!*g_cl.m_final_packet)
+void HVH::SendPacket( ) {
+	// if not the last packet this shit wont get sent anyway.
+	// fix rest of hack by forcing to false.
+	if ( !*g_cl.m_final_packet )
 		*g_cl.m_packet = false;
 
-	if (config["fl_enable"].get<bool>( ) && !g_csgo.m_gamerules->m_bFreezePeriod( ) && !( g_cl.m_flags & FL_FROZEN )) {
-		int limit = std::min(config["fl_limit"].get<int>( ), g_cl.m_max_lag);
+	// fake-lag enabled.
+	if ( config["fl_enable"].get<bool>( ) && !g_csgo.m_gamerules->m_bFreezePeriod( ) && !( g_cl.m_flags & FL_FROZEN ) ) {
+		// limit of lag.
+		int limit = std::min( config["fl_limit"].get<int>( ), 14 );
 
+		// indicates wether to lag or not.
 		bool active{ };
 
-		vec3_t cur = g_cl.m_local->m_vecOrigin();
+		// get current origin.
+		vec3_t cur = g_cl.m_local->m_vecOrigin( );
 
-		vec3_t prev = g_cl.m_net_pos.empty() ? g_cl.m_local->m_vecOrigin() : g_cl.m_net_pos.front().m_pos;
+		// get prevoius origin.
+		vec3_t prev = g_cl.m_net_pos.empty( ) ? g_cl.m_local->m_vecOrigin( ) : g_cl.m_net_pos.front( ).m_pos;
 
-		float delta = (cur - prev).length_sqr();
+		// delta between the current origin and the last sent origin.
+		float delta = ( cur - prev ).length_sqr( );
 
-		active = ( delta > 0.1f && g_cl.m_speed > 0.1f ) || ( ( g_cl.m_buttons & IN_JUMP ) || !( g_cl.m_flags & FL_ONGROUND ) );
+		if ( g_aimbot.CanDT( ) )
+			active = false;
+		else {
+			active = ( delta > 0.1f && g_cl.m_speed > 0.1f ) || ( ( g_cl.m_buttons & IN_JUMP ) || !( g_cl.m_flags & FL_ONGROUND ) );
+		}
 
-		if (active) {
-			int mode = g_menu.main.antiaim.lag_mode.get();
+		if ( active ) {
 
-			if (config["fl_mode"].get<int>( ) == 0)
+			if ( config["fl_mode"].get<int>( ) == 0 )
 				*g_cl.m_packet = false;
 
-			else if (config["fl_mode"].get<int>( ) == 1) {
+			else if ( config["fl_mode"].get<int>( ) == 1 ) {
 				auto speed = g_cl.m_local->m_vecVelocity( ).length( );
-				if (speed <= 200.f)
+				if ( speed <= 200.f )
 					limit = config["fl_limit"].get<float>( ) * ( speed / 200.f );
 
 				*g_cl.m_packet = false;
 			}
 
-			else if (config["fl_mode"].get<int>( ) == 2) {
-				if (g_csgo.m_globals->m_tick_count % 40 < 35)
+			else if ( config["fl_mode"].get<int>( ) == 2 ) {
+				if ( g_csgo.m_globals->m_tick_count % 40 < 35 )
 					*g_cl.m_packet = false;
 			}
-			
+
 			// here comes smelly fart, probably the lowest ping wapicc user.
-			if (!( g_csgo.m_globals->m_tick_count % ( 101 - config["fl_var"].get<int>( ) ) ) && ( g_cl.m_flags & FL_ONGROUND ) )
+			if ( !( g_csgo.m_globals->m_tick_count % ( 101 - config["fl_var"].get<int>( ) ) ) && ( g_cl.m_flags & FL_ONGROUND ) )
 				*g_cl.m_packet = true;
 
-			if (delta <= 4096.f && config["fl_lc"].get<bool>( ) && !( g_cl.m_flags & FL_ONGROUND ))
+			if ( delta <= 4096.f && config["fl_lc"].get<bool>( ) && !( g_cl.m_flags & FL_ONGROUND ) )
 				*g_cl.m_packet = false;
 
-			if (g_cl.m_lag >= limit)
+			if ( g_cl.m_lag >= limit )
 				*g_cl.m_packet = true;
 		}
 	}
 
-	if (!g_menu.main.antiaim.lag_land.get()) {
-		vec3_t                start = g_cl.m_local->m_vecOrigin(), end = start, vel = g_cl.m_local->m_vecVelocity();
+	if ( !g_menu.main.antiaim.lag_land.get( ) ) {
+		vec3_t                start = g_cl.m_local->m_vecOrigin( ), end = start, vel = g_cl.m_local->m_vecVelocity( );
 		CTraceFilterWorldOnly filter;
 		CGameTrace            trace;
 
 		// gravity.
-		vel.z -= (g_csgo.sv_gravity->GetFloat() * g_csgo.m_globals->m_interval);
+		vel.z -= ( g_csgo.sv_gravity->GetFloat( ) * g_csgo.m_globals->m_interval );
 
 		// extrapolate.
-		end += (vel * g_csgo.m_globals->m_interval);
+		end += ( vel * g_csgo.m_globals->m_interval );
 
 		// move down.
 		end.z -= 2.f;
 
-		g_csgo.m_engine_trace->TraceRay(Ray(start, end), MASK_SOLID, &filter, &trace);
+		g_csgo.m_engine_trace->TraceRay( Ray( start, end ), MASK_SOLID, &filter, &trace );
 
 		// check if landed.
-		if (trace.m_fraction != 1.f && trace.m_plane.m_normal.z > 0.7f && !(g_cl.m_flags & FL_ONGROUND))
+		if ( trace.m_fraction != 1.f && trace.m_plane.m_normal.z > 0.7f && !( g_cl.m_flags & FL_ONGROUND ) )
 			*g_cl.m_packet = true;
 	}
 
 	// force fake-lag to 14 when fakelagging.
-	if (g_input.GetKeyState(g_menu.main.movement.fakewalk.get())) {
+	if ( g_input.GetKeyState( g_menu.main.movement.fakewalk.get( ) ) ) {
+		*g_cl.m_packet = false;
+	}
+
+	if ( g_input.GetKeyState( g_menu.main.antiaim.lag_exploit.get( ) ) ) {
 		*g_cl.m_packet = false;
 	}
 
 	// do not lag while shooting.
-	if (g_cl.m_old_shot)
+	if ( g_cl.m_old_shot )
 		*g_cl.m_packet = true;
 
 	// we somehow reached the maximum amount of lag.
 	// we cannot lag anymore and we also cannot shoot anymore since we cant silent aim.
-	if (g_cl.m_lag >= g_cl.m_max_lag) {
+	if ( g_cl.m_lag >= g_cl.m_max_lag ) {
 		// set bSendPacket to true.
 		*g_cl.m_packet = true;
 

@@ -10,18 +10,6 @@ public:
 		view_weapon
 	};
 
-	struct matrices_t {
-		int                         ent_index;
-		ModelRenderInfo_t           info;
-		DrawModelState_t            state;
-		matrix3x4_t                 pBoneToWorld[128] = { };
-		float                       time;
-		matrix3x4_t                 model_to_world;
-	};
-
-public:
-	std::vector< matrices_t >       m_hit_matrix;
-
 public:
 	model_type_t GetModelType(const ModelRenderInfo_t& info);
 	bool IsInViewPlane(const vec3_t& world);
@@ -30,17 +18,12 @@ public:
 	void SetAlpha(float alpha, IMaterial* mat = nullptr);
 	void SetupMaterial(IMaterial* mat, Color col, bool z_flag);
 
-	void AddMatrix(Player* player, matrix3x4_t* bones);
-	void OnPSE();
-
 	void init();
 
 	bool OverridePlayer(int index);
 	bool GenerateLerpedMatrix(int index, BoneArray* out);
 	void RenderHistoryChams(int index);
-	void RenderFake();
 	bool DrawModel(uintptr_t ctx, const DrawModelState_t& state, const ModelRenderInfo_t& info, matrix3x4_t* bone);
-	void DrawChams(void* ecx, uintptr_t ctx, const DrawModelState_t& state, const ModelRenderInfo_t& info, matrix3x4_t* bone);
 	void SceneEnd();
 
 	void RenderPlayer(Player* player);
@@ -49,15 +32,7 @@ public:
 public:
 	std::vector< Player* > m_players;
 	bool m_running;
-	IMaterial* debugambientcube;
-	IMaterial* debugdrawflat;
-	IMaterial* materialMetall;
-	IMaterial* materialMetall2;
-	IMaterial* materialMetall3;
-	IMaterial* materialMetallnZ;
-	IMaterial* skeet;
-	IMaterial* onetap;
-	IMaterial* yeti;
+	std::vector< IMaterial* > m_materials;
 };
 
 extern Chams g_chams;

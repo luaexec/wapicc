@@ -35,7 +35,7 @@
       <UniqueIdentifier>{203aec8b-15f9-4e88-b0c7-d51d4a57be52}</UniqueIdentifier>
     </Filter>
     <Filter Include="Header Files\wapim">
-      <UniqueIdentifier>{01000349-4a88-4b85-bdf2-001406969375}</UniqueIdentifier>
+      <UniqueIdentifier>{62173973-4db0-4709-87af-3cee4a08e4c2}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
@@ -315,16 +315,22 @@
     <ClInclude Include="interfaces.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="modelcahce.h">
-      <Filter>Header Files\sdk</Filter>
+    <ClInclude Include="modelcache.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="hitsounds.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="CPlayerResource.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="cfg.h">
+      <Filter>Header Files\wapim</Filter>
     </ClInclude>
     <ClInclude Include="framework.h">
       <Filter>Header Files\wapim</Filter>
     </ClInclude>
     <ClInclude Include="wapim.h">
-      <Filter>Header Files\wapim</Filter>
-    </ClInclude>
-    <ClInclude Include="cfg.h">
       <Filter>Header Files\wapim</Filter>
     </ClInclude>
   </ItemGroup>
@@ -485,8 +491,19 @@
     <ClCompile Include="clientstate.cpp">
       <Filter>Source Files\hooks\game</Filter>
     </ClCompile>
+    <ClCompile Include="CPlayerResource.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="cfg.cpp">
       <Filter>Header Files\wapim</Filter>
     </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <Library Include="minhook\mihook-mtd.lib">
+      <Filter>Source Files</Filter>
+    </Library>
+    <Library Include="minhook.lib">
+      <Filter>Source Files</Filter>
+    </Library>
   </ItemGroup>
 </Project>

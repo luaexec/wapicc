@@ -187,6 +187,12 @@ public:
 		x = y = z = 0.f;
 	}
 
+	__forceinline bool is_zero( float tolerance = 0.01f ) const {
+		return ( this->x > -tolerance && this->x < tolerance&&
+			this->y > -tolerance && this->y < tolerance&&
+			this->z > -tolerance && this->z < tolerance );
+	}
+
 	__forceinline float length_sqr( ) const {
 		return ( ( x * x ) + ( y * y ) + ( z * z ) );
 	}
@@ -209,6 +215,13 @@ public:
 
 	__forceinline float dot( float* v ) const {
 		return ( x * v[ 0 ] + y * v[ 1 ] + z * v[ 2 ] );
+	}
+
+	__forceinline float vec3_t::Dot(const float* fOther) const
+	{
+		const vec3_t& a = *this;
+
+		return(a.x * fOther[0] + a.y * fOther[1] + a.z * fOther[2]);
 	}
 
 	__forceinline vec3_t cross( const vec3_t &v ) const {

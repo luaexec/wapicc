@@ -105,6 +105,58 @@ enum InvalidatePhysicsBits_t : int {
 	ANIMATION_CHANGED = 0x8,
 };
 
+enum entityflags_t : int {
+	EFL_KILLME = ( 1 << 0 ),	// This entity is marked for death -- This allows the game to actually delete ents at a safe time
+	EFL_DORMANT = ( 1 << 1 ),	// Entity is dormant, no updates to client
+	EFL_NOCLIP_ACTIVE = ( 1 << 2 ),	// Lets us know when the noclip command is active.
+	EFL_SETTING_UP_BONES = ( 1 << 3 ),	// Set while a model is setting up its bones.
+	EFL_KEEP_ON_RECREATE_ENTITIES = ( 1 << 4 ), // This is a special entity that should not be deleted when we restart entities only
+
+	EFL_HAS_PLAYER_CHILD = ( 1 << 4 ),	// One of the child entities is a player.
+
+	EFL_DIRTY_SHADOWUPDATE = ( 1 << 5 ),	// Client only- need shadow manager to update the shadow...
+	EFL_NOTIFY = ( 1 << 6 ),	// Another entity is watching events on this entity (used by teleport)
+
+	// The default behavior in ShouldTransmit is to not send an entity if it doesn't
+	// have a model. Certain entities want to be sent anyway because all the drawing logic
+	// is in the client DLL. They can set this flag and the engine will transmit them even
+	// if they don't have a model.
+	EFL_FORCE_CHECK_TRANSMIT = ( 1 << 7 ),
+
+	EFL_BOT_FROZEN = ( 1 << 8 ),	// This is set on bots that are frozen.
+	EFL_SERVER_ONLY = ( 1 << 9 ),	// Non-networked entity.
+	EFL_NO_AUTO_EDICT_ATTACH = ( 1 << 10 ), // Don't attach the edict; we're doing it explicitly
+
+	// Some dirty bits with respect to abs computations
+	EFL_DIRTY_ABSTRANSFORM = ( 1 << 11 ),
+	EFL_DIRTY_ABSVELOCITY = ( 1 << 12 ),
+	EFL_DIRTY_ABSANGVELOCITY = ( 1 << 13 ),
+	EFL_DIRTY_SURROUNDING_COLLISION_BOUNDS = ( 1 << 14 ),
+	EFL_DIRTY_SPATIAL_PARTITION = ( 1 << 15 ),
+	EFL_DIRTY_PVS_INFORMATION = ( 1 << 16 ),
+
+	EFL_IN_SKYBOX = ( 1 << 17 ),	// This is set if the entity detects that it's in the skybox.
+	// This forces it to pass the "in PVS" for transmission.
+	EFL_USE_PARTITION_WHEN_NOT_SOLID = ( 1 << 18 ),	// Entities with this flag set show up in the partition even when not solid
+	EFL_TOUCHING_FLUID = ( 1 << 19 ),	// Used to determine if an entity is floating
+
+	// FIXME: Not really sure where I should add this...
+	EFL_IS_BEING_LIFTED_BY_BARNACLE = ( 1 << 20 ),
+	EFL_NO_ROTORWASH_PUSH = ( 1 << 21 ),		// I shouldn't be pushed by the rotorwash
+	EFL_NO_THINK_FUNCTION = ( 1 << 22 ),
+	EFL_NO_GAME_PHYSICS_SIMULATION = ( 1 << 23 ),
+
+	EFL_CHECK_UNTOUCH = ( 1 << 24 ),
+	EFL_DONTBLOCKLOS = ( 1 << 25 ),		// I shouldn't block NPC line-of-sight
+	EFL_DONTWALKON = ( 1 << 26 ),		// NPC;s should not walk on this entity
+	EFL_NO_DISSOLVE = ( 1 << 27 ),		// These guys shouldn't dissolve
+	EFL_NO_MEGAPHYSCANNON_RAGDOLL = ( 1 << 28 ),	// Mega physcannon can't ragdoll these guys.
+	EFL_NO_WEAPON_PICKUP = ( 1 << 29 ),		// Characters can't pick up weapons
+	EFL_NO_PHYSCANNON_INTERACTION = ( 1 << 30 ),	// Physcannon can't pick these up or punt them
+	EFL_NO_DAMAGE_FORCES = ( 1 << 31 ),	// Doesn't accept forces from physics damage
+};
+
+
 enum DataUpdateType_t : int {
 	DATA_UPDATE_CREATED = 0,
 	DATA_UPDATE_DATATABLE_CHANGED,
@@ -204,30 +256,6 @@ enum Weapons_t : int {
 	KNIFE_BOWIE = 514,
 	KNIFE_BUTTERFLY = 515,
 	KNIFE_SHADOW_DAGGERS = 516,
-};
-
-
-enum pose_params : int
-{
-	strafe_yaw,
-	stand,
-	lean_yaw,
-	speed,
-	ladder_yaw,
-	ladder_speed,
-	jump_fall,
-	move_yaw,
-	move_blend_crouch,
-	move_blend_walk,
-	move_blend_run,
-	body_yaw,
-	body_pitch,
-	aim_blend_stand_idle,
-	aim_blend_stand_walk,
-	aim_blend_stand_run,
-	aim_blend_courch_idle,
-	aim_blend_crouch_walk,
-	death_yaw
 };
 
 struct RenderableInstance_t {
@@ -757,13 +785,8 @@ public:
 		return get< CBoneCache >(g_entoffsets.m_BoneCache);
 	}
 
-	__forceinline CUtlVector<matrix3x4_t>bone_cache() {
-		return *reinterpret_cast<CUtlVector<matrix3x4_t>*>(uintptr_t(this) + 0x2900);
-	}
-
-	__forceinline matrix3x4_t**& m_iBoneCache() {
-		// TODO; sig
-		return get< matrix3x4_t** >(g_entoffsets.m_BoneCache);
+	__forceinline c_utl_vector<matrix3x4_t>bone_cache() {
+		return *reinterpret_cast<c_utl_vector<matrix3x4_t>*>(uintptr_t(this) + 0x2900);
 	}
 
 	__forceinline EHANDLE &m_hObserverTarget() {
@@ -811,10 +834,11 @@ public:
 	enum indices : size_t {
 		GETREFEHANDLE = 2,
 		TESTHITBOXES = 52,
+		ENTITYSHOULDINTERPOLATE = 173,
 		BUILDTRANSFORMATIONS = 184,
 		DOEXTRABONEPROCESSING = 192,
 		STANDARDBLENDINGRULES = 200,
-		UPDATECLIENTSIDEANIMATION = 218, // 218 // 55 8B EC 51 56 8B F1 80 BE ? ? ? ? ? 74 36
+		UPDATECLIENTSIDEANIMATION = 218, // 55 8B EC 51 56 8B F1 80 BE ? ? ? ? ? 74 36
 		GETACTIVEWEAPON = 262,
 		GETEYEPOS = 163,
 		GETFOV = 321,
@@ -857,38 +881,49 @@ public:
 		return out;
 	}
 
-	__forceinline void ModifyEyePosition(CCSGOPlayerAnimState *state, vec3_t *pos) {
-		if (!state) {
+	void get_bone_position(int bone_id, vec3_t& origin) {
+		static auto function = pattern::find(g_csgo.m_client_dll, "E8 ? ? ? ? 8B 55 10 8D 0C").relative().as< void(__thiscall*)(void*, int, vec3_t*) >();
+
+		vec3_t vectors[4];
+		function(this, bone_id, vectors);
+		origin = { vectors[1].x, vectors[2].y, vectors[3].z };
+	}
+
+	int lookup_bone(const char* name) {
+		static auto function = pattern::find(g_csgo.m_client_dll, "E8 ? ? ? ? 89 44 24 5C").relative().as< int(__thiscall*)(void*, const char*) >();
+
+		return function(this, name);
+	}
+
+	matrix3x4_t& coord_frame() {
+		const static auto m_CollisionGroup = g_netvars.get(HASH("DT_BaseEntity"), HASH("m_CollisionGroup"));
+
+		auto m_rgflCoordinateFrame = m_CollisionGroup - 0x30;
+
+		return *reinterpret_cast<matrix3x4_t*>(reinterpret_cast<uintptr_t>(this) + m_rgflCoordinateFrame);
+	}
+
+	__forceinline void ModifyEyePosition(CCSGOPlayerAnimState* state, vec3_t* pos) {
+		auto player = state->m_player;
+		if (!player)
 			return;
-		}
 
-		//  if ( *(this + 0x50) && (*(this + 0x100) || *(this + 0x94) != 0.0 || !sub_102C9480(*(this + 0x50))) )
-		if (state->m_player &&
-			(state->m_land || state->m_player->m_flDuckAmount() != 0.f || !state->m_player->GetGroundEntity())) {
-			auto v5 = 8;
+		if (!state->m_land || player->m_flDuckAmount() == 0.f || !player->GetGroundEntity())
+			return;
 
-			if (v5 != -1 && state->m_player->m_BoneCache().m_pCachedBones) {
-				vec3_t head_pos(
-					state->m_player->m_BoneCache().m_pCachedBones[8][0][3],
-					state->m_player->m_BoneCache().m_pCachedBones[8][1][3],
-					state->m_player->m_BoneCache().m_pCachedBones[8][2][3]);
+		int head_bone = player->lookup_bone("head_0");
+		if (!head_bone)
+			return;
 
-				auto v12 = head_pos;
-				auto v7 = v12.z + 1.7;
+		vec3_t head_pos;
+		player->get_bone_position(head_bone, head_pos);
 
-				auto v8 = pos->z;
-				if (v8 > v7) // if (v8 > (v12 + 1.7))
-				{
-					float v13 = 0.f;
-					float v3 = (*pos).z - v7;
+		if (head_pos.z < pos->z) {
 
-					float v4 = (v3 - 4.f) * 0.16666667;
-					if (v4 >= 0.f)
-						v13 = std::fminf(v4, 1.f);
+			float lerp = math::simple_spline_remap_val_clamped(std::fabs(pos->z - head_pos.z), 4.f, 10.f, 0.f, 1.f);
 
-					(*pos).z = (((v7 - (*pos).z)) * (((v13 * v13) * 3.0) - (((v13 * v13) * 2.0) * v13))) + (*pos).z;
-				}
-			}
+			pos->z = math::lerp(lerp, pos->z, head_pos.z);
+
 		}
 	}
 
@@ -915,12 +950,17 @@ public:
 
 		GetEyePos(&pos);
 
-		if (*reinterpret_cast <int32_t *> (uintptr_t(this) + 0x39E1)) {
+		auto state = m_PlayerAnimState();
+
+		if (state)
+			ModifyEyePosition(state, &pos);
+
+		/*if (*reinterpret_cast <int32_t *> (uintptr_t(this) + 0x39E1)) {
 			auto v3 = m_PlayerAnimState();
 			if (v3) {
 				ModifyEyePosition(v3, &pos);
 			}
-		}
+		}*/
 
 		return pos;
 	}
@@ -975,11 +1015,6 @@ public:
 		using ComputeHitboxSurroundingBox_t = bool(__thiscall *)(void *, vec3_t *, vec3_t *);
 
 		return g_csgo.ComputeHitboxSurroundingBox.as< ComputeHitboxSurroundingBox_t >()(this, mins, maxs);
-	}
-
-	__forceinline matrix3x4_t& coord_frame() {
-		static auto _m_rgflCoordinateFrame = g_netvars.get(FNV1a::get("DT_BasePlayer"), FNV1a::get("m_CollisionGroup")) - 0x30;
-		return *(matrix3x4_t*)((uintptr_t)this + _m_rgflCoordinateFrame);
 	}
 
 	__forceinline int GetSequenceActivity(int sequence) {

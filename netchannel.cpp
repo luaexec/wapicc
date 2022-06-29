@@ -6,7 +6,7 @@
 int Hooks::SendDatagram( void* data ) {
 	int backup2 = g_csgo.m_net->m_in_seq;
 
-	if( g_aimbot.m_fake_latency) {
+	if( g_aimbot.m_fake_latency ) {
 		int ping = g_menu.main.misc.fake_latency_amt.get( );
 
 		// the target latency.

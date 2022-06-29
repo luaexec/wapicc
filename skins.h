@@ -54,12 +54,6 @@ struct GloveData {
 	}
 };
 
-struct HudWeapons_t {
-	std::int32_t* GetWeaponCount() {
-		return reinterpret_cast<std::int32_t*>(std::uintptr_t(this) + 0x80);
-	}
-};
-
 class Skins {
 public:
 	enum knives_t {
@@ -99,7 +93,6 @@ public:
 	void think( );
 	void UpdateItem( Weapon* item );
 	void UpdateAnimations( Entity* ent );
-	void UpdateHud();
 };
 
 extern Skins g_skins;

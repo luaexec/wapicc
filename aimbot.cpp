@@ -2,6 +2,64 @@
 
 Aimbot g_aimbot{ };;
 
+bool Aimbot::CanDT( ) {
+	int idx = g_cl.m_weapon->m_iItemDefinitionIndex( );
+	return g_cl.m_local->alive( )
+		&& m_double_tap;
+}
+
+void Aimbot::DoubleTap( )
+{
+	static bool did_shift_before = false;
+	static bool reset = true;
+	static int clock = 0;
+	auto ticks_to_shift = g_menu.main.aimbot.shift_amt.get( );
+	g_cl.can_dt_shoot = false;
+
+	if ( CanDT( ) && !g_csgo.m_gamerules->m_bFreezePeriod( ) )
+	{
+		if ( m_double_tap )
+		{
+			if ( reset )
+			{
+				if ( g_cl.m_cmd->m_buttons & IN_ATTACK )
+					clock = 0;
+
+				clock++;
+
+				if ( clock >= 40 ) // recharge delay
+				{
+					g_cl.m_tick_to_recharge = ticks_to_shift;
+					g_cl.can_recharge = true;
+					g_cl.m_tick_to_shift = 0;
+					clock = 0;
+					reset = false;
+				}
+			}
+			else
+			{
+				if ( g_cl.m_charged )
+				{
+					g_cl.can_dt_shoot = true;
+
+					if ( g_cl.m_cmd->m_buttons & IN_ATTACK )
+					{
+						g_cl.m_visual_shift_ticks = 0;
+						*g_cl.m_packet = true;
+						g_cl.m_tick_to_shift = ticks_to_shift;
+						reset = true;
+						g_cl.m_charged = false;
+						if ( g_menu.main.aimbot.dt_mode.get( ) == 0 ) {
+							g_cl.m_cmd->m_side_move = 0; // this is to slow movement to increase accuracy
+							g_cl.m_cmd->m_forward_move = 0;
+						}
+					}
+				}
+			}
+		}
+	}
+}
+
 void AimPlayer::UpdateAnimations( LagRecord* record ) {
 	CCSGOPlayerAnimState* state = m_player->m_PlayerAnimState( );
 	if ( !state )
@@ -41,18 +99,42 @@ void AimPlayer::UpdateAnimations( LagRecord* record ) {
 	// is player a bot?
 	bool bot = game::IsFakePlayer( m_player->index( ) );
 
-	// reset fakewalk state.
+	// reset fakewalk & fakeflick state.
 	record->m_fake_walk = false;
+	record->m_fake_flick = false;
 	record->m_mode = Resolver::Modes::RESOLVE_NONE;
 
 	// fix velocity.
 	// https://github.com/VSES/SourceEngine2007/blob/master/se2007/game/client/c_baseplayer.cpp#L659
-	if ( record->m_lag > 0 && record->m_lag < 16 && m_records.size( ) >= 2 ) {
+	if ( record->m_lag > 0 && m_records.size( ) >= 2 ) {
 		// get pointer to previous record.
 		LagRecord* previous = m_records[1].get( );
 
-		if ( previous && !previous->dormant( ) )
-			record->m_velocity = ( record->m_origin - previous->m_origin ) * ( 1.f / game::TICKS_TO_TIME( record->m_lag ) );
+		if ( previous && !previous->dormant( ) ) {
+			// get the delta in time.
+			record->m_choke_time = record->m_sim_time - previous->m_sim_time;
+
+			// how many ticks did he choke?
+			const int lag_ticks = game::TIME_TO_TICKS( record->m_choke_time );
+
+			// override this nigga.
+			record->m_lag = lag_ticks;
+
+			// is this nigga out of lag compensation.
+			if ( ( lag_ticks - 1 ) > 19 || previous->m_sim_time == 0.f ) {
+				record->m_choke_time = g_csgo.m_globals->m_interval;
+				record->m_lag = 1;
+			}
+
+			// this nigga isnt choking.
+			if ( record->m_lag < 1 ) {
+				record->m_choke_time = g_csgo.m_globals->m_interval;
+				record->m_lag = 1;
+			}
+
+			// setup default velocity.
+			record->m_velocity = ( record->m_origin - previous->m_origin ) * ( 1.f / record->m_choke_time );
+		}
 	}
 
 	// set this fucker, it will get overriden.
@@ -64,11 +146,23 @@ void AimPlayer::UpdateAnimations( LagRecord* record ) {
 		// detect fakewalk.
 		float speed = record->m_velocity.length( );
 
-		if ( record->m_flags & FL_ONGROUND && record->m_layers[6].m_weight == 0.f && speed > 0.1f && speed < 100.f )
+		if ( record->m_velocity.length( ) > 0.1f
+			 && record->m_layers[6].m_weight == 0.0f
+			 && record->m_layers[12].m_weight == 0.0f
+			 && record->m_layers[6].m_playback_rate < 0.0001f
+			 && ( record->m_flags & FL_ONGROUND ) )
 			record->m_fake_walk = true;
 
 		if ( record->m_fake_walk )
 			record->m_anim_velocity = record->m_velocity = { 0.f, 0.f, 0.f };
+
+		// detect fakeflicking players
+		if ( record->m_velocity.length( ) < 18.f
+			 && record->m_layers[6].m_weight != 1.0f
+			 && record->m_layers[6].m_weight != 0.0f
+			 && record->m_layers[6].m_weight != m_records.front( ).get( )->m_layers[6].m_weight
+			 && ( record->m_flags & FL_ONGROUND ) )
+			record->m_fake_flick = true;
 
 		// we need atleast 2 updates/records
 		// to fix these issues.
@@ -77,6 +171,10 @@ void AimPlayer::UpdateAnimations( LagRecord* record ) {
 			LagRecord* previous = m_records[1].get( );
 
 			if ( previous && !previous->dormant( ) ) {
+
+				if ( record->m_flags & FL_ONGROUND )
+					++air_tick;
+
 				// set previous flags.
 				m_player->m_fFlags( ) = previous->m_flags;
 
@@ -86,9 +184,6 @@ void AimPlayer::UpdateAnimations( LagRecord* record ) {
 				// been onground for 2 consecutive ticks? fuck yeah.
 				if ( record->m_flags & FL_ONGROUND && previous->m_flags & FL_ONGROUND )
 					m_player->m_fFlags( ) |= FL_ONGROUND;
-
-				//if( record->m_layers[ 4 ].m_weight != 0.f && previous->m_layers[ 4 ].m_weight == 0.f && record->m_layers[ 5 ].m_weight != 0.f )
-				//	m_player->m_fFlags( ) |= FL_ONGROUND;
 
 				// fix jump_fall.
 				if ( record->m_layers[4].m_weight != 1.f && previous->m_layers[4].m_weight == 1.f && record->m_layers[5].m_weight != 0.f )
@@ -124,47 +219,28 @@ void AimPlayer::UpdateAnimations( LagRecord* record ) {
 					// and predict one tick ahead.
 					record->m_anim_velocity = previous->m_velocity + accel;
 				}
+
+				// fix these niggas.
+				if ( ( record->m_origin - previous->m_origin ).is_zero( ) )
+					record->m_anim_velocity = record->m_velocity = { 0.f, 0.f, 0.f };
 			}
 		}
 	}
 
-	// // better fake angle detection.
-	// size_t consistency{};
-	// size_t size = std::min( 5u, m_records.size( ) );
-	// 
-	// for( size_t i{}; i < size; i++ ) {
-	//     // if we have lag on this record.
-	//     if( m_records[ i ].get( )->m_lag > 1 )
-	//         ++consistency;
-	// }
-	// 
-	// // compute lag consistency scale.
-	// float scale = ( float )consistency / ( float )size;
-	// 
-	// // if faking angles more than 80% of the time
-	// // and not bot, player uses fake angles.
-	// bool fake = g_menu.main.aimbot.correct.get( ) && !bot && scale > 0.8f;
+	// get invalidated bone cache.
+	static auto& invalidatebonecache = pattern::find( g_csgo.m_client_dll, XOR( "C6 05 ? ? ? ? ? 89 47 70" ) ).add( 0x2 );
 
-	// size_t consistency{ 0u };
-	// size_t size{ m_records.size( ) };
-	// 
-	// // add up records the player didn't lag.
-	// for( size_t i{ 0u }; i < size; i++ ) {
-	//     if( m_records[ i ].get( )->m_lag < 1 )
-	//         ++consistency;
-	// }
-	// 
-	// // compute lag consistency scale.
-	// float scale = ( float )consistency / size;
-	// 
-	// // lagged too much.
-	// bool fake = !bot && scale < 0.5f;
+	// set player.
+	for ( int i = 0; i < 13; i++ )
+		m_player->m_AnimOverlay( )[i].m_owner = m_player;
 
-	bool fake = !bot && g_menu.main.aimbot.correct.get( );
+	bool fake = !bot && config["acc_correct"].get<bool>( );
 
 	// if using fake angles, correct angles.
-	if ( fake )
+	if ( fake ) {
 		g_resolver.ResolveAngles( m_player, record );
+		g_resolver.ResolveBodyUpdates( m_player, record );
+	}
 
 	// set stuff before animating.
 	m_player->m_vecOrigin( ) = record->m_origin;
@@ -175,17 +251,26 @@ void AimPlayer::UpdateAnimations( LagRecord* record ) {
 	// skip call to C_BaseEntity::CalcAbsoluteVelocity
 	m_player->m_iEFlags( ) &= ~0x1000;
 
+	// force to use correct abs origin and velocity ( no CalcAbsolutePosition and CalcAbsoluteVelocity calls )
+	m_player->m_iEFlags( ) &= ~( EFL_DIRTY_ABSTRANSFORM | EFL_DIRTY_ABSVELOCITY );
+
 	// write potentially resolved angles.
 	m_player->m_angEyeAngles( ) = record->m_eye_angles;
 
 	// fix animating in same frame.
-	if ( state->m_frame == g_csgo.m_globals->m_frame )
-		state->m_frame -= 1;
+	if ( state->m_frame >= g_csgo.m_globals->m_frame )
+		state->m_frame = g_csgo.m_globals->m_frame - 1;
+
+	// make sure we keep track of the original invalidation state
+	const auto oldbonecache = invalidatebonecache;
 
 	// 'm_animating' returns true if being called from SetupVelocity, passes raw velocity to animstate.
 	m_player->m_bClientSideAnimation( ) = true;
 	m_player->UpdateClientSideAnimation( );
 	m_player->m_bClientSideAnimation( ) = false;
+
+	// we don't want to enable cache invalidation by accident
+	invalidatebonecache = oldbonecache;
 
 	// correct poses if fake angles.
 	if ( fake )
@@ -212,15 +297,19 @@ void AimPlayer::UpdateAnimations( LagRecord* record ) {
 	// restore globals.
 	g_csgo.m_globals->m_curtime = curtime;
 	g_csgo.m_globals->m_frametime = frametime;
+
+	// players animations have updated.
+	return m_player->InvalidatePhysicsRecursive( InvalidatePhysicsBits_t::ANIMATION_CHANGED );
 }
 
 void AimPlayer::OnNetUpdate( Player* player ) {
-	bool reset = ( !g_menu.main.aimbot.enable.get( ) || player->m_lifeState( ) == LIFE_DEAD || !player->enemy( g_cl.m_local ) );
+	bool reset = ( !config["rage_enable"].get<bool>( ) || player->m_lifeState( ) == LIFE_DEAD || !player->enemy( g_cl.m_local ) );
 	bool disable = ( !reset && !g_cl.m_processing );
 
 	// if this happens, delete all the lagrecords.
 	if ( reset ) {
 		player->m_bClientSideAnimation( ) = true;
+		m_body_update = FLT_MAX;
 		m_records.clear( );
 		return;
 	}
@@ -228,13 +317,19 @@ void AimPlayer::OnNetUpdate( Player* player ) {
 	// just disable anim if this is the case.
 	if ( disable ) {
 		player->m_bClientSideAnimation( ) = true;
+		m_body_update = FLT_MAX;
 		return;
 	}
 
 	// update player ptr if required.
 	// reset player if changed.
-	if ( m_player != player )
+	if ( m_player != player ) {
 		m_records.clear( );
+		m_body_index = 0;
+		m_freestand_index = 0;
+		m_lm_index = 0;
+		m_body_update = FLT_MAX;
+	}
 
 	// update player ptr.
 	m_player = player;
@@ -244,6 +339,11 @@ void AimPlayer::OnNetUpdate( Player* player ) {
 	// to fix stuff like animation and prediction.
 	if ( player->dormant( ) ) {
 		bool insert = true;
+
+
+		// dont get data when doramnt.
+		m_moved = false;
+		m_body_update = FLT_MAX;
 
 		// we have any records already?
 		if ( !m_records.empty( ) ) {
@@ -264,17 +364,14 @@ void AimPlayer::OnNetUpdate( Player* player ) {
 
 			// mark as dormant.
 			current->m_dormant = true;
+
 		}
+
+		return;
 	}
 
 	bool update = ( m_records.empty( ) || player->m_flSimulationTime( ) > m_records.front( ).get( )->m_sim_time );
 
-	if ( !update && !player->dormant( ) && player->m_vecOrigin( ) != player->m_vecOldOrigin( ) ) {
-		update = true;
-
-		// fix data.
-		player->m_flSimulationTime( ) = game::TICKS_TO_TIME( g_csgo.m_cl->m_server_tick );
-	}
 
 	// this is the first data update we are receving
 	// OR we received data with a newer simulation context.
@@ -297,7 +394,7 @@ void AimPlayer::OnNetUpdate( Player* player ) {
 	}
 
 	// no need to store insane amt of data.
-	while ( m_records.size( ) > 256 )
+	while ( m_records.size( ) > 64 )
 		m_records.pop_back( );
 }
 
@@ -308,8 +405,8 @@ void AimPlayer::OnRoundStart( Player* player ) {
 	m_missed_shots = 0;
 
 	// reset stand and body index.
-	m_stand_index = 0;
-	m_stand_index2 = 0;
+	m_lm_index = 0;
+	m_freestand_index = 0;
 	m_body_index = 0;
 
 	m_records.clear( );
@@ -322,21 +419,20 @@ void AimPlayer::SetupHitboxes( LagRecord* record, bool history ) {
 	// reset hitboxes.
 	m_hitboxes.clear( );
 
+	if ( !g_cl.m_weapon_info )
+		return;
 
 	bool prefer_head = record->m_velocity.length_2d( ) > 71.f;
 
 	// prefer
 
-	if ( g_menu.main.aimbot.head1.get( 0 ) )
+	if ( config["rage_head_always"].get<bool>( ) )
 		m_hitboxes.push_back( { HITBOX_HEAD, HitscanMode::PREFER } );
 
-	if ( g_menu.main.aimbot.head1.get( 1 ) && prefer_head )
+	if ( config["rage_head_move"].get<bool>( ) && prefer_head )
 		m_hitboxes.push_back( { HITBOX_HEAD, HitscanMode::PREFER } );
 
-	if ( g_menu.main.aimbot.head1.get( 2 ) && !( record->m_mode != Resolver::Modes::RESOLVE_NONE && record->m_mode != Resolver::Modes::RESOLVE_WALK && record->m_mode != Resolver::Modes::RESOLVE_BODY ) )
-		m_hitboxes.push_back( { HITBOX_HEAD, HitscanMode::PREFER } );
-
-	if ( g_menu.main.aimbot.head1.get( 3 ) && !( record->m_pred_flags & FL_ONGROUND ) )
+	if ( config["rage_head_resolve"].get<bool>( ) && !( record->m_mode != Resolver::Modes::RESOLVE_NONE && record->m_mode != Resolver::Modes::RESOLVE_WALK && record->m_mode != Resolver::Modes::RESOLVE_BODY ) )
 		m_hitboxes.push_back( { HITBOX_HEAD, HitscanMode::PREFER } );
 
 	if ( g_cl.m_weapon_id == ZEUS ) {
@@ -345,116 +441,68 @@ void AimPlayer::SetupHitboxes( LagRecord* record, bool history ) {
 		return;
 	}
 
-	// prefer, always.
-	if ( g_menu.main.aimbot.baim1.get( 0 ) )
+	if ( config["rage_body_always"].get<bool>( ) )
 		m_hitboxes.push_back( { HITBOX_BODY, HitscanMode::PREFER } );
 
-	// prefer, lethal.
-	if ( g_menu.main.aimbot.baim1.get( 1 ) )
+	if ( config["rage_body_lethal"].get<bool>( ) )
 		m_hitboxes.push_back( { HITBOX_BODY, HitscanMode::LETHAL } );
 
-	// prefer, lethal x2.
-	if ( g_menu.main.aimbot.baim1.get( 2 ) )
-		m_hitboxes.push_back( { HITBOX_BODY, HitscanMode::LETHAL2 } );
-
-	// prefer, fake.
-	if ( g_menu.main.aimbot.baim1.get( 3 ) && record->m_mode != Resolver::Modes::RESOLVE_NONE && record->m_mode != Resolver::Modes::RESOLVE_WALK && record->m_mode != Resolver::Modes::RESOLVE_BODY )
+	if ( config["rage_body_fake"].get<bool>( ) && record->m_mode != Resolver::Modes::RESOLVE_NONE && record->m_mode != Resolver::Modes::RESOLVE_WALK && record->m_mode != Resolver::Modes::RESOLVE_BODY )
 		m_hitboxes.push_back( { HITBOX_BODY, HitscanMode::PREFER } );
 
-	// prefer, in air.
-	if ( g_menu.main.aimbot.baim1.get( 4 ) && !( record->m_pred_flags & FL_ONGROUND ) )
-		m_hitboxes.push_back( { HITBOX_BODY, HitscanMode::PREFER } );
-
-	// prefer, in air.
-	if ( g_menu.main.aimbot.baim1.get( 5 ) && ( m_last_move >= g_menu.main.aimbot.misses.get( ) || m_unknown_move >= g_menu.main.aimbot.misses.get( ) ) )
+	if ( config["rage_body_air"].get<bool>( ) && !( record->m_pred_flags & FL_ONGROUND ) )
 		m_hitboxes.push_back( { HITBOX_BODY, HitscanMode::PREFER } );
 
 	bool only{ false };
 
-	// only, always.
-	if ( g_menu.main.aimbot.baim2.get( 0 ) ) {
+	if ( config["rage_body_always"].get<bool>( ) ) {
 		only = true;
 		m_hitboxes.push_back( { HITBOX_BODY, HitscanMode::PREFER } );
 	}
 
-	// only, health.
-	if ( g_menu.main.aimbot.baim2.get( 1 ) && m_player->m_iHealth( ) <= (int)g_menu.main.aimbot.baim_hp.get( ) ) {
-		only = true;
+	if ( cfg_t::get_hotkey( "acc_forcebody", "acc_forcebody_mode" ) ) {
+		only = m_force_body = true;
 		m_hitboxes.push_back( { HITBOX_BODY, HitscanMode::PREFER } );
 	}
 
-	// only, fake.
-	if ( g_menu.main.aimbot.baim2.get( 2 ) && record->m_mode != Resolver::Modes::RESOLVE_NONE && record->m_mode != Resolver::Modes::RESOLVE_WALK && record->m_mode != Resolver::Modes::RESOLVE_BODY ) {
-		only = true;
-		m_hitboxes.push_back( { HITBOX_BODY, HitscanMode::PREFER } );
-	}
-
-	// only, in air.
-	if ( g_menu.main.aimbot.baim2.get( 3 ) && !( record->m_pred_flags & FL_ONGROUND ) ) {
-		only = true;
-		m_hitboxes.push_back( { HITBOX_BODY, HitscanMode::PREFER } );
-	}
-
-	// only, in air.
-	if ( g_menu.main.aimbot.baim2.get( 4 ) && ( m_last_move >= g_menu.main.aimbot.misses.get( ) || m_unknown_move >= g_menu.main.aimbot.misses.get( ) ) ) {
-		only = true;
-		m_hitboxes.push_back( { HITBOX_BODY, HitscanMode::PREFER } );
-	}
-
-	// only, on key.
-	if ( g_input.GetKeyState( g_menu.main.aimbot.baim_key.get( ) ) ) {
-		only = true;
-		m_hitboxes.push_back( { HITBOX_BODY, HitscanMode::PREFER } );
-	}
-
-	// only baim conditions have been met.
-	// do not insert more hitboxes.
 	if ( only )
 		return;
 
-	std::vector< size_t > hitbox{ history ? g_menu.main.aimbot.hitbox_history.GetActiveIndices( ) : g_menu.main.aimbot.hitbox.GetActiveIndices( ) };
-	if ( hitbox.empty( ) )
-		return;
+	bool ignore_limbs = record->m_velocity.length_2d( ) > 71.f && config["acc_limbs"].get<bool>( );
 
-	bool ignore_limbs = record->m_velocity.length_2d( ) > 71.f && g_menu.main.aimbot.ignor_limbs.get( );
+	if ( config["rage_hb_head"].get<bool>( ) ) {
+		m_hitboxes.push_back( { HITBOX_HEAD, HitscanMode::NORMAL } );
+	}
 
-	for ( const auto& h : hitbox ) {
-		// head.
-		if ( h == 0 )
-			m_hitboxes.push_back( { HITBOX_HEAD, HitscanMode::NORMAL } );
+	if ( config["rage_hb_ubody"].get<bool>( ) ) {
+		m_hitboxes.push_back( { HITBOX_UPPER_CHEST, HitscanMode::NORMAL } );
+	}
 
-		// chest.
-		if ( h == 1 ) {
-			m_hitboxes.push_back( { HITBOX_THORAX, HitscanMode::NORMAL } );
-			m_hitboxes.push_back( { HITBOX_CHEST, HitscanMode::NORMAL } );
-			m_hitboxes.push_back( { HITBOX_UPPER_CHEST, HitscanMode::NORMAL } );
-		}
+	if ( config["rage_hb_body"].get<bool>( ) ) {
+		m_hitboxes.push_back( { HITBOX_THORAX, HitscanMode::NORMAL } );
+		m_hitboxes.push_back( { HITBOX_CHEST, HitscanMode::NORMAL } );
+		m_hitboxes.push_back( { HITBOX_BODY, HitscanMode::NORMAL } );
+	}
 
-		// stomach.
-		if ( h == 2 ) {
-			m_hitboxes.push_back( { HITBOX_PELVIS, HitscanMode::NORMAL } );
-			m_hitboxes.push_back( { HITBOX_BODY, HitscanMode::NORMAL } );
-		}
+	if ( config["rage_hb_pelvis"].get<bool>( ) ) {
+		m_hitboxes.push_back( { HITBOX_PELVIS, HitscanMode::NORMAL } );
+	}
 
-		// arms.
-		if ( h == 3 && !ignore_limbs ) {
-			m_hitboxes.push_back( { HITBOX_L_UPPER_ARM, HitscanMode::NORMAL } );
-			m_hitboxes.push_back( { HITBOX_R_UPPER_ARM, HitscanMode::NORMAL } );
-		}
+	if ( config["rage_hb_arm"].get<bool>( ) && !ignore_limbs ) {
+		m_hitboxes.push_back( { HITBOX_L_UPPER_ARM, HitscanMode::NORMAL } );
+		m_hitboxes.push_back( { HITBOX_R_UPPER_ARM, HitscanMode::NORMAL } );
+	}
 
-		// legs.
-		if ( h == 4 ) {
-			m_hitboxes.push_back( { HITBOX_L_THIGH, HitscanMode::NORMAL } );
-			m_hitboxes.push_back( { HITBOX_R_THIGH, HitscanMode::NORMAL } );
-			m_hitboxes.push_back( { HITBOX_L_CALF, HitscanMode::NORMAL } );
-			m_hitboxes.push_back( { HITBOX_R_CALF, HitscanMode::NORMAL } );
-		}
+	if ( config["rage_hb_leg"].get<bool>( ) && !ignore_limbs ) {
+		m_hitboxes.push_back( { HITBOX_L_THIGH, HitscanMode::NORMAL } );
+		m_hitboxes.push_back( { HITBOX_R_THIGH, HitscanMode::NORMAL } );
+		m_hitboxes.push_back( { HITBOX_L_CALF, HitscanMode::NORMAL } );
+		m_hitboxes.push_back( { HITBOX_R_CALF, HitscanMode::NORMAL } );
+	}
 
-		// foot.
-		if ( h == 5 && !ignore_limbs ) {
-			m_hitboxes.push_back( { HITBOX_L_FOOT, HitscanMode::NORMAL } );
-			m_hitboxes.push_back( { HITBOX_R_FOOT, HitscanMode::NORMAL } );
-		}
+	if ( config["rage_hb_foot"].get<bool>( ) && !ignore_limbs ) {
+		m_hitboxes.push_back( { HITBOX_L_FOOT, HitscanMode::NORMAL } );
+		m_hitboxes.push_back( { HITBOX_R_FOOT, HitscanMode::NORMAL } );
 	}
 }
 
@@ -497,11 +545,8 @@ void Aimbot::think( ) {
 	if ( g_cl.m_weapon_type == WEAPONTYPE_GRENADE || g_cl.m_weapon_type == WEAPONTYPE_C4 )
 		return;
 
-	if ( !g_cl.m_weapon_fire )
-		StripAttack( );
-
 	// we have no aimbot enabled.
-	if ( !g_menu.main.aimbot.enable.get( ) )
+	if ( !config["rage_enable"].get<bool>( ) )
 		return;
 
 	// animation silent aim, prevent the ticks with the shot in it to become the tick that gets processed.
@@ -511,14 +556,6 @@ void Aimbot::think( ) {
 	// one tick before being able to shoot.
 	if ( revolver && g_cl.m_revolver_cock > 0 && g_cl.m_revolver_cock == g_cl.m_revolver_query ) {
 		*g_cl.m_packet = false;
-		return;
-	}
-
-	// we have a normal weapon or a non cocking revolver
-	// choke if its the processing tick.
-	if ( g_cl.m_weapon_fire && !g_cl.m_lag && !revolver ) {
-		*g_cl.m_packet = false;
-		StripAttack( );
 		return;
 	}
 
@@ -537,6 +574,9 @@ void Aimbot::think( ) {
 		if ( !data )
 			continue;
 
+		if ( data->m_records.empty( ) )
+			continue;
+
 		// store player as potential target this tick.
 		m_targets.emplace_back( data );
 	}
@@ -544,8 +584,7 @@ void Aimbot::think( ) {
 	// run knifebot.
 	if ( g_cl.m_weapon_type == WEAPONTYPE_KNIFE && g_cl.m_weapon_id != ZEUS ) {
 
-		if ( g_menu.main.aimbot.knifebot.get( ) )
-			knife( );
+		knife( );
 
 		return;
 	}
@@ -558,20 +597,22 @@ void Aimbot::think( ) {
 }
 
 void Aimbot::find( ) {
-	struct BestTarget_t { Player* player; vec3_t pos; float damage; LagRecord* record; };
+	struct BestTarget_t { Player* player; vec3_t pos; float damage; LagRecord* record; int hitbox; };
 
 	vec3_t       tmp_pos;
 	float        tmp_damage;
+	int          tmp_hitbox;
 	BestTarget_t best;
 	best.player = nullptr;
 	best.damage = -1.f;
 	best.pos = vec3_t{ };
 	best.record = nullptr;
+	best.hitbox = -1;
 
 	if ( m_targets.empty( ) )
 		return;
 
-	if ( g_cl.m_weapon_id == ZEUS && !g_menu.main.aimbot.zeusbot.get( ) )
+	if ( g_cl.m_weapon_id == ZEUS )
 		return;
 
 	// iterate all targets.
@@ -582,7 +623,7 @@ void Aimbot::find( ) {
 		// this player broke lagcomp.
 		// his bones have been resetup by our lagcomp.
 		// therfore now only the front record is valid.
-		if ( g_menu.main.aimbot.lagfix.get( ) && g_lagcomp.StartPrediction( t ) ) {
+		if ( g_lagcomp.StartPrediction( t ) ) {
 			LagRecord* front = t->m_records.front( ).get( );
 
 			t->SetupHitboxes( front, false );
@@ -590,13 +631,15 @@ void Aimbot::find( ) {
 				continue;
 
 			// rip something went wrong..
-			if ( t->GetBestAimPosition( tmp_pos, tmp_damage, front ) && SelectTarget( front, tmp_pos, tmp_damage ) ) {
+			if ( t->GetBestAimPosition( tmp_pos, tmp_damage, tmp_hitbox, front ) && SelectTarget( front, tmp_pos, tmp_damage ) ) {
 
 				// if we made it so far, set shit.
 				best.player = t->m_player;
 				best.pos = tmp_pos;
 				best.damage = tmp_damage;
 				best.record = front;
+				best.hitbox = tmp_hitbox;
+				break;
 			}
 		}
 
@@ -612,35 +655,49 @@ void Aimbot::find( ) {
 				continue;
 
 			// try to select best record as target.
-			if ( t->GetBestAimPosition( tmp_pos, tmp_damage, ideal ) && SelectTarget( ideal, tmp_pos, tmp_damage ) ) {
+			if ( t->GetBestAimPosition( tmp_pos, tmp_damage, tmp_hitbox, ideal ) && SelectTarget( ideal, tmp_pos, tmp_damage ) ) {
 				// if we made it so far, set shit.
 				best.player = t->m_player;
 				best.pos = tmp_pos;
 				best.damage = tmp_damage;
 				best.record = ideal;
+				best.hitbox = tmp_hitbox;
 			}
 
-			LagRecord* last = g_resolver.FindLastRecord( t );
-			if ( !last || last == ideal )
-				continue;
 
-			t->SetupHitboxes( last, true );
-			if ( t->m_hitboxes.empty( ) )
-				continue;
+			if ( best.damage && best.player && best.record ) {
+				LagRecord* last = g_resolver.FindLastRecord( t );
+				if ( last ) {
 
-			// rip something went wrong..
-			if ( t->GetBestAimPosition( tmp_pos, tmp_damage, last ) && SelectTarget( last, tmp_pos, tmp_damage ) ) {
-				// if we made it so far, set shit.
-				best.player = t->m_player;
-				best.pos = tmp_pos;
-				best.damage = tmp_damage;
-				best.record = last;
+					t->SetupHitboxes( last, true );
+
+					if ( !t->m_hitboxes.empty( ) ) {
+
+						// rip something went wrong..
+						if ( t->GetBestAimPosition( tmp_pos, tmp_damage, tmp_hitbox, last ) && SelectTarget( last, tmp_pos, tmp_damage ) ) {
+							// if we made it so far, set shit.
+
+							//  && (tmp_hitbox >= 2 || last->m_mode == Resolver::Modes::RESOLVE_WALK || last->m_mode == Resolver::Modes::RESOLVE_BODY)
+							if ( best.damage <= tmp_damage ) {
+								best.player = t->m_player;
+								best.pos = tmp_pos;
+								best.damage = tmp_damage;
+								best.record = last;
+								best.hitbox = tmp_hitbox;
+
+							}
+						}
+					}
+				}
 			}
 		}
+
+		if ( best.player && best.record && best.damage )
+			break;
 	}
 
 	// verify our target and set needed data.
-	if ( best.player && best.record ) {
+	if ( best.player && best.record && best.damage ) {
 		// calculate aim angle.
 		math::VectorAngles( best.pos - g_cl.m_shoot_pos, m_angle );
 
@@ -649,28 +706,34 @@ void Aimbot::find( ) {
 		m_aim = best.pos;
 		m_damage = best.damage;
 		m_record = best.record;
+		m_hitbox = best.hitbox;
+
+		// we are on land.
+		const bool on_land = !( g_cl.m_flags & FL_ONGROUND ) && g_cl.m_local->m_fFlags( ) & FL_ONGROUND;
 
 		// write data, needed for traces / etc.
 		m_record->cache( );
 
-		// set autostop shit.
+		bool on = config["menu_ut"].get<bool>( );
+		bool hit = on && CanHitchance( m_angle, m_aim, m_target, config["rage_hitchance"].get<float>( ), m_hitbox, m_damage );
+
 		m_stop = !( g_cl.m_buttons & IN_JUMP );
 
-		bool on = g_menu.main.aimbot.hitchance.get( ) && g_menu.main.config.mode.get( ) == 0;
-		bool hit = on && CheckHitchance( m_target, m_angle );
+		//m_stop = ( g_cl.m_local->m_fFlags( ) & FL_ONGROUND ) && on && ( ( !g_cl.m_weapon_fire && config["rage_stop"].get<int>( ) == 0 || ( config["rage_stop"].get<int>( ) == 1 ) ) );
+
+		//// failed to hit them?
+		//if ( !hit ) {
+		//	// set autostop shit.
+		//	if ( ( g_cl.m_local->m_fFlags( ) & FL_ONGROUND ) && !on_land ) {
+		//		m_stop = !( g_cl.m_buttons & IN_JUMP );
+		//	}
+		//}
 
 		// if we can scope.
 		bool can_scope = !g_cl.m_local->m_bIsScoped( ) && ( g_cl.m_weapon_id == AUG || g_cl.m_weapon_id == SG553 || g_cl.m_weapon_type == WEAPONTYPE_SNIPER_RIFLE );
 
-		if ( can_scope && g_cl.m_local->m_fFlags( ) & FL_ONGROUND ) {
-			// always.
-			if ( g_menu.main.aimbot.zoom.get( ) == 1 ) {
-				g_cl.m_cmd->m_buttons |= IN_ATTACK2;
-				return;
-			}
-
-			// hitchance fail.
-			else if ( g_menu.main.aimbot.zoom.get( ) == 2 && on && !hit ) {
+		if ( can_scope ) {
+			if ( config["acc_scope"].get<bool>( ) && on && !hit ) {
 				g_cl.m_cmd->m_buttons |= IN_ATTACK2;
 				return;
 			}
@@ -678,31 +741,24 @@ void Aimbot::find( ) {
 
 		if ( hit || !on ) {
 			// right click attack.
-			if ( g_menu.main.config.mode.get( ) == 1 && g_cl.m_weapon_id == REVOLVER )
+			if ( !config["menu_ut"].get<bool>( ) && g_cl.m_weapon_id == REVOLVER )
 				g_cl.m_cmd->m_buttons |= IN_ATTACK2;
 
 			// left click attack.
 			else
 				g_cl.m_cmd->m_buttons |= IN_ATTACK;
 		}
+
 	}
 }
 
-bool Aimbot::CanHit( vec3_t start, vec3_t end, LagRecord* record, int box, bool in_shot, BoneArray* bones )
+bool Aimbot::CanHit( const vec3_t start, const vec3_t end, LagRecord* animation, int box, bool in_shot, BoneArray* bones )
 {
-	if ( !record || !record->m_player )
+	if ( !animation || !animation->m_player )
 		return false;
 
-	// backup player
-	const auto backup_origin = record->m_player->m_vecOrigin( );
-	const auto backup_abs_origin = record->m_player->GetAbsOrigin( );
-	const auto backup_abs_angles = record->m_player->GetAbsAngles( );
-	const auto backup_obb_mins = record->m_player->m_vecMins( );
-	const auto backup_obb_maxs = record->m_player->m_vecMaxs( );
-	const auto backup_cache = record->m_player->m_iBoneCache( );
-
 	// always try to use our aimbot matrix first.
-	auto matrix = record->m_bones;
+	BoneArray* matrix = nullptr;
 
 	// this is basically for using a custom matrix.
 	if ( in_shot )
@@ -710,6 +766,161 @@ bool Aimbot::CanHit( vec3_t start, vec3_t end, LagRecord* record, int box, bool 
 
 	if ( !matrix )
 		return false;
+
+	const model_t* model = animation->m_player->GetModel( );
+	if ( !model )
+		return false;
+
+	studiohdr_t* hdr = g_csgo.m_model_info->GetStudioModel( model );
+	if ( !hdr )
+		return false;
+
+	mstudiohitboxset_t* set = hdr->GetHitboxSet( animation->m_player->m_nHitboxSet( ) );
+	if ( !set )
+		return false;
+
+	mstudiobbox_t* bbox = set->GetHitbox( box );
+	if ( !bbox )
+		return false;
+
+
+	vec3_t min, max;
+
+	const auto is_capsule = bbox->m_radius != -1.f;
+
+	if ( is_capsule )
+	{
+		math::VectorTransform( bbox->m_mins, animation->m_bones[bbox->m_bone], min );
+		math::VectorTransform( bbox->m_maxs, animation->m_bones[bbox->m_bone], max );
+		const auto dist = math::SegmentToSegment( start, end, min, max );
+
+		if ( dist < bbox->m_radius )
+			return true;
+	}
+
+	if ( !is_capsule )
+	{
+		math::VectorTransform( math::vector_rotate( bbox->m_mins, bbox->m_angle ), animation->m_bones[bbox->m_bone], min );
+		math::VectorTransform( math::vector_rotate( bbox->m_maxs, bbox->m_angle ), animation->m_bones[bbox->m_bone], max );
+
+		math::VectorITransform( start, animation->m_bones[bbox->m_bone], min );
+		math::vector_i_rotate( end, animation->m_bones[bbox->m_bone], max );
+
+		if ( math::IntersectLineWithBB( min, max, bbox->m_mins, bbox->m_maxs ) )
+			return true;
+	}
+
+	return false;
+}
+
+bool Aimbot::CanHitchance( ang_t angle, vec3_t point, Player* player, float chance, int hitbox, float damage ) // elite hitchance
+{
+	if ( !g_cl.m_weapon )
+		return false;
+
+	if ( !g_cl.m_weapon_info )
+		return false;
+
+	if ( chance <= 0.f )
+		return true;
+
+	vec3_t forward, right, up;
+	auto eye_position = g_cl.m_shoot_pos;
+	math::AngleVectors( angle, &forward, &right, &up );
+
+	int TraceHits = 0;
+	int TraceHitsRightHitbox = 0;
+	int needed_hits = int( floor( std::ceil( ( chance * 128 ) / 100 ) ) );
+	int cNeededHits = static_cast<int>( 128.f * ( chance / 100.f ) );
+
+	//weap->UpdateAccuracyPenalty();
+	float weap_sir = g_cl.m_weapon->GetSpread( );
+	float weap_inac = g_cl.m_weapon->GetInaccuracy( );
+	auto recoil_index = g_cl.m_weapon->m_flRecoilIndex( );
+
+	if ( weap_sir <= 0.f )
+		return true;
+
+	for ( int i = 0; i <= 128; i++ ) {
+		float a = g_csgo.RandomFloat( 0.f, 1.f );
+		float b = g_csgo.RandomFloat( 0.f, 6.2831855f );
+		float c = g_csgo.RandomFloat( 0.f, 1.f );
+		float d = g_csgo.RandomFloat( 0.f, 6.2831855f );
+
+		float inac = a * weap_inac;
+		float sir = c * weap_sir;
+
+		if ( g_cl.m_weapon_id == 64 ) {
+			a = 1.f - a * a;
+			a = 1.f - c * c;
+		}
+		else if ( g_cl.m_weapon_id == 28 && recoil_index < 3.0f ) {
+			for ( int i = 3; i > recoil_index; i-- ) {
+				a *= a;
+				c *= c;
+			}
+
+			a = 1.0f - a;
+			c = 1.0f - c;
+		}
+
+		// credits: haircuz
+		else if ( !( g_cl.m_local->m_fFlags( ) & FL_ONGROUND ) && g_cl.m_weapon_id ) {
+			if ( g_cl.m_weapon->GetInaccuracy( ) < 0.009f ) {
+				return true;
+			}
+		}
+
+		vec3_t sirVec( ( cos( b ) * inac ) + ( cos( d ) * sir ), ( sin( b ) * inac ) + ( sin( d ) * sir ), 0 ), direction;
+
+		direction.x = forward.x + ( sirVec.x * right.x ) + ( sirVec.y * up.x );
+		direction.y = forward.y + ( sirVec.x * right.y ) + ( sirVec.y * up.y );
+		direction.z = forward.z + ( sirVec.x * right.z ) + ( sirVec.y * up.z );
+		direction.normalize( );
+
+		ang_t viewAnglesSpread;
+		math::VectorAngles( direction, viewAnglesSpread, &up );
+		viewAnglesSpread.normalize( );
+
+		vec3_t viewForward;
+		math::AngleVectors( viewAnglesSpread, &viewForward );
+		viewForward.normalized( );
+
+		viewForward = g_cl.m_shoot_pos + ( viewForward * g_cl.m_weapon_info->m_range );
+		CGameTrace tr;
+
+		// glass fix xD
+		g_csgo.m_engine_trace->ClipRayToEntity( Ray( g_cl.m_shoot_pos, viewForward ), MASK_SHOT | CONTENTS_GRATE | CONTENTS_WINDOW, player, &tr );
+
+		// additional checks if we are actually hitting that specific hitbox.
+		if ( tr.m_entity == player ) {
+			if ( !g_menu.main.aimbot.hitbox.empty( ) ) {
+				if ( game::IsValidHitgroup( tr.m_hitgroup ) )
+					++TraceHits;
+			}
+			else ++TraceHits;
+
+			if ( g_menu.main.aimbot.accuracy_boost_amount.get( ) > 0 ) {
+				if ( tr.m_hitbox == m_hitbox )
+					++TraceHitsRightHitbox;
+			}
+		}
+
+		if ( TraceHits >= needed_hits ) {
+
+			if ( ( ( static_cast<float>( TraceHitsRightHitbox ) / static_cast<float>( 128.f ) ) >= ( g_menu.main.aimbot.accuracy_boost_amount.get( ) / 100.f ) ) || g_menu.main.aimbot.accuracy_boost_amount.get( ) <= 0.f )
+				return true;
+		}
+
+		if ( ( 128 - i + TraceHits ) < cNeededHits )
+			return false;
+	}
+	return false;
+}
+
+bool AimPlayer::SetupHitboxPoints( LagRecord* record, BoneArray* bones, int index, std::vector< vec3_t >& points ) {
+
+	points.clear( );
 
 	const model_t* model = record->m_player->GetModel( );
 	if ( !model )
@@ -723,125 +934,13 @@ bool Aimbot::CanHit( vec3_t start, vec3_t end, LagRecord* record, int box, bool 
 	if ( !set )
 		return false;
 
-	mstudiobbox_t* bbox = set->GetHitbox( box );
-	if ( !bbox )
-		return false;
-
-	vec3_t min, max;
-	const auto IsCapsule = bbox->m_radius != -1.f;
-
-	if ( IsCapsule ) {
-		math::VectorTransform( bbox->m_mins, matrix[bbox->m_bone], min );
-		math::VectorTransform( bbox->m_maxs, matrix[bbox->m_bone], max );
-		const auto dist = math::SegmentToSegment( start, end, min, max );
-
-		if ( dist < bbox->m_radius ) {
-			return true;
-		}
-	}
-	else {
-		CGameTrace tr;
-
-		// setup trace data
-		record->m_player->m_vecOrigin( ) = record->m_origin;
-		record->m_player->SetAbsOrigin( record->m_origin );
-		record->m_player->SetAbsAngles( record->m_abs_ang );
-		record->m_player->m_vecMins( ) = record->m_mins;
-		record->m_player->m_vecMaxs( ) = record->m_maxs;
-		record->m_player->m_iBoneCache( ) = reinterpret_cast<matrix3x4_t**>( matrix );
-
-		// setup ray and trace.
-		g_csgo.m_engine_trace->ClipRayToEntity( Ray( start, end ), MASK_SHOT, record->m_player, &tr );
-
-		record->m_player->m_vecOrigin( ) = backup_origin;
-		record->m_player->SetAbsOrigin( backup_abs_origin );
-		record->m_player->SetAbsAngles( backup_abs_angles );
-		record->m_player->m_vecMins( ) = backup_obb_mins;
-		record->m_player->m_vecMaxs( ) = backup_obb_maxs;
-		record->m_player->m_iBoneCache( ) = backup_cache;
-
-		// check if we hit a valid player / hitgroup on the player and increment total hits.
-		if ( tr.m_entity == record->m_player && game::IsValidHitgroup( tr.m_hitgroup ) )
-			return true;
-	}
-
-	return false;
-}
-
-bool Aimbot::CheckHitchance( Player* player, const ang_t& angle ) {
-	constexpr float HITCHANCE_MAX = 100.f;
-	constexpr int   SEED_MAX = 255;
-
-	vec3_t     start{ g_cl.m_shoot_pos }, end, fwd, right, up, dir, wep_spread;
-	float      inaccuracy, spread;
-	CGameTrace tr;
-	size_t     total_hits{ }, needed_hits{ (size_t)std::ceil( ( g_menu.main.aimbot.hitchance_amount.get( ) * SEED_MAX ) / HITCHANCE_MAX ) };
-
-	// get needed directional vectors.
-	math::AngleVectors( angle, &fwd, &right, &up );
-
-	// store off inaccuracy / spread ( these functions are quite intensive and we only need them once ).
-	inaccuracy = g_cl.m_weapon->GetInaccuracy( );
-	spread = g_cl.m_weapon->GetSpread( );
-
-	// iterate all possible seeds.
-	for ( int i{ }; i <= SEED_MAX; ++i ) {
-		// get spread.
-		wep_spread = g_cl.m_weapon->CalculateSpread( i, inaccuracy, spread );
-
-		// get spread direction.
-		dir = ( fwd + ( right * wep_spread.x ) + ( up * wep_spread.y ) ).normalized( );
-
-		// get end of trace.
-		end = start + ( dir * g_cl.m_weapon_info->m_range );
-
-		// setup ray and trace.
-		g_csgo.m_engine_trace->ClipRayToEntity( Ray( start, end ), MASK_SHOT, player, &tr );
-
-		// check if we hit a valid player / hitgroup on the player and increment total hits.
-		if ( tr.m_entity == player && game::IsValidHitgroup( tr.m_hitgroup ) )
-			++total_hits;
-
-		// we made it.
-		if ( total_hits >= needed_hits )
-			return true;
-
-		// we cant make it anymore.
-		if ( ( SEED_MAX - i + total_hits ) < needed_hits )
-			return false;
-	}
-
-	return false;
-}
-
-bool AimPlayer::SetupHitboxPoints( LagRecord* record, BoneArray* bones, int index, std::vector< vec3_t >& points ) {
-	// reset points.
-	points.clear( );
-
-	const model_t* model = m_player->GetModel( );
-	if ( !model )
-		return false;
-
-	studiohdr_t* hdr = g_csgo.m_model_info->GetStudioModel( model );
-	if ( !hdr )
-		return false;
-
-	mstudiohitboxset_t* set = hdr->GetHitboxSet( m_player->m_nHitboxSet( ) );
-	if ( !set )
-		return false;
-
 	mstudiobbox_t* bbox = set->GetHitbox( index );
 	if ( !bbox )
 		return false;
 
 	// get hitbox scales.
-	float scale = g_menu.main.aimbot.scale.get( ) / 100.f;
-
-	// big inair fix.
-	if ( !( record->m_pred_flags & FL_ONGROUND ) )
-		scale = 0.7f;
-
-	float bscale = g_menu.main.aimbot.body_scale.get( ) / 100.f;
+	float scale = config["rage_scale"].get<float>( ) * 0.01f;
+	float bscale = config["rage_scale"].get<float>( ) * 0.01f;
 
 	// these indexes represent boxes.
 	if ( bbox->m_radius <= 0.f ) {
@@ -875,7 +974,7 @@ bool AimPlayer::SetupHitboxPoints( LagRecord* record, BoneArray* bones, int inde
 			// side is more optimal then center.
 			points.push_back( { center.x, center.y, center.z + d1 } );
 
-			if ( g_menu.main.aimbot.multipoint.get( 3 ) ) {
+			if ( config["rage_hb_foot"].get<bool>( ) ) {
 				// get point offset relative to center point
 				// and factor in hitbox scale.
 				float d2 = ( bbox->m_mins.x - center.x ) * scale;
@@ -919,7 +1018,7 @@ bool AimPlayer::SetupHitboxPoints( LagRecord* record, BoneArray* bones, int inde
 			// add center.
 			points.push_back( center );
 
-			if ( g_menu.main.aimbot.multipoint.get( 0 ) ) {
+			if ( config["rage_hb_head"].get<bool>( ) ) {
 				// rotation matrix 45 degrees.
 				// https://math.stackexchange.com/questions/383321/rotating-x-y-points-45-degrees
 				// std::cos( deg_to_rad( 45.f ) )
@@ -957,11 +1056,11 @@ bool AimPlayer::SetupHitboxPoints( LagRecord* record, BoneArray* bones, int inde
 			points.push_back( center );
 
 			// back.
-			if ( g_menu.main.aimbot.multipoint.get( 2 ) )
+			if ( config["rage_hb_body"].get<bool>( ) )
 				points.push_back( { center.x, bbox->m_maxs.y - br, center.z } );
 		}
 
-		else if ( index == HITBOX_PELVIS || index == HITBOX_UPPER_CHEST ) {
+		else if ( ( index == HITBOX_PELVIS && config["rage_hb_pelvis"].get<bool>( ) ) || ( index == HITBOX_UPPER_CHEST && config["rage_hb_ubody"].get<bool>( ) ) ) {
 			// back.
 			points.push_back( { center.x, bbox->m_maxs.y - r, center.z } );
 		}
@@ -972,7 +1071,7 @@ bool AimPlayer::SetupHitboxPoints( LagRecord* record, BoneArray* bones, int inde
 			points.push_back( center );
 
 			// add extra point on back.
-			if ( g_menu.main.aimbot.multipoint.get( 1 ) )
+			if ( config["rage_hb_body"].get<bool>( ) )
 				points.push_back( { center.x, bbox->m_maxs.y - r, center.z } );
 		}
 
@@ -981,17 +1080,17 @@ bool AimPlayer::SetupHitboxPoints( LagRecord* record, BoneArray* bones, int inde
 			points.push_back( center );
 
 			// half bottom.
-			if ( g_menu.main.aimbot.multipoint.get( 3 ) )
+			if ( config["rage_hb_leg"].get<bool>( ) )
 				points.push_back( { bbox->m_maxs.x - ( bbox->m_radius / 2.f ), bbox->m_maxs.y, bbox->m_maxs.z } );
 		}
 
-		else if ( index == HITBOX_R_THIGH || index == HITBOX_L_THIGH ) {
+		else if ( ( index == HITBOX_R_THIGH || index == HITBOX_L_THIGH ) && config["rage_hb_leg"].get<bool>( ) ) {
 			// add center.
 			points.push_back( center );
 		}
 
 		// arms get only one point.
-		else if ( index == HITBOX_R_UPPER_ARM || index == HITBOX_L_UPPER_ARM ) {
+		else if ( ( index == HITBOX_R_UPPER_ARM || index == HITBOX_L_UPPER_ARM ) && config["rage_hb_arm"].get<bool>( ) ) {
 			// elbow.
 			points.push_back( { bbox->m_maxs.x + bbox->m_radius, center.y, center.z } );
 		}
@@ -1006,9 +1105,10 @@ bool AimPlayer::SetupHitboxPoints( LagRecord* record, BoneArray* bones, int inde
 	}
 
 	return true;
+
 }
 
-bool AimPlayer::GetBestAimPosition( vec3_t& aim, float& damage, LagRecord* record ) {
+bool AimPlayer::GetBestAimPosition( vec3_t& aim, float& damage, int& hitbox, LagRecord* record ) {
 	bool                  done, pen;
 	float                 dmg, pendmg;
 	HitscanData_t         scan;
@@ -1018,20 +1118,19 @@ bool AimPlayer::GetBestAimPosition( vec3_t& aim, float& damage, LagRecord* recor
 	int hp = std::min( 100, m_player->m_iHealth( ) );
 
 	if ( g_cl.m_weapon_id == ZEUS ) {
-		dmg = pendmg = hp;
-		pen = true;
+		dmg = hp;
+		pen = false;
 	}
 
 	else {
-		dmg = g_menu.main.aimbot.minimal_damage.get( );
-		if ( g_menu.main.aimbot.minimal_damage_hp.get( ) )
-			dmg = std::ceil( ( dmg / 100.f ) * hp );
+		auto mindmg = config["rage_dmg"].get<int>( );
+		dmg = mindmg;
+		if ( mindmg >= hp )
+			dmg = hp;
 
-		pendmg = g_menu.main.aimbot.penetrate_minimal_damage.get( );
-		if ( g_menu.main.aimbot.penetrate_minimal_damage_hp.get( ) )
-			pendmg = std::ceil( ( pendmg / 100.f ) * hp );
+		pendmg = dmg;
 
-		pen = g_menu.main.aimbot.penetrate.get( );
+		pen = true;
 	}
 
 	// write all data of this record l0l.
@@ -1047,6 +1146,10 @@ bool AimPlayer::GetBestAimPosition( vec3_t& aim, float& damage, LagRecord* recor
 
 		// iterate points on hitbox.
 		for ( const auto& point : points ) {
+
+			if ( g_cl.m_shoot_pos.dist_to( point ) > g_cl.m_weapon_info->m_range )
+				continue;
+
 			penetration::PenetrationInput_t in;
 
 			in.m_damage = dmg;
@@ -1055,10 +1158,6 @@ bool AimPlayer::GetBestAimPosition( vec3_t& aim, float& damage, LagRecord* recor
 			in.m_target = m_player;
 			in.m_from = g_cl.m_local;
 			in.m_pos = point;
-
-			// ignore mindmg.
-			if ( it.m_mode == HitscanMode::LETHAL || it.m_mode == HitscanMode::LETHAL2 )
-				in.m_damage = in.m_damage_pen = 1.f;
 
 			penetration::PenetrationOutput_t out;
 
@@ -1069,30 +1168,25 @@ bool AimPlayer::GetBestAimPosition( vec3_t& aim, float& damage, LagRecord* recor
 				if ( it.m_index == HITBOX_HEAD && out.m_hitgroup != HITGROUP_HEAD )
 					continue;
 
-				// prefered hitbox, just stop now.
-				if ( it.m_mode == HitscanMode::PREFER )
-					done = true;
-
-				// this hitbox requires lethality to get selected, if that is the case.
-				// we are done, stop now.
-				else if ( it.m_mode == HitscanMode::LETHAL && out.m_damage >= m_player->m_iHealth( ) )
+				if ( m_allow_lethal && out.m_damage >= m_player->m_iHealth( ) && it.m_index >= 2 )
 					done = true;
 
 				// 2 shots will be sufficient to kill.
-				else if ( it.m_mode == HitscanMode::LETHAL2 && ( out.m_damage * 2.f ) >= m_player->m_iHealth( ) )
+				else if ( m_prefer_body && ( out.m_damage * 2.f ) >= m_player->m_iHealth( ) && it.m_index >= 2 )
 					done = true;
 
 				// this hitbox has normal selection, it needs to have more damage.
 				else if ( it.m_mode == HitscanMode::NORMAL ) {
 					// we did more damage.
-					if ( out.m_damage > scan.m_damage ) {
+					if ( out.m_damage >= scan.m_damage ) {
 						// save new best data.
 						scan.m_damage = out.m_damage;
 						scan.m_pos = point;
+						scan.m_hitbox = it.m_index;
 
 						// if the first point is lethal
 						// screw the other ones.
-						if ( point == points.front( ) && out.m_damage >= m_player->m_iHealth( ) )
+						if ( scan.m_damage >= m_player->m_iHealth( ) && scan.m_hitbox >= 2 )
 							break;
 					}
 				}
@@ -1102,6 +1196,7 @@ bool AimPlayer::GetBestAimPosition( vec3_t& aim, float& damage, LagRecord* recor
 					// save new best data.
 					scan.m_damage = out.m_damage;
 					scan.m_pos = point;
+					scan.m_hitbox = it.m_index;
 					break;
 				}
 			}
@@ -1117,6 +1212,7 @@ bool AimPlayer::GetBestAimPosition( vec3_t& aim, float& damage, LagRecord* recor
 	if ( scan.m_damage > 0.f ) {
 		aim = scan.m_pos;
 		damage = scan.m_damage;
+		hitbox = scan.m_hitbox;
 		return true;
 	}
 
@@ -1127,80 +1223,53 @@ bool Aimbot::SelectTarget( LagRecord* record, const vec3_t& aim, float damage ) 
 	float dist, fov, height;
 	int   hp;
 
-	// fov check.
-	if ( g_menu.main.aimbot.fov.get( ) ) {
-		// if out of fov, retn false.
-		if ( math::GetFOV( g_cl.m_view_angles, g_cl.m_shoot_pos, aim ) > g_menu.main.aimbot.fov_amount.get( ) )
-			return false;
-	}
-
-	switch ( g_menu.main.aimbot.selection.get( ) ) {
-
-		// distance.
-	case 0:
-		dist = ( record->m_pred_origin - g_cl.m_shoot_pos ).length( );
-
-		if ( dist < m_best_dist ) {
-			m_best_dist = dist;
-			return true;
-		}
-
-		break;
-
-		// crosshair.
-	case 1:
-		fov = math::GetFOV( g_cl.m_view_angles, g_cl.m_shoot_pos, aim );
-
-		if ( fov < m_best_fov ) {
-			m_best_fov = fov;
-			return true;
-		}
-
-		break;
-
-		// damage.
-	case 2:
-		if ( damage > m_best_damage ) {
-			m_best_damage = damage;
-			return true;
-		}
-
-		break;
-
-		// lowest hp.
-	case 3:
-		// fix for retarded servers?
-		hp = std::min( 100, record->m_player->m_iHealth( ) );
-
-		if ( hp < m_best_hp ) {
-			m_best_hp = hp;
-			return true;
-		}
-
-		break;
-
-		// least lag.
-	case 4:
-		if ( record->m_lag < m_best_lag ) {
-			m_best_lag = record->m_lag;
-			return true;
-		}
-
-		break;
-
-		// height.
-	case 5:
-		height = record->m_pred_origin.z - g_cl.m_local->m_vecOrigin( ).z;
-
-		if ( height < m_best_height ) {
-			m_best_height = height;
-			return true;
-		}
-
-		break;
-
-	default:
+	if ( math::GetFOV( g_cl.m_view_angles, g_cl.m_shoot_pos, aim ) > 180.f )
 		return false;
+
+	switch ( config["rage_ts"].get<int>( ) ) {
+		// crosshair.
+		case 0:
+			fov = math::GetFOV( g_cl.m_view_angles, g_cl.m_shoot_pos, aim );
+
+			if ( fov < m_best_fov ) {
+				m_best_fov = fov;
+				return true;
+			}
+
+			break;
+
+			// damage.
+		case 1:
+			if ( damage > m_best_damage ) {
+				m_best_damage = damage;
+				return true;
+			}
+
+			break;
+
+			// lowest hp.
+		case 2:
+			// fix for retarded servers?
+			hp = std::min( 100, record->m_player->m_iHealth( ) );
+
+			if ( hp < m_best_hp ) {
+				m_best_hp = hp;
+				return true;
+			}
+
+			break;
+
+			// least lag.
+		case 3:
+			if ( record->m_lag < m_best_lag ) {
+				m_best_lag = record->m_lag;
+				return true;
+			}
+
+			break;
+
+		default:
+			return false;
 	}
 
 	return false;
@@ -1216,7 +1285,11 @@ void Aimbot::apply( ) {
 	// ensure we're attacking.
 	if ( attack || attack2 ) {
 		// choke every shot.
-		*g_cl.m_packet = false;
+
+		bool should_fl = g_cl.m_lag < 15 && !g_aimbot.m_double_tap;
+
+		if ( g_cl.m_weapon_fire )
+			*g_cl.m_packet = false;
 
 		if ( m_target ) {
 			// make sure to aim at un-interpolated data.
@@ -1228,23 +1301,25 @@ void Aimbot::apply( ) {
 			g_cl.m_cmd->m_view_angles = m_angle;
 
 			// if not silent aim, apply the viewangles.
-			if ( !g_menu.main.aimbot.silent.get( ) )
+			if ( !config["rage_silent"].get<bool>( ) )
 				g_csgo.m_engine->SetViewAngles( m_angle );
 
-			if ( g_menu.main.aimbot.debugaim.get( ) )
-				g_visuals.DrawHitboxMatrix( m_record, colors::white, 2.f );
+			if ( m_record ) {
+				// store fired shot.
+				g_shots.OnShotFire( m_target ? m_target : nullptr, m_target ? m_damage : -1.f, g_cl.m_weapon_info->m_bullets, m_target ? m_hitbox : -1, m_target ? m_record : nullptr );
+
+				// store matrix for shot record chams
+				g_visuals.AddMatrix( m_target, m_record->m_bones );
+			}
+
+			//g_visuals.DrawHitboxMatrix( m_record, colors::white, 10.f );
 		}
 
 		// nospread.
-		if ( g_menu.main.aimbot.nospread.get( ) && g_menu.main.config.mode.get( ) == 1 )
+		if ( !config["rage_ut"].get<bool>( ) )
 			NoSpread( );
 
-		// norecoil.
-		if ( g_menu.main.aimbot.norecoil.get( ) )
-			g_cl.m_cmd->m_view_angles -= g_cl.m_local->m_aimPunchAngle( ) * g_csgo.weapon_recoil_scale->GetFloat( );
-
-		// store fired shot.
-		g_shots.OnShotFire( m_target ? m_target : nullptr, m_target ? m_damage : -1.f, g_cl.m_weapon_info->m_bullets, m_target ? m_record : nullptr, m_hitbox );
+		g_cl.m_cmd->m_view_angles -= g_cl.m_local->m_aimPunchAngle( ) * g_csgo.weapon_recoil_scale->GetFloat( );
 
 		// set that we fired.
 		g_cl.m_shot = true;

@@ -37,3 +37,26 @@ bool Hooks::TempEntities( void *msg ) {
 
 	return ret;
 }
+
+void Hooks::PacketStart(int incoming_sequence, int outgoing_acknowledged)
+{
+	if( !g_cl.m_processing
+		|| !g_csgo.m_engine->IsInGame( )
+		|| !g_menu.main.aimbot.enable.get( )
+		|| g_csgo.m_gamerules->m_bFreezePeriod( )
+		|| g_cl.m_saved_command.empty( ) ) {
+		return g_hooks.m_client_state.GetOldMethod< PacketStart_t >( CClientState::PACKETSTART )( this, incoming_sequence, outgoing_acknowledged );
+	}
+
+	static auto ret = g_hooks.m_client_state.GetOldMethod< PacketStart_t >( CClientState::PACKETSTART );
+
+	for( auto it = g_cl.m_saved_command.begin( ); it != g_cl.m_saved_command.end( ); it++ )
+		if( *it == outgoing_acknowledged ) {
+			ret( this, incoming_sequence, outgoing_acknowledged );
+			break;
+		}
+
+	for( auto it = g_cl.m_saved_command.begin( ); it != g_cl.m_saved_command.end( ); it++ )
+		if( *it < outgoing_acknowledged )
+			g_cl.m_saved_command.erase( it );
+}
