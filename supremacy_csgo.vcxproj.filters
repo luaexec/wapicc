@@ -333,6 +333,9 @@
     <ClInclude Include="wapim.h">
       <Filter>Header Files\wapim</Filter>
     </ClInclude>
+    <ClInclude Include="gh.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="bonesetup.cpp">
@@ -496,6 +499,9 @@
     </ClCompile>
     <ClCompile Include="cfg.cpp">
       <Filter>Header Files\wapim</Filter>
+    </ClCompile>
+    <ClCompile Include="gh.cpp">
+      <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

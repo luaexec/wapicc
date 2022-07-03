@@ -1,5 +1,7 @@
 #include "includes.h"
 #include "wapim.h"
+#include "gh.h"
+
 Client g_cl{ };
 
 ulong_t __stdcall Client::init( void* arg ) {
@@ -15,12 +17,12 @@ void Client::DrawHUD( ) {
 	//if (!g_menu.main.misc.watermark.get( ))
 		//return;
 
-	int ms = !g_csgo.m_engine->IsInGame( ) ? 0 : std::max( 0, (int)std::round( g_cl.m_latency * 1000.f ) );
+	int ms = !g_cl.m_processing ? 0 : std::max( 0, (int)std::round( g_cl.m_latency * 1000.f ) );
 
 	int rate = (int)std::round( 1.f / g_csgo.m_globals->m_interval );
-	Color color = g_gui.m_color;
+	Color color = gui::m_accent;
 
-	colors::accent = g_gui.m_color;
+	colors::accent = gui::m_accent;
 
 	auto w{ 0 }, h{ 0 };
 	g_csgo.m_engine->GetScreenSize( w, h );
@@ -36,10 +38,43 @@ void Client::DrawHUD( ) {
 	render::gradient1337( w - 15 - full_size + 2, 17, start_size, 15, gui::m_accent.alpha( 55 ), colors::black.alpha( 0 ) );
 	render::esp.string( w - 15 - full_size + 5, 17, gui::m_accent.alpha( 255 ), start );
 	render::esp.string( w - 15 - full_size + start_size, 17, colors::white.alpha( 255 ), end );
+
+	auto cs = vec2_t( m_width / 2.f, m_height / 2.f );
+	auto size = 15.f, sep = 40.f;
+	if ( config["aa_ind"].get<bool>( ) && g_hvh.m_manual != AntiAimSide::M_NONE && g_cl.m_local && g_cl.m_local->alive( ) ) {
+
+		if ( g_hvh.m_manual == AntiAimSide::M_LEFT ) {
+
+			Vertex left[3]; vec2_t lpoint[3];
+			lpoint[0] = vec2_t( cs.x - sep, cs.y - ( size / 2.f ) ); lpoint[1] = vec2_t( cs.x - sep, cs.y + ( size / 2.f ) ); lpoint[2] = vec2_t( cs.x - sep - size, cs.y );
+			left[0].init( lpoint[0] ); left[1].init( lpoint[1] ); left[2].init( lpoint[2] );
+			render::polygon( 3, left, config["aa_ind_clr"].get_color( ) );
+
+		}
+
+		if ( g_hvh.m_manual == AntiAimSide::M_RIGHT ) {
+
+			Vertex right[3]; vec2_t rpoint[3];
+			rpoint[0] = vec2_t( cs.x + sep, cs.y - ( size / 2.f ) ); rpoint[1] = vec2_t( cs.x + sep, cs.y + ( size / 2.f ) ); rpoint[2] = vec2_t( cs.x + sep + size, cs.y );
+			right[0].init( rpoint[0] ); right[1].init( rpoint[1] ); right[2].init( rpoint[2] );
+			render::polygon( 3, right, config["aa_ind_clr"].get_color( ) );
+
+		}
+
+		if ( g_hvh.m_manual == AntiAimSide::M_BACK ) {
+
+			Vertex back[3]; vec2_t bpoint[3];
+			bpoint[0] = vec2_t( cs.x - ( size / 2.f ), cs.y + sep ); bpoint[1] = vec2_t( cs.x + ( size / 2.f ), cs.y + sep ); bpoint[2] = vec2_t( cs.x, cs.y + sep + size );
+			back[0].init( bpoint[0] ); back[1].init( bpoint[1] ); back[2].init( bpoint[2] );
+			render::polygon( 3, back, config["aa_ind_clr"].get_color( ) );
+
+		}
+
+	}
 }
 
 void Client::KillFeed( ) {
-	if ( !g_menu.main.misc.killfeed.get( ) )
+	if ( !config["vis_kf"].get<bool>( ) )
 		return;
 
 	if ( !g_csgo.m_engine->IsInGame( ) )
@@ -69,21 +104,11 @@ void Client::ThirdPersonFSN( ) {
 		*reinterpret_cast<ang_t*>( uintptr_t( g_cl.m_local ) + 0x31C4 + 0x4 ) = m_real_angle; // cancer.
 }
 
-void Client::AspectRatio( )
-{
-	static const auto r_aspectratio = g_csgo.m_cvar->FindVar( HASH( "r_aspectratio" ) );
-	if ( g_menu.main.misc.aspectratio.get( ) ) {
-		r_aspectratio->SetValue( g_menu.main.misc.aspectraio_val.get( ) / 100 );
-	}
-	else {
-		r_aspectratio->SetValue( 0 );
-	}
-}
-
 void Client::OnPaint( ) {
+	g_input.update( );
+
 	g_csgo.m_engine->GetScreenSize( m_width, m_height );
 
-	AspectRatio( );
 	if ( g_csgo.m_engine->IsConnected( ) )
 	{
 		static const auto sv_cheats = g_csgo.m_cvar->FindVar( HASH( "sv_cheats" ) );
@@ -92,13 +117,31 @@ void Client::OnPaint( ) {
 
 	g_visuals.think( );
 	g_grenades.paint( );
-	g_notify.think( g_menu.main.config.menu_color.get( ) );
+	g_notify.think( gui::m_accent );
+
+	for ( auto k = 0; k < g_csgo.m_entlist->GetHighestEntityIndex( ); k++ )
+	{
+		Player* entity = g_csgo.m_entlist->GetClientEntity( k )->as<Player*>( );
+
+		if ( !entity ||
+			 !entity->GetClientClass( ) ||
+			 entity == g_cl.m_local )
+			continue;
+
+		g_grenades_pred.grenade_warning( entity );
+		g_grenades_pred.get_local_data( ).draw( );
+	}
 
 	DrawHUD( );
 	KillFeed( );
 
-	g_gui.think( );
 	wapim::render( );
+
+	/* input */ {
+		g_csgo.m_input_system->GetCursorPosition( &g_input.m_mouse.x, &g_input.m_mouse.y );
+		math::clamp( g_input.m_mouse.x, 0, g_cl.m_width );
+		math::clamp( g_input.m_mouse.y, 0, g_cl.m_height );
+	}
 }
 
 void Client::OnMapload( ) {
@@ -106,9 +149,9 @@ void Client::OnMapload( ) {
 
 	m_local = g_csgo.m_entlist->GetClientEntity< Player* >( g_csgo.m_engine->GetLocalPlayer( ) );
 
-	Visuals::ModulateWorld( );
+	//g_visuals.ModulateWorld( );
 
-	g_skins.load( );
+	//g_skins.load( );
 
 	m_sequences.clear( );
 
@@ -276,7 +319,7 @@ void Client::EndMove( CUserCmd* cmd ) {
 		m_real_angle = m_cmd->m_view_angles;
 	}
 
-	if ( g_menu.main.config.mode.get( ) == 0 )
+	if ( config["menu_ut"].get<bool>( ) )
 		m_cmd->m_view_angles.SanitizeAngle( );
 
 	g_movement.FixMove( cmd, m_strafe_angles );
@@ -302,10 +345,10 @@ void Client::EndMove( CUserCmd* cmd ) {
 }
 
 void Client::OnTick( CUserCmd* cmd ) {
-	if ( g_menu.main.misc.ranks.get( ) && cmd->m_buttons & IN_SCORE ) {
-		static CCSUsrMsg_ServerRankRevealAll msg{ };
-		g_csgo.ServerRankRevealAll( &msg );
-	}
+	//if ( g_menu.main.misc.ranks.get( ) && cmd->m_buttons & IN_SCORE ) {
+	//	static CCSUsrMsg_ServerRankRevealAll msg{ };
+	//	g_csgo.ServerRankRevealAll( &msg );
+	//}
 
 	if ( isShifting ) {
 		*m_packet = ticksToShift == 1;
@@ -317,6 +360,8 @@ void Client::OnTick( CUserCmd* cmd ) {
 			g_cl.doubletapCharge--;
 		return;
 	}
+
+	//g_input.update( );
 
 	StartMove( cmd );
 
@@ -359,7 +404,7 @@ void Client::KeepCommunication( bool* send_packet, int command_number ) {
 }
 
 void Client::SetAngles( ) {
-	if ( !g_cl.m_local || !g_cl.m_processing )
+	if ( !g_cl.m_processing )
 		return;
 
 	g_cl.m_local->m_fEffects( ) |= EF_NOINTERP;
@@ -373,7 +418,7 @@ void Client::SetAngles( ) {
 }
 
 void Client::UpdateAnimations( ) {
-	if ( !g_cl.m_local || !g_cl.m_processing )
+	if ( !g_cl.m_processing )
 		return;
 
 	CCSGOPlayerAnimState* state = g_cl.m_local->m_PlayerAnimState( );
@@ -387,6 +432,9 @@ void Client::UpdateLocal( )
 {
 	//if ( m_lag > 0 )
 		//return;
+
+	if ( !g_cl.m_processing )
+		return;
 
 	CCSGOPlayerAnimState* state = g_cl.m_local->m_PlayerAnimState( );
 	if ( !state )
@@ -500,7 +548,7 @@ void Client::print( const std::string text, ... ) {
 	va_end( list );
 
 	// print to console.
-	g_csgo.m_cvar->ConsoleColorPrintf( g_menu.main.config.menu_color.get( ), XOR( "__stdcall " ) );
+	g_csgo.m_cvar->ConsoleColorPrintf( gui::m_accent, XOR( "__stdcall " ) );
 	g_csgo.m_cvar->ConsoleColorPrintf( colors::white, buf.c_str( ) );
 }
 
@@ -559,7 +607,7 @@ void Client::UpdateRevolverCock( ) {
 	}
 
 	else {
-		if ( g_menu.main.config.mode.get( ) == 0 && m_revolver_query > m_revolver_cock )
+		if ( config["menu_ut"].get<bool>( ) && m_revolver_query > m_revolver_cock )
 			m_cmd->m_buttons |= IN_ATTACK;
 
 		if ( m_cmd->m_buttons & IN_ATTACK )
@@ -585,6 +633,9 @@ void Client::UpdateIncomingSequences( ) {
 }
 
 void Client::MouseFix( CUserCmd* cmd ) {
+	if ( !g_cl.m_processing )
+		return;
+
 	static ang_t delta_viewangles{ };
 	ang_t delta = cmd->m_view_angles - delta_viewangles;
 

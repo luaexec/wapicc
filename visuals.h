@@ -123,7 +123,7 @@ public:
 	};
 
 public:
-	static void ModulateWorld( );
+	void ModulateWorld( );
 	void ThirdpersonThink( );
 	void RacistRectangle( );
 	void ImpactData( );

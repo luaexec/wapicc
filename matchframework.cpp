@@ -12,17 +12,17 @@ CMatchSessionOnlineHost* Hooks::GetMatchSession( ) {
 	// string xref "game/mmqueue" above that string is a virtual call which is g_pMatchFramework->GetMatchSession( )
 	// string xref "Matchmaking reservation confirmed: %llx/%s\n"
 
-	if( g_menu.main.misc.notifications.get( 0 ) && stack.ReturnAddress( ) == BYieldingRunJobFromMsg ) {
-		// note - nitro:
-		// deref ebp = old stack -> old stack - 0xA8 -> keyvalue ptr -> deref keyvalue ptr + 0x24 = mapname
+	//if( g_menu.main.misc.notifications.get( 0 ) && stack.ReturnAddress( ) == BYieldingRunJobFromMsg ) {
+	//	// note - nitro:
+	//	// deref ebp = old stack -> old stack - 0xA8 -> keyvalue ptr -> deref keyvalue ptr + 0x24 = mapname
 
-		kv = stack.next( ).local( 0xA8 ).get( );
+	//	kv = stack.next( ).local( 0xA8 ).get( );
 
-		if( kv && kv.at( 0x24 ) ) {
-			map = { kv.at( 0x24 ).as< char* >( ) };
-			g_notify.add( tfm::format( XOR( "%s\n" ), map ) );
-		}
-	}
+	//	if( kv && kv.at( 0x24 ) ) {
+	//		map = { kv.at( 0x24 ).as< char* >( ) };
+	//		g_notify.add( tfm::format( XOR( "%s\n" ), map ) );
+	//	}
+	//}
 
 	// call og.
 	return g_hooks.m_match_framework.GetOldMethod< GetMatchSession_t >( CMatchFramework::GETMATCHSESSION )( this );

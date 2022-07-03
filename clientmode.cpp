@@ -6,7 +6,7 @@ bool Hooks::ShouldDrawParticles( ) {
 
 bool Hooks::ShouldDrawFog( ) {
 	// remove fog.
-	if( g_menu.main.visuals.nofog.get( ) )
+	if ( config["remove_fog"].get<bool>( ) )
 		return false;
 
 	return g_hooks.m_client_mode.GetOldMethod< ShouldDrawFog_t >( IClientMode::SHOULDDRAWFOG )( this );
@@ -19,13 +19,13 @@ void Hooks::OverrideView( CViewSetup* view ) {
 	// g_grenades.think( );
 	g_visuals.ThirdpersonThink( );
 
-    // call original.
+	// call original.
 	g_hooks.m_client_mode.GetOldMethod< OverrideView_t >( IClientMode::OVERRIDEVIEW )( this, view );
 
-    // remove scope edge blur.
-	if( g_menu.main.visuals.noscope.get( ) ) {
-		if( g_cl.m_local && g_cl.m_local->m_bIsScoped( ) )
-            view->m_edge_blur = 0;
+	// remove scope edge blur.
+	if ( config["remove_scope"].get<bool>( ) ) {
+		if ( g_cl.m_local && g_cl.m_local->m_bIsScoped( ) )
+			view->m_edge_blur = 0;
 	}
 }
 
@@ -37,12 +37,12 @@ bool Hooks::CreateMove( float time, CUserCmd* cmd ) {
 	ret = g_hooks.m_client_mode.GetOldMethod< CreateMove_t >( IClientMode::CREATEMOVE )( this, time, cmd );
 
 	// called from CInput::ExtraMouseSample -> return original.
-	if( !cmd->m_command_number )
+	if ( !cmd->m_command_number )
 		return ret;
 
 	// if we arrived here, called from -> CInput::CreateMove
 	// call EngineClient::SetViewAngles according to what the original returns.
-	if( ret )
+	if ( ret )
 		g_csgo.m_engine->SetViewAngles( cmd->m_view_angles );
 
 	// random_seed isn't generated in ClientMode::CreateMove yet, we must set generate it ourselves.
@@ -66,7 +66,7 @@ bool Hooks::CreateMove( float time, CUserCmd* cmd ) {
 bool Hooks::DoPostScreenSpaceEffects( CViewSetup* setup ) {
 	g_visuals.RenderGlow( );
 
-	g_visuals.on_post_screen_effects();
+	g_visuals.on_post_screen_effects( );
 
 	return g_hooks.m_client_mode.GetOldMethod< DoPostScreenSpaceEffects_t >( IClientMode::DOPOSTSPACESCREENEFFECTS )( this, setup );
 }

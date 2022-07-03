@@ -4,12 +4,17 @@
 HVH g_hvh{ };;
 
 void HVH::SendFakeFlick( ) {
-	if ( g_cl.m_didFakeFlick ) {
-		g_cl.ticksToShift = 14;
-		g_cl.ignoreallcmds = true;
-		g_cl.m_didFakeFlick = false;
-		g_cl.m_fake_flick_side = !g_cl.m_fake_flick_side;
+
+	if ( !( cfg_t::get_hotkey( "aa_fflick", "aa_fflick_mode" ) ) || !g_cl.m_local || !g_cl.m_local->alive( ) )
+		return;
+
+	if ( g_csgo.m_globals->m_tick_count % 10 == 0 ) {
+		g_cl.m_cmd->m_view_angles.y -= 113.f;
 	}
+	else if ( g_csgo.m_globals->m_tick_count % 10 == 9 ) {
+		g_cl.m_cmd->m_view_angles.y += 113.f;
+	}
+
 }
 
 void HVH::fake_flick( )
@@ -17,20 +22,13 @@ void HVH::fake_flick( )
 	if ( !( cfg_t::get_hotkey( "aa_fflick", "aa_fflick_mode" ) ) || !g_cl.m_local || !g_cl.m_local->alive( ) )
 		return;
 
-	if ( g_cl.m_local->m_vecVelocity( ).length_2d( ) < 15.f ) {
-		if ( g_csgo.m_cl->m_choked_commands == 0 ) {
-			if ( g_cl.m_anim_time < g_cl.m_body_pred ) {
-				if ( g_cl.lastShiftedCmdNr != g_csgo.m_cl->m_last_outgoing_command ) {
-					g_cl.m_cmd->m_view_angles.y += 113.f;
-					if ( g_cl.m_local->m_vecVelocity( ).length_2d( ) < 11.f ) {
-						static bool switcher = false;
-						g_cl.m_cmd->m_side_move = switcher ? -13.37f : 13.37f;
-						switcher = !switcher;
-					}
-					g_cl.m_didFakeFlick = true;
-				}
-			}
-		}
+	if ( g_csgo.m_globals->m_tick_count % 10 == 0 ) {
+		g_cl.m_cmd->m_view_angles.y += 113.f;
+		g_cl.m_cmd->m_side_move = -450.f;
+	}
+	else if ( g_csgo.m_globals->m_tick_count % 10 == 9 ) {
+		g_cl.m_cmd->m_view_angles.y -= 113.f;
+		g_cl.m_cmd->m_side_move = 450.f;
 	}
 }
 
@@ -225,19 +223,11 @@ void HVH::GetAntiAimDirection( ) {
 	if ( config["aa_yaw"].get<int>( ) == 1 && m_mode == AntiAimMode::AIR )
 		m_direction = m_view + 150.f + ( sin( g_csgo.m_globals->m_curtime * 3.f ) * 60.f );
 
-	if ( config["aa_fs"].get<bool>( ) ) {
-		if ( best_target != nullptr ) {
-			bool first = best_target->enemy( g_cl.m_local ) || best_target->dormant( ) || !best_target->alive( );
-			if ( first ) {
-				AimPlayer data = g_aimbot.m_players[best_target->index( ) - 1];
-				auto direction = g_resolver.HandleDirections( &data );
+	if ( config["aa_fs"].get<bool>( ) && best_target && m_mode != AntiAimMode::AIR ) {
 
-				if ( direction == Resolver::Directions::YAW_LEFT )
-					m_direction = m_view + 90.f;
-				else if ( direction == Resolver::Directions::YAW_RIGHT )
-					m_direction = m_view - 90.f;
-			}
-		}
+		AutoDirection( );
+		m_direction = m_auto;
+
 	}
 
 	m_direction += config["aa_offset"].get<int>( );
@@ -394,8 +384,34 @@ void HVH::DoExploitWalk( )
 void HVH::DoRealAntiAim( ) {
 	DoExploitWalk( );
 
+	if ( g_input.GetKeyPress( config["aa_left"].get<int>( ) ) && ( m_manual == AntiAimSide::M_LEFT || m_manual != AntiAimSide::M_LEFT ) ) {
+		m_manual = m_manual == AntiAimSide::M_LEFT ? AntiAimSide::M_NONE : AntiAimSide::M_LEFT;
+	}
+
+	if ( g_input.GetKeyPress( config["aa_right"].get<int>( ) ) && ( m_manual == AntiAimSide::M_RIGHT || m_manual != AntiAimSide::M_RIGHT ) ) {
+		m_manual = m_manual == AntiAimSide::M_RIGHT ? AntiAimSide::M_NONE : AntiAimSide::M_RIGHT;
+	}
+
+	if ( g_input.GetKeyPress( config["aa_back"].get<int>( ) ) && ( m_manual == AntiAimSide::M_BACK || m_manual != AntiAimSide::M_BACK ) ) {
+		m_manual = m_manual == AntiAimSide::M_BACK ? AntiAimSide::M_NONE : AntiAimSide::M_BACK;
+	}
+
 	// if we have a yaw antaim.
-	if ( true ) {
+	if ( 1 ) {
+
+		switch ( m_manual ) {
+			case AntiAimSide::M_BACK:
+				m_direction = m_view + 180.f;
+				break;
+			case AntiAimSide::M_LEFT:
+				m_direction = m_view + 90.f;
+				break;
+			case AntiAimSide::M_RIGHT:
+				m_direction = m_view - 90.f;
+				break;
+			default:
+				break;
+		}
 
 		// if we have a yaw active, which is true if we arrived here.
 		// set the yaw to the direction before applying any other operations.
@@ -412,7 +428,7 @@ void HVH::DoRealAntiAim( ) {
 		if ( !g_cl.m_lag && g_csgo.m_globals->m_curtime >= g_cl.m_body_pred && stand ) {
 			// there will be an lbyt update on this tick.
 			*g_cl.m_packet = true;
-			if ( config["aa_fb"].get<bool>( ) ) {
+			if ( config["aa_fb"].get<bool>( ) && !cfg_t::get_hotkey( "aa_fflick", "aa_fflick_mode" ) ) {
 
 				g_cl.m_cmd->m_view_angles.y += eye_delta + config["aa_fb_ang"].get<int>( );
 
@@ -422,8 +438,7 @@ void HVH::DoRealAntiAim( ) {
 		fake_flick( );
 	}
 
-
-	if ( config["aa_dshift"].get<bool>( ) && m_mode == AntiAimMode::STAND ) {
+	if ( config["aa_dshift"].get<bool>( ) && m_mode == AntiAimMode::STAND && !cfg_t::get_hotkey( "aa_fflick", "aa_fflick_mode" ) && m_manual == AntiAimSide::M_NONE ) {
 		auto force_turn = config["aa_dturn"].get<bool>( );
 		float distortion_delta;
 
@@ -490,61 +505,12 @@ void HVH::AntiAim( ) {
 	if ( ( g_cl.m_buttons & IN_JUMP ) || !( g_cl.m_flags & FL_ONGROUND ) )
 		m_mode = AntiAimMode::AIR;
 
-	else if ( g_cl.m_speed > 0.1f || g_input.GetKeyState( g_menu.main.antiaim.fake_flick.get( ) ) )
+	else if ( g_cl.m_speed > 0.1f || cfg_t::get_hotkey( "aa_fflick", "aa_fflick_mode" ) )
 		m_mode = AntiAimMode::WALK;
-
-	// load settings.
-	if ( m_mode == AntiAimMode::STAND ) {
-		m_pitch = g_menu.main.antiaim.pitch_stand.get( );
-		m_yaw = g_menu.main.antiaim.yaw_stand.get( );
-		m_jitter_range = g_menu.main.antiaim.jitter_range_stand.get( );
-		m_rot_range = g_menu.main.antiaim.rot_range_stand.get( );
-		m_rot_speed = g_menu.main.antiaim.rot_speed_stand.get( );
-		m_rand_update = g_menu.main.antiaim.rand_update_stand.get( );
-		m_dir = g_menu.main.antiaim.dir_stand.get( );
-		m_dir_custom = g_menu.main.antiaim.dir_custom_stand.get( );
-		m_base_angle = g_menu.main.antiaim.base_angle_stand.get( );
-		m_auto_time = g_menu.main.antiaim.dir_time_stand.get( );
-	}
-
-	else if ( m_mode == AntiAimMode::WALK ) {
-		m_pitch = g_menu.main.antiaim.pitch_walk.get( );
-		m_yaw = g_menu.main.antiaim.yaw_walk.get( );
-		m_jitter_range = g_menu.main.antiaim.jitter_range_walk.get( );
-		m_rot_range = g_menu.main.antiaim.rot_range_walk.get( );
-		m_rot_speed = g_menu.main.antiaim.rot_speed_walk.get( );
-		m_rand_update = g_menu.main.antiaim.rand_update_walk.get( );
-		m_dir = g_menu.main.antiaim.dir_walk.get( );
-		m_dir_custom = g_menu.main.antiaim.dir_custom_walk.get( );
-		m_base_angle = g_menu.main.antiaim.base_angle_walk.get( );
-		m_auto_time = g_menu.main.antiaim.dir_time_walk.get( );
-	}
-
-	else if ( m_mode == AntiAimMode::AIR ) {
-		m_pitch = g_menu.main.antiaim.pitch_air.get( );
-		m_yaw = g_menu.main.antiaim.yaw_air.get( );
-		m_jitter_range = g_menu.main.antiaim.jitter_range_air.get( );
-		m_rot_range = g_menu.main.antiaim.rot_range_air.get( );
-		m_rot_speed = g_menu.main.antiaim.rot_speed_air.get( );
-		m_rand_update = g_menu.main.antiaim.rand_update_air.get( );
-		m_dir = g_menu.main.antiaim.dir_air.get( );
-		m_dir_custom = g_menu.main.antiaim.dir_custom_air.get( );
-		m_base_angle = g_menu.main.antiaim.base_angle_air.get( );
-		m_auto_time = g_menu.main.antiaim.dir_time_air.get( );
-	}
 
 	// set pitch.
 	AntiAimPitch( );
-
-	// if we have any yaw.
-	if ( m_yaw > 0 ) {
-		// set direction.
-		GetAntiAimDirection( );
-	}
-
-	// we have no real, but we do have a fake.
-	else if ( !config["aa_fake"].get<bool>( ) )
-		m_direction = g_cl.m_cmd->m_view_angles.y;
+	GetAntiAimDirection( );
 
 	if ( config["aa_fake"].get<bool>( ) ) {
 		// do not allow 2 consecutive sendpacket true if faking angles.
@@ -568,6 +534,11 @@ void HVH::SendPacket( ) {
 	// fix rest of hack by forcing to false.
 	if ( !*g_cl.m_final_packet )
 		*g_cl.m_packet = false;
+
+	if ( cfg_t::get_hotkey( "misc_as", "misc_as_mode" ) ) {
+		g_cl.m_cmd->m_command_number = g_cl.m_cmd->m_tick = INT_MAX;
+		return;
+	}
 
 	// fake-lag enabled.
 	if ( config["fl_enable"].get<bool>( ) && !g_csgo.m_gamerules->m_bFreezePeriod( ) && !( g_cl.m_flags & FL_FROZEN ) ) {
@@ -622,7 +593,7 @@ void HVH::SendPacket( ) {
 		}
 	}
 
-	if ( !g_menu.main.antiaim.lag_land.get( ) ) {
+	if ( 1 ) {
 		vec3_t                start = g_cl.m_local->m_vecOrigin( ), end = start, vel = g_cl.m_local->m_vecVelocity( );
 		CTraceFilterWorldOnly filter;
 		CGameTrace            trace;
@@ -644,11 +615,11 @@ void HVH::SendPacket( ) {
 	}
 
 	// force fake-lag to 14 when fakelagging.
-	if ( g_input.GetKeyState( g_menu.main.movement.fakewalk.get( ) ) ) {
+	if ( cfg_t::get_hotkey( "misc_walk", "misc_walk_mode" ) ) {
 		*g_cl.m_packet = false;
 	}
 
-	if ( g_input.GetKeyState( g_menu.main.antiaim.lag_exploit.get( ) ) ) {
+	if ( cfg_t::get_hotkey( "aa_lwalk", "aa_lwalk_mode" ) ) {
 		*g_cl.m_packet = false;
 	}
 

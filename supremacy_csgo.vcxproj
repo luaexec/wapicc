@@ -284,6 +284,7 @@
     <ClInclude Include="game.h" />
     <ClInclude Include="gameevents.h" />
     <ClInclude Include="gamerules.h" />
+    <ClInclude Include="gh.h" />
     <ClInclude Include="globalvars.h" />
     <ClInclude Include="glow.h" />
     <ClInclude Include="grenades.h" />
@@ -363,6 +364,7 @@
     <ClCompile Include="edit.cpp" />
     <ClCompile Include="events.cpp" />
     <ClCompile Include="firebullets.cpp" />
+    <ClCompile Include="gh.cpp" />
     <ClCompile Include="keybind.cpp" />
     <ClCompile Include="matchframework.cpp" />
     <ClCompile Include="materialsystem.cpp" />

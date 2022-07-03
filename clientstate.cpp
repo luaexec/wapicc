@@ -1,62 +1,62 @@
 #include "includes.h"
 
-bool Hooks::TempEntities( void *msg ) {
-	if( !g_cl.m_processing ) {
+bool Hooks::TempEntities( void* msg ) {
+	if ( !g_cl.m_processing ) {
 		return g_hooks.m_client_state.GetOldMethod< TempEntities_t >( CClientState::TEMPENTITIES )( this, msg );
 	}
 
 	const bool ret = g_hooks.m_client_state.GetOldMethod< TempEntities_t >( CClientState::TEMPENTITIES )( this, msg );
 
-	CEventInfo *ei = g_csgo.m_cl->m_events; 
-	CEventInfo *next = nullptr;
+	CEventInfo* ei = g_csgo.m_cl->m_events;
+	CEventInfo* next = nullptr;
 
-	if( !ei ) {
+	if ( !ei ) {
 		return ret;
 	}
 
 	do {
-		next = *reinterpret_cast< CEventInfo ** >( reinterpret_cast< uintptr_t >( ei ) + 0x38 );
+		next = *reinterpret_cast<CEventInfo**>( reinterpret_cast<uintptr_t>( ei ) + 0x38 );
 
 		uint16_t classID = ei->m_class_id - 1;
 
 		auto m_pCreateEventFn = ei->m_client_class->m_pCreateEvent;
-		if( !m_pCreateEventFn ) {
+		if ( !m_pCreateEventFn ) {
 			continue;
 		}
 
-		void *pCE = m_pCreateEventFn( );
-		if( !pCE ) {
+		void* pCE = m_pCreateEventFn( );
+		if ( !pCE ) {
 			continue;
 		}
 
-		if( classID == 170 ){
+		if ( classID == 170 ) {
 			ei->m_fire_delay = 0.0f;
 		}
 		ei = next;
-	} while( next != nullptr );
+	} while ( next != nullptr );
 
 	return ret;
 }
 
-void Hooks::PacketStart(int incoming_sequence, int outgoing_acknowledged)
+void Hooks::PacketStart( int incoming_sequence, int outgoing_acknowledged )
 {
-	if( !g_cl.m_processing
-		|| !g_csgo.m_engine->IsInGame( )
-		|| !g_menu.main.aimbot.enable.get( )
-		|| g_csgo.m_gamerules->m_bFreezePeriod( )
-		|| g_cl.m_saved_command.empty( ) ) {
+	if ( !g_cl.m_processing
+		 || !g_csgo.m_engine->IsInGame( )
+		 || !config["rage_enable"].get<bool>( )
+		 || g_csgo.m_gamerules->m_bFreezePeriod( )
+		 || g_cl.m_saved_command.empty( ) ) {
 		return g_hooks.m_client_state.GetOldMethod< PacketStart_t >( CClientState::PACKETSTART )( this, incoming_sequence, outgoing_acknowledged );
 	}
 
 	static auto ret = g_hooks.m_client_state.GetOldMethod< PacketStart_t >( CClientState::PACKETSTART );
 
-	for( auto it = g_cl.m_saved_command.begin( ); it != g_cl.m_saved_command.end( ); it++ )
-		if( *it == outgoing_acknowledged ) {
+	for ( auto it = g_cl.m_saved_command.begin( ); it != g_cl.m_saved_command.end( ); it++ )
+		if ( *it == outgoing_acknowledged ) {
 			ret( this, incoming_sequence, outgoing_acknowledged );
 			break;
 		}
 
-	for( auto it = g_cl.m_saved_command.begin( ); it != g_cl.m_saved_command.end( ); it++ )
-		if( *it < outgoing_acknowledged )
+	for ( auto it = g_cl.m_saved_command.begin( ); it != g_cl.m_saved_command.end( ); it++ )
+		if ( *it < outgoing_acknowledged )
 			g_cl.m_saved_command.erase( it );
 }

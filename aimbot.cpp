@@ -424,45 +424,33 @@ void AimPlayer::SetupHitboxes( LagRecord* record, bool history ) {
 
 	bool prefer_head = record->m_velocity.length_2d( ) > 71.f;
 
-	// prefer
+	auto head_always = config["rage_head_always"].get<bool>( );
+	auto head_move = config["rage_head_move"].get<bool>( ) && prefer_head;
+	auto head_resolve = config["rage_head_resolve"].get<bool>( ) && !( record->m_mode != Resolver::Modes::RESOLVE_NONE && record->m_mode != Resolver::Modes::RESOLVE_WALK && record->m_mode != Resolver::Modes::RESOLVE_BODY );
 
-	if ( config["rage_head_always"].get<bool>( ) )
-		m_hitboxes.push_back( { HITBOX_HEAD, HitscanMode::PREFER } );
-
-	if ( config["rage_head_move"].get<bool>( ) && prefer_head )
-		m_hitboxes.push_back( { HITBOX_HEAD, HitscanMode::PREFER } );
-
-	if ( config["rage_head_resolve"].get<bool>( ) && !( record->m_mode != Resolver::Modes::RESOLVE_NONE && record->m_mode != Resolver::Modes::RESOLVE_WALK && record->m_mode != Resolver::Modes::RESOLVE_BODY ) )
+	if ( head_always || head_move || head_resolve )
 		m_hitboxes.push_back( { HITBOX_HEAD, HitscanMode::PREFER } );
 
 	if ( g_cl.m_weapon_id == ZEUS ) {
-		// hitboxes for the zeus.
 		m_hitboxes.push_back( { HITBOX_BODY, HitscanMode::PREFER } );
 		return;
 	}
 
-	if ( config["rage_body_always"].get<bool>( ) )
-		m_hitboxes.push_back( { HITBOX_BODY, HitscanMode::PREFER } );
+	auto body_always = config["rage_body_always"].get<bool>( );
+	auto body_fake = config["rage_body_fake"].get<bool>( ) && record->m_mode != Resolver::Modes::RESOLVE_NONE && record->m_mode != Resolver::Modes::RESOLVE_WALK && record->m_mode != Resolver::Modes::RESOLVE_BODY;
+	bool body_air = config["rage_body_air"].get<bool>( ) && !( record->m_pred_flags & FL_ONGROUND );
+
+	if ( body_always || body_fake || body_air )
+		m_hitboxes.push_back( { HITBOX_PELVIS, HitscanMode::PREFER } );
 
 	if ( config["rage_body_lethal"].get<bool>( ) )
-		m_hitboxes.push_back( { HITBOX_BODY, HitscanMode::LETHAL } );
-
-	if ( config["rage_body_fake"].get<bool>( ) && record->m_mode != Resolver::Modes::RESOLVE_NONE && record->m_mode != Resolver::Modes::RESOLVE_WALK && record->m_mode != Resolver::Modes::RESOLVE_BODY )
-		m_hitboxes.push_back( { HITBOX_BODY, HitscanMode::PREFER } );
-
-	if ( config["rage_body_air"].get<bool>( ) && !( record->m_pred_flags & FL_ONGROUND ) )
-		m_hitboxes.push_back( { HITBOX_BODY, HitscanMode::PREFER } );
+		m_hitboxes.push_back( { HITBOX_PELVIS, HitscanMode::LETHAL } );
 
 	bool only{ false };
 
-	if ( config["rage_body_always"].get<bool>( ) ) {
-		only = true;
-		m_hitboxes.push_back( { HITBOX_BODY, HitscanMode::PREFER } );
-	}
-
 	if ( cfg_t::get_hotkey( "acc_forcebody", "acc_forcebody_mode" ) ) {
 		only = m_force_body = true;
-		m_hitboxes.push_back( { HITBOX_BODY, HitscanMode::PREFER } );
+		m_hitboxes.push_back( { HITBOX_PELVIS, HitscanMode::PREFER } );
 	}
 
 	if ( only )
@@ -537,16 +525,16 @@ void Aimbot::think( ) {
 	// do all startup routines.
 	init( );
 
+	// we have no aimbot enabled.
+	if ( !config["rage_enable"].get<bool>( ) || !g_cl.m_processing )
+		return;
+
 	// sanity.
 	if ( !g_cl.m_weapon )
 		return;
 
 	// no grenades or bomb.
 	if ( g_cl.m_weapon_type == WEAPONTYPE_GRENADE || g_cl.m_weapon_type == WEAPONTYPE_C4 )
-		return;
-
-	// we have no aimbot enabled.
-	if ( !config["rage_enable"].get<bool>( ) )
 		return;
 
 	// animation silent aim, prevent the ticks with the shot in it to become the tick that gets processed.
@@ -594,6 +582,52 @@ void Aimbot::think( ) {
 
 	// finally set data when shooting.
 	apply( );
+}
+
+bool Aimbot::CheckHitchance( Player* player, const ang_t& angle ) {
+	constexpr float HITCHANCE_MAX = 100.f;
+	constexpr int   SEED_MAX = 255;
+
+	vec3_t     start{ g_cl.m_shoot_pos }, end, fwd, right, up, dir, wep_spread;
+	float      inaccuracy, spread;
+	CGameTrace tr;
+	size_t     total_hits{ }, needed_hits{ (size_t)std::ceil( ( config["rage_hitchance"].get<float>( ) * SEED_MAX ) / HITCHANCE_MAX ) };
+
+	// get needed directional vectors.
+	math::AngleVectors( angle, &fwd, &right, &up );
+
+	// store off inaccuracy / spread ( these functions are quite intensive and we only need them once ).
+	inaccuracy = g_cl.m_weapon->GetInaccuracy( );
+	spread = g_cl.m_weapon->GetSpread( );
+
+	// iterate all possible seeds.
+	for ( int i{ }; i <= SEED_MAX; ++i ) {
+		// get spread.
+		wep_spread = g_cl.m_weapon->CalculateSpread( i, inaccuracy, spread );
+
+		// get spread direction.
+		dir = ( fwd + ( right * wep_spread.x ) + ( up * wep_spread.y ) ).normalized( );
+
+		// get end of trace.
+		end = start + ( dir * g_cl.m_weapon_info->m_range );
+
+		// setup ray and trace.
+		g_csgo.m_engine_trace->ClipRayToEntity( Ray( start, end ), MASK_SHOT, player, &tr );
+
+		// check if we hit a valid player / hitgroup on the player and increment total hits.
+		if ( tr.m_entity == player && game::IsValidHitgroup( tr.m_hitgroup ) )
+			++total_hits;
+
+		// we made it.
+		if ( total_hits >= needed_hits )
+			return true;
+
+		// we cant make it anymore.
+		if ( ( SEED_MAX - i + total_hits ) < needed_hits )
+			return false;
+	}
+
+	return false;
 }
 
 void Aimbot::find( ) {
@@ -665,7 +699,7 @@ void Aimbot::find( ) {
 			}
 
 
-			if ( best.damage && best.player && best.record ) {
+			if ( best.damage && best.player && !best.record ) {
 				LagRecord* last = g_resolver.FindLastRecord( t );
 				if ( last ) {
 
@@ -715,25 +749,25 @@ void Aimbot::find( ) {
 		m_record->cache( );
 
 		bool on = config["menu_ut"].get<bool>( );
-		bool hit = on && CanHitchance( m_angle, m_aim, m_target, config["rage_hitchance"].get<float>( ), m_hitbox, m_damage );
+		bool hit = on && CheckHitchance( best.player, m_angle ); //CanHitchance( m_angle, m_aim, m_target, config["rage_hitchance"].get<float>( ), m_hitbox, m_damage );
 
-		m_stop = !( g_cl.m_buttons & IN_JUMP );
+		//m_stop = !( g_cl.m_buttons & IN_JUMP );
 
 		//m_stop = ( g_cl.m_local->m_fFlags( ) & FL_ONGROUND ) && on && ( ( !g_cl.m_weapon_fire && config["rage_stop"].get<int>( ) == 0 || ( config["rage_stop"].get<int>( ) == 1 ) ) );
 
-		//// failed to hit them?
-		//if ( !hit ) {
-		//	// set autostop shit.
-		//	if ( ( g_cl.m_local->m_fFlags( ) & FL_ONGROUND ) && !on_land ) {
-		//		m_stop = !( g_cl.m_buttons & IN_JUMP );
-		//	}
-		//}
+		// failed to hit them?
+		if ( !hit ) {
+			// set autostop shit.
+			if ( ( g_cl.m_local->m_fFlags( ) & FL_ONGROUND ) && !on_land ) {
+				m_stop = !( g_cl.m_buttons & IN_JUMP );
+			}
+		}
 
 		// if we can scope.
 		bool can_scope = !g_cl.m_local->m_bIsScoped( ) && ( g_cl.m_weapon_id == AUG || g_cl.m_weapon_id == SG553 || g_cl.m_weapon_type == WEAPONTYPE_SNIPER_RIFLE );
 
 		if ( can_scope ) {
-			if ( config["acc_scope"].get<bool>( ) && on && !hit ) {
+			if ( config["acc_scope"].get<bool>( ) && on && !hit && ( g_cl.m_local->m_fFlags( ) & FL_ONGROUND ) && !on_land ) {
 				g_cl.m_cmd->m_buttons |= IN_ATTACK2;
 				return;
 			}
@@ -894,13 +928,10 @@ bool Aimbot::CanHitchance( ang_t angle, vec3_t point, Player* player, float chan
 
 		// additional checks if we are actually hitting that specific hitbox.
 		if ( tr.m_entity == player ) {
-			if ( !g_menu.main.aimbot.hitbox.empty( ) ) {
-				if ( game::IsValidHitgroup( tr.m_hitgroup ) )
-					++TraceHits;
-			}
-			else ++TraceHits;
+			if ( game::IsValidHitgroup( tr.m_hitgroup ) )
+				++TraceHits;
 
-			if ( g_menu.main.aimbot.accuracy_boost_amount.get( ) > 0 ) {
+			if ( config["acc_boost"].get<int>( ) > 0 ) {
 				if ( tr.m_hitbox == m_hitbox )
 					++TraceHitsRightHitbox;
 			}
@@ -908,7 +939,7 @@ bool Aimbot::CanHitchance( ang_t angle, vec3_t point, Player* player, float chan
 
 		if ( TraceHits >= needed_hits ) {
 
-			if ( ( ( static_cast<float>( TraceHitsRightHitbox ) / static_cast<float>( 128.f ) ) >= ( g_menu.main.aimbot.accuracy_boost_amount.get( ) / 100.f ) ) || g_menu.main.aimbot.accuracy_boost_amount.get( ) <= 0.f )
+			if ( ( ( static_cast<float>( TraceHitsRightHitbox ) / static_cast<float>( 128.f ) ) >= ( config["acc_boost"].get<float>( ) / 100.f ) ) || config["acc_boost"].get<float>( ) <= 0.f )
 				return true;
 		}
 

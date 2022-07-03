@@ -5,31 +5,31 @@ void Aimbot::knife( ) {
 	KnifeTarget_t target{};
 
 	// we have no targets.
-	if( m_targets.empty( ) )
+	if ( m_targets.empty( ) )
 		return;
 
 	// iterate all targets.
-	for( const auto& t : m_targets ) {
+	for ( const auto& t : m_targets ) {
 		// this target has no records
 		// should never happen since it wouldnt be a target then.
-		if( t->m_records.empty( ) )
+		if ( t->m_records.empty( ) )
 			continue;
 
 		// see if target broke lagcomp.
-		if( g_menu.main.aimbot.lagfix.get( ) && g_lagcomp.StartPrediction( t ) ) {
+		if ( g_lagcomp.StartPrediction( t ) ) {
 			LagRecord* front = t->m_records.front( ).get( );
 
 			front->cache( );
 
 			// trace with front.
-			for( const auto& a : m_knife_ang ) {
+			for ( const auto& a : m_knife_ang ) {
 
 				// check if we can knife.
-				if( !CanKnife( front, a, target.stab ) )
+				if ( !CanKnife( front, a, target.stab ) )
 					continue;
 
 				// set target data.
-				target.angle  = a;
+				target.angle = a;
 				target.record = front;
 				break;
 			}
@@ -39,52 +39,52 @@ void Aimbot::knife( ) {
 		else {
 
 			LagRecord* best = g_resolver.FindIdealRecord( t );
-			if( !best )
+			if ( !best )
 				continue;
 
 			best->cache( );
 
 			// trace with best.
-			for( const auto& a : m_knife_ang ) {
+			for ( const auto& a : m_knife_ang ) {
 
 				// check if we can knife.
-				if( !CanKnife( best, a, target.stab ) )
+				if ( !CanKnife( best, a, target.stab ) )
 					continue;
 
 				// set target data.
-				target.angle  = a;
+				target.angle = a;
 				target.record = best;
 				break;
 			}
 
 			LagRecord* last = g_resolver.FindLastRecord( t );
-			if( !last || last == best )
+			if ( !last || last == best )
 				continue;
 
 			last->cache( );
 
 			// trace with last.
-			for( const auto& a : m_knife_ang ) {
+			for ( const auto& a : m_knife_ang ) {
 
 				// check if we can knife.
-				if( !CanKnife( last, a, target.stab ) )
+				if ( !CanKnife( last, a, target.stab ) )
 					continue;
 
 				// set target data.
-				target.angle  = a;
+				target.angle = a;
 				target.record = last;
 				break;
 			}
 		}
 
 		// target player has been found already.
-		if( target.record )
+		if ( target.record )
 			break;
 	}
 
 	// we found a target.
 	// set out data and choke.
-	if( target.record ) {
+	if ( target.record ) {
 		// set target tick.
 		g_cl.m_cmd->m_tick = game::TIME_TO_TICKS( target.record->m_pred_time + g_cl.m_lerp );
 
@@ -110,33 +110,33 @@ bool Aimbot::CanKnife( LagRecord* record, ang_t angle, bool& stab ) {
 	KnifeTrace( forward, false, &trace );
 
 	// we hit smthing else than we were looking for.
-	if( !trace.m_entity || trace.m_entity != record->m_player )
+	if ( !trace.m_entity || trace.m_entity != record->m_player )
 		return false;
 
 	bool armor = record->m_player->m_ArmorValue( ) > 0;
 	bool first = g_cl.m_weapon->m_flNextPrimaryAttack( ) + 0.4f < g_csgo.m_globals->m_curtime;
-	bool back  = KnifeIsBehind( record );
+	bool back = KnifeIsBehind( record );
 
-	int stab_dmg  = m_knife_dmg.stab[ armor ][ back ];
-	int slash_dmg = m_knife_dmg.swing[ first ][ armor ][ back ];
-	int swing_dmg = m_knife_dmg.swing[ false ][ armor ][ back ];
+	int stab_dmg = m_knife_dmg.stab[armor][back];
+	int slash_dmg = m_knife_dmg.swing[first][armor][back];
+	int swing_dmg = m_knife_dmg.swing[false][armor][back];
 
 	// smart knifebot.
 	int health = record->m_player->m_iHealth( );
-	if( health <= slash_dmg )
+	if ( health <= slash_dmg )
 		stab = false;
 
-	else if( health <= stab_dmg )
+	else if ( health <= stab_dmg )
 		stab = true;
 
-	else if( health > ( slash_dmg + swing_dmg + stab_dmg ) )
+	else if ( health > ( slash_dmg + swing_dmg + stab_dmg ) )
 		stab = true;
 
 	else
 		stab = false;
 
 	// damage wise a stab would be sufficient here.
-	if( stab && !KnifeTrace( forward, true, &trace ) )
+	if ( stab && !KnifeTrace( forward, true, &trace ) )
 		return false;
 
 	return true;
@@ -146,14 +146,14 @@ bool Aimbot::KnifeTrace( vec3_t dir, bool stab, CGameTrace* trace ) {
 	float range = stab ? 32.f : 48.f;
 
 	vec3_t start = g_cl.m_shoot_pos;
-	vec3_t end   = start + ( dir * range );
+	vec3_t end = start + ( dir * range );
 
 	CTraceFilterSimple filter;
 	filter.SetPassEntity( g_cl.m_local );
 	g_csgo.m_engine_trace->TraceRay( Ray( start, end ), MASK_SOLID, &filter, trace );
 
 	// if the above failed try a hull trace.
-	if( trace->m_fraction >= 1.f ) {
+	if ( trace->m_fraction >= 1.f ) {
 		g_csgo.m_engine_trace->TraceRay( Ray( start, end, { -16.f, -16.f, -18.f }, { 16.f, 16.f, 18.f } ), MASK_SOLID, &filter, trace );
 		return trace->m_fraction < 1.f;
 	}

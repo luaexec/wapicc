@@ -25,6 +25,40 @@ public:
 		YAW_NONE,
 	};
 
+	enum class fs_dir : int {
+		FS_LEFT = 0,
+		FS_RIGHT,
+		FS_BACK
+	};
+
+	struct fs_record {
+		float fraction[3];
+		bool  hit[3];
+
+		__forceinline float get_yaw( LagRecord* record, bool r ) {
+
+			float fs_yaw[3] = {
+				r ? 90.f : -90.f,
+				r ? -90.f : 90.f,
+				180.f,
+			};
+
+			if ( hit[int( fs_dir::FS_LEFT )] || hit[int( fs_dir::FS_RIGHT )] ) {
+
+				auto sort = ( fraction[int( fs_dir::FS_LEFT )] <= fraction[int( fs_dir::FS_RIGHT )] ) ? int( fs_dir::FS_LEFT ) : int( fs_dir::FS_RIGHT );
+				return fs_yaw[sort];
+
+			}
+
+			return fs_yaw[int( fs_dir::FS_BACK )];
+		}
+
+		__forceinline void update( CGameTrace t, fs_dir d ) {
+			fraction[int( d )] = t.m_fraction;
+			hit[int( d )] = t.hit( );
+		}
+	};
+
 public:
 	LagRecord* FindIdealRecord( AimPlayer* data );
 	LagRecord* FindLastRecord( AimPlayer* data );
@@ -50,6 +84,7 @@ public:
 public:
 	std::array< vec3_t, 64 > m_impacts;
 	int m_runtime[64];
+	fs_record m_fsrecord[64];
 
 	// check if the players yaw is sideways.
 	__forceinline bool IsLastMoveValid( LagRecord* record, float m_yaw ) {

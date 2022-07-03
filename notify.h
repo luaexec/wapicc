@@ -20,10 +20,10 @@ private:
 public:
 	__forceinline Notify( ) : m_notify_text{} {}
 
-	__forceinline void add( const std::string& text, Color color = colors::white, float time = 8.f, bool console = true ) {
+	__forceinline void add( const std::string& text, Color color = colors::white, float time = 5.f, bool console = true ) {
 		m_notify_text.push_back( std::make_shared< NotifyText >( text, color, time ) );
 
-		if (console)
+		if ( console )
 			g_cl.print( text );
 	}
 
@@ -33,21 +33,21 @@ public:
 		float	left;
 
 		// update lifetimes.
-		for (size_t i{}; i < m_notify_text.size( ); ++i) {
+		for ( size_t i{}; i < m_notify_text.size( ); ++i ) {
 			auto notify = m_notify_text[i];
 
 			notify->m_time -= g_csgo.m_globals->m_frametime;
 
-			if (notify->m_time <= 0.f) {
+			if ( notify->m_time <= 0.f ) {
 				m_notify_text.erase( m_notify_text.begin( ) + i );
 				continue;
 			}
 		}
 
-		if (m_notify_text.empty( ))
+		if ( m_notify_text.empty( ) )
 			return;
 
-		for (size_t i{}; i < m_notify_text.size( ); ++i) {
+		for ( size_t i{}; i < m_notify_text.size( ); ++i ) {
 			auto notify = m_notify_text[i];
 
 			auto s = std::min( 5.f - notify->m_time, 0.5f ) * 2.f;
@@ -55,7 +55,7 @@ public:
 			auto t = std::min( s, e );
 			color = notify->m_color;
 
-			render::esp.string( x - render::esp.size( notify->m_text ).m_width + ( render::esp.size( notify->m_text ).m_width * t ), y, colors::white.alpha( 255.f * t ), notify->m_text );
+			render::esp.string( x - render::esp.size( notify->m_text ).m_width + ( render::esp.size( notify->m_text ).m_width * t ), y, nigga.alpha( 255.f * t ), notify->m_text );
 			y += size;
 		}
 	}

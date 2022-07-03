@@ -1,4 +1,5 @@
 #include "includes.h"
+#include "wapim.h"
 
 /*void Hooks::GetScreenSize( int& w, int& h ) {
 	//Stack stack;
@@ -17,13 +18,13 @@
 }*/
 
 void Hooks::LockCursor( ) {
-	if( g_gui.m_open ) {
+	if ( gui::m_open ) {
 
 		// un-lock the cursor.
 		g_csgo.m_surface->UnlockCursor( );
 
 		// disable input.
-		g_csgo.m_input_system->EnableInput( false );
+		//g_csgo.m_input_system->EnableInput( false );
 	}
 
 	else {
@@ -31,17 +32,17 @@ void Hooks::LockCursor( ) {
 		g_hooks.m_surface.GetOldMethod< LockCursor_t >( ISurface::LOCKCURSOR )( this );
 
 		// enable input.
-		g_csgo.m_input_system->EnableInput( true );
+		//g_csgo.m_input_system->EnableInput( true );
 	}
 }
 
 void Hooks::PlaySound( const char* name ) {
 	g_hooks.m_surface.GetOldMethod< PlaySound_t >( ISurface::PLAYSOUND )( this, name );
 
-	if( g_menu.main.misc.autoaccept.get( ) ) {
+	if ( g_menu.main.misc.autoaccept.get( ) ) {
 
 		// auto accept.
-		if( FNV1a::get( name ) == HASH( "!UI/competitive_accept_beep.wav" ) && !g_csgo.m_engine->IsInGame( ) ) {
+		if ( FNV1a::get( name ) == HASH( "!UI/competitive_accept_beep.wav" ) && !g_csgo.m_engine->IsInGame( ) ) {
 			// accept match.
 			g_csgo.IsReady( );
 
@@ -56,5 +57,5 @@ void Hooks::OnScreenSizeChanged( int oldwidth, int oldheight ) {
 
 	render::init( );
 
-	Visuals::ModulateWorld( );
+	//g_visuals.ModulateWorld( );
 }

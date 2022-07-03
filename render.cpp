@@ -45,7 +45,7 @@ bool render::WorldToScreen( const vec3_t& world, vec2_t& screen ) {
 	// check if it's in view first.
 	// note - dex; w is below 0 when world position is around -90 / +90 from the player's camera on the y axis.
 	w = matrix[3][0] * world.x + matrix[3][1] * world.y + matrix[3][2] * world.z + matrix[3][3];
-	if (w < 0.001f)
+	if ( w < 0.001f )
 		return false;
 
 	// calculate x and y.
@@ -100,13 +100,13 @@ void render::polygon( int vert_count, Vertex* points, Color color ) {
 void render::round_rect( int x, int y, int w, int h, int r, Color color ) {
 	Vertex round[64];
 
-	for (int i = 0; i < 4; i++) {
+	for ( int i = 0; i < 4; i++ ) {
 		int _x = x + ( ( i < 2 ) ? ( w - r ) : r );
 		int _y = y + ( ( i % 3 ) ? ( h - r ) : r );
 
 		float a = 90.f * i;
 
-		for (int j = 0; j < 16; j++) {
+		for ( int j = 0; j < 16; j++ ) {
 			float _a = math::deg_to_rad( a + j * 6.f );
 
 			round[( i * 16 ) + j] = Vertex( vec2_t( _x + r * sin( _a ), _y - r * cos( _a ) ) );
@@ -119,7 +119,7 @@ void render::round_rect( int x, int y, int w, int h, int r, Color color ) {
 
 void render::arccircle( int x, int y, int r1, int r2, int s, int d, Color color ) {
 	g_csgo.m_surface->DrawSetColor( color );
-	for (int i = s; i < s + d; i++) {
+	for ( int i = s; i < s + d; i++ ) {
 
 		float rad = i * math::pi / 180;
 
@@ -132,8 +132,8 @@ void render::drawCircle( int x, int y, int angle, Color color ) {
 	float step = 2 * math::pi / 100;
 	float inner = 6;
 
-	for (int radius = 8; inner < -1; radius--) {
-		for (int angle = 0; angle * step < -1; granularity++) {
+	for ( int radius = 8; inner < -1; radius-- ) {
+		for ( int angle = 0; angle * step < -1; granularity++ ) {
 			int px = round( radius * cos( angle ) );
 			int py = round( radius * sin( angle ) );
 
@@ -151,8 +151,8 @@ void render::draw_arc( int x, int y, int radius, int start_angle, int percent, i
 	float end_angle = ( start_angle + percent ) * step;
 	float start_angle1337 = ( start_angle * math::pi ) / 180;
 
-	for (; radius > inner; --radius) {
-		for (float angle = start_angle1337; angle < end_angle; angle += precision) {
+	for ( ; radius > inner; --radius ) {
+		for ( float angle = start_angle1337; angle < end_angle; angle += precision ) {
 			float cx = round( x + radius * cos( angle ) );
 			float cy = round( y + radius * sin( angle ) );
 
@@ -175,7 +175,7 @@ void render::circle( int x, int y, int radius, int segments, Color color ) {
 	std::vector< Vertex > vertices{};
 
 	float step = math::pi_2 / segments;
-	for (float i{ 0.f }; i < math::pi_2; i += step)
+	for ( float i{ 0.f }; i < math::pi_2; i += step )
 		vertices.emplace_back( vec2_t{ x + ( radius * std::cos( i ) ), y + ( radius * std::sin( i ) ) } );
 
 	g_csgo.m_surface->DrawTexturedPolygon( vertices.size( ), vertices.data( ) );
@@ -194,11 +194,11 @@ void render::sphere( vec3_t origin, float radius, float angle, float scale, Colo
 	// compute angle step for input radius and precision.
 	float step = ( 1.f / radius ) + math::deg_to_rad( angle );
 
-	for (float lat{}; lat < ( math::pi * scale ); lat += step) {
+	for ( float lat{}; lat < ( math::pi * scale ); lat += step ) {
 		// reset.
 		vertices.clear( );
 
-		for (float lon{}; lon < math::pi_2; lon += step) {
+		for ( float lon{}; lon < math::pi_2; lon += step ) {
 			vec3_t point{
 				origin.x + ( radius * std::sin( lat ) * std::cos( lon ) ),
 				origin.y + ( radius * std::sin( lat ) * std::sin( lon ) ),
@@ -206,11 +206,11 @@ void render::sphere( vec3_t origin, float radius, float angle, float scale, Colo
 			};
 
 			vec2_t screen;
-			if (WorldToScreen( point, screen ))
+			if ( WorldToScreen( point, screen ) )
 				vertices.emplace_back( screen );
 		}
 
-		if (vertices.empty( ))
+		if ( vertices.empty( ) )
 			continue;
 
 		g_csgo.m_surface->DrawSetColor( color );
@@ -244,9 +244,9 @@ void render::Font::wstring( int x, int y, Color color, const std::wstring& text,
 	g_csgo.m_surface->DrawSetTextFont( m_handle );
 	g_csgo.m_surface->DrawSetTextColor( color );
 
-	if (flags & ALIGN_RIGHT)
+	if ( flags & ALIGN_RIGHT )
 		x -= w;
-	if (flags & render::ALIGN_CENTER)
+	if ( flags & render::ALIGN_CENTER )
 		x -= w / 2;
 
 	g_csgo.m_surface->DrawSetTextPos( x, y );

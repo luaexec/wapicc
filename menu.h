@@ -95,12 +95,12 @@ public:
 		penetrate_minimal_damage_hp.AddShowCallback( callbacks::IsPenetrationOn );
 		RegisterElement( &penetrate_minimal_damage_hp );
 
-		dt_mindam.setup(XOR("doubletap mindamage"), XOR("dt_mindam"));
-		RegisterElement(&dt_mindam);
+		dt_mindam.setup( XOR( "doubletap mindamage" ), XOR( "dt_mindam" ) );
+		RegisterElement( &dt_mindam );
 
-		dt_mindam_val.setup(XOR(""), XOR("dt_mindam_val"), 1.f, 100.f, false, 0, 40.f, 1.f);
-		dt_mindam_val.AddShowCallback(callbacks::IsUsingDtMinDam);
-		RegisterElement(&dt_mindam_val);
+		dt_mindam_val.setup( XOR( "" ), XOR( "dt_mindam_val" ), 1.f, 100.f, false, 0, 40.f, 1.f );
+		dt_mindam_val.AddShowCallback( callbacks::IsUsingDtMinDam );
+		RegisterElement( &dt_mindam_val );
 
 		// col2.
 
@@ -140,10 +140,10 @@ public:
 		correct.setup( XOR( "correct anti-aim" ), XOR( "correct" ) );
 		RegisterElement( &correct, 1 );
 
-		baim1.setup( XOR( "prefer body aim" ), XOR( "baim1" ), { XOR( "always" ), XOR( "lethal" ), XOR( "fake" ), XOR( "in air" ), XOR("double tap")});
+		baim1.setup( XOR( "prefer body aim" ), XOR( "baim1" ), { XOR( "always" ), XOR( "lethal" ), XOR( "fake" ), XOR( "in air" ), XOR( "double tap" ) } );
 		RegisterElement( &baim1, 1 );
 
-		baim2.setup( XOR( "only body aim" ), XOR( "baim2" ), { XOR( "always" ), XOR( "health" ), XOR( "fake" ), XOR( "in air" ), XOR("double tap") } );
+		baim2.setup( XOR( "only body aim" ), XOR( "baim2" ), { XOR( "always" ), XOR( "health" ), XOR( "fake" ), XOR( "in air" ), XOR( "double tap" ) } );
 		RegisterElement( &baim2, 1 );
 
 		baim_hp.setup( "", XOR( "baim_hp" ), 1.f, 50.f, false, 0, 20.f, 1.f, XOR( L"hp" ) );
@@ -153,15 +153,15 @@ public:
 		baim_key.setup( XOR( "body aim on key" ), XOR( "body aim on key" ) );
 		RegisterElement( &baim_key, 1 );
 
-		double_tap.setup(XOR("double tap"), XOR("double_tap"));
-		double_tap.SetToggleCallback(callbacks::ToggleDoubleTap);
-		RegisterElement(&double_tap, 1);
+		double_tap.setup( XOR( "double tap" ), XOR( "double_tap" ) );
+		double_tap.SetToggleCallback( callbacks::ToggleDoubleTap );
+		RegisterElement( &double_tap, 1 );
 
-		dt_mode.setup(XOR("mode"), XOR("dt_mode"), { XOR("slow teleport"), XOR("teleport") });
-		RegisterElement(&dt_mode, 1);
+		dt_mode.setup( XOR( "mode" ), XOR( "dt_mode" ), { XOR( "slow teleport" ), XOR( "teleport" ) } );
+		RegisterElement( &dt_mode, 1 );
 
-		shift_amt.setup("shift amount", XOR("shift_amt"), 10, 17, true, 0, 14.f, 1.f, XOR(L"ticks"));
-		RegisterElement(&shift_amt, 1);
+		shift_amt.setup( "shift amount", XOR( "shift_amt" ), 10, 17, true, 0, 14.f, 1.f, XOR( L"ticks" ) );
+		RegisterElement( &shift_amt, 1 );
 	}
 };
 
@@ -245,20 +245,20 @@ public:
 		pitch_stand.AddShowCallback( callbacks::IsAntiAimModeStand );
 		RegisterElement( &pitch_stand );
 
-		yaw_stand.setup( XOR( "yaw" ), XOR( "yaw_stnd" ), { XOR( "off" ), XOR( "direction" ), XOR( "jitter" ), XOR( "rotate" ), XOR( "random" ), XOR("distortion") });
+		yaw_stand.setup( XOR( "yaw" ), XOR( "yaw_stnd" ), { XOR( "off" ), XOR( "direction" ), XOR( "jitter" ), XOR( "rotate" ), XOR( "random" ), XOR( "distortion" ) } );
 		yaw_stand.AddShowCallback( callbacks::IsAntiAimModeStand );
 		RegisterElement( &yaw_stand );
 
-		dir_distort_range.setup("range", XOR("dir_distort_range"), -180.f, 180.f, true, 0, 0.f, 1.f, XOR(L"°"));
-		dir_distort_range.AddShowCallback(callbacks::IsAntiAimModeStand);
-		dir_distort_range.AddShowCallback(callbacks::HasStandYaw);
-		dir_distort_range.AddShowCallback(callbacks::IsUsingDistortion);
-		RegisterElement(&dir_distort_range);
+		dir_distort_range.setup( "range", XOR( "dir_distort_range" ), -180.f, 180.f, true, 0, 0.f, 1.f, XOR( L"°" ) );
+		dir_distort_range.AddShowCallback( callbacks::IsAntiAimModeStand );
+		dir_distort_range.AddShowCallback( callbacks::HasStandYaw );
+		dir_distort_range.AddShowCallback( callbacks::IsUsingDistortion );
+		RegisterElement( &dir_distort_range );
 
-		dir_distort_speed.setup("speed", XOR("dir_distort_speed"), 0.f, 10.f, true, 0, 0.f, 1.f, XOR(L"%"));
-		dir_distort_speed.AddShowCallback(callbacks::IsAntiAimModeStand);
-		dir_distort_speed.AddShowCallback(callbacks::IsUsingDistortion);
-		RegisterElement(&dir_distort_speed);
+		dir_distort_speed.setup( "speed", XOR( "dir_distort_speed" ), 0.f, 10.f, true, 0, 0.f, 1.f, XOR( L"%" ) );
+		dir_distort_speed.AddShowCallback( callbacks::IsAntiAimModeStand );
+		dir_distort_speed.AddShowCallback( callbacks::IsUsingDistortion );
+		RegisterElement( &dir_distort_speed );
 
 		jitter_range_stand.setup( "", XOR( "jitter_range_stnd" ), 1.f, 180.f, false, 0, 45.f, 5.f, XOR( L"°" ) );
 		jitter_range_stand.AddShowCallback( callbacks::IsAntiAimModeStand );
@@ -307,16 +307,16 @@ public:
 		dir_lock.AddShowCallback( callbacks::HasStandYaw );
 		RegisterElement( &dir_lock );
 
-		body_fake_stand.setup( XOR( "fake body" ), XOR( "body_fake_stnd" ), { XOR( "off" ), XOR( "left" ), XOR( "right" ), XOR( "opposite" ), XOR( "z" ), XOR("custom")});
+		body_fake_stand.setup( XOR( "fake body" ), XOR( "body_fake_stnd" ), { XOR( "off" ), XOR( "left" ), XOR( "right" ), XOR( "opposite" ), XOR( "z" ), XOR( "custom" ) } );
 		body_fake_stand.AddShowCallback( callbacks::IsAntiAimModeStand );
 		body_fake_stand.AddShowCallback( callbacks::HasStandYaw );
 		RegisterElement( &body_fake_stand );
 
-		custom_breaker_val.setup("", XOR("custom_breaker_val"), -180.f, 180.f, false, 0, 0.f, 1.f, XOR(L"°"));
-		custom_breaker_val.AddShowCallback(callbacks::IsAntiAimModeStand);
-		custom_breaker_val.AddShowCallback(callbacks::HasStandYaw);
-		custom_breaker_val.AddShowCallback(callbacks::IsUsingCustomBreaker);
-		RegisterElement(&custom_breaker_val);
+		custom_breaker_val.setup( "", XOR( "custom_breaker_val" ), -180.f, 180.f, false, 0, 0.f, 1.f, XOR( L"°" ) );
+		custom_breaker_val.AddShowCallback( callbacks::IsAntiAimModeStand );
+		custom_breaker_val.AddShowCallback( callbacks::HasStandYaw );
+		custom_breaker_val.AddShowCallback( callbacks::IsUsingCustomBreaker );
+		RegisterElement( &custom_breaker_val );
 
 		// walk.
 		pitch_walk.setup( XOR( "pitch" ), XOR( "pitch_walk" ), { XOR( "off" ), XOR( "down" ), XOR( "up" ), XOR( "random" ), XOR( "ideal" ) } );
@@ -453,14 +453,14 @@ public:
 		lag_land.setup( XOR( "on land" ), XOR( "lag_land" ) );
 		RegisterElement( &lag_land, 1 );
 
-		lag_exploit.setup(XOR("lag exploit"), XOR("lag_exploit"));
-		RegisterElement(&lag_exploit, 1);
+		lag_exploit.setup( XOR( "lag exploit" ), XOR( "lag_exploit" ) );
+		RegisterElement( &lag_exploit, 1 );
 
-		fake_flick.setup(XOR("fake flick"), XOR("fake_flick"));
-		RegisterElement(&fake_flick, 1);
+		fake_flick.setup( XOR( "fake flick" ), XOR( "fake_flick" ) );
+		RegisterElement( &fake_flick, 1 );
 
-		fakeflick_angle.setup(XOR("angle"), XOR("fakeflick_angle"), 0, 180, true, 0, 113, 1.f);
-		RegisterElement(&fakeflick_angle, 1);
+		fakeflick_angle.setup( XOR( "angle" ), XOR( "fakeflick_angle" ), 0, 180, true, 0, 113, 1.f );
+		RegisterElement( &fakeflick_angle, 1 );
 	}
 };
 
@@ -480,7 +480,7 @@ public:
 	MultiDropdown weapon;
 	Dropdown      weapon_mode;
 	Checkbox      ammo;
-	Colorpicker   ammo_color;		
+	Colorpicker   ammo_color;
 	Checkbox      lby_update;
 	Colorpicker   lby_update_color;
 
@@ -565,10 +565,10 @@ public:
 		health.setup( XOR( "health" ), XOR( "health" ), { XOR( "enemy" ), XOR( "friendly" ) } );
 		RegisterElement( &health );
 
-		flags_enemy.setup( XOR( "flags enemy" ), XOR( "flags_enemy" ), { XOR( "money" ), XOR( "armor" ), XOR( "scoped" ), XOR( "flashed" ), XOR( "reloading" ), XOR( "bomb" ), XOR("ping") } );
+		flags_enemy.setup( XOR( "flags enemy" ), XOR( "flags_enemy" ), { XOR( "money" ), XOR( "armor" ), XOR( "scoped" ), XOR( "flashed" ), XOR( "reloading" ), XOR( "bomb" ), XOR( "ping" ) } );
 		RegisterElement( &flags_enemy );
 
-		flags_friendly.setup( XOR( "flags friendly" ), XOR( "flags_friendly" ), { XOR( "money" ), XOR( "armor" ), XOR( "scoped" ), XOR( "flashed" ), XOR( "reloading" ), XOR( "bomb" ), XOR("ping") } );
+		flags_friendly.setup( XOR( "flags friendly" ), XOR( "flags_friendly" ), { XOR( "money" ), XOR( "armor" ), XOR( "scoped" ), XOR( "flashed" ), XOR( "reloading" ), XOR( "bomb" ), XOR( "ping" ) } );
 		RegisterElement( &flags_friendly );
 
 		weapon.setup( XOR( "weapon" ), XOR( "weapon" ), { XOR( "enemy" ), XOR( "friendly" ) } );
@@ -581,8 +581,8 @@ public:
 		RegisterElement( &ammo );
 
 		ammo_color.setup( XOR( "color" ), XOR( "ammo_color" ), colors::burgundy );
-		RegisterElement( &ammo_color );	
-		
+		RegisterElement( &ammo_color );
+
 		lby_update.setup( XOR( "lby update" ), XOR( "lby_update" ) );
 		RegisterElement( &lby_update );
 
@@ -611,138 +611,138 @@ public:
 		glow_blend.setup( "", XOR( "glow_blend" ), 10.f, 100.f, false, 0, 60.f, 1.f, XOR( L"%" ) );
 		RegisterElement( &glow_blend, 1 );
 
-		chams_entity_selection.setup("chams selection", XOR("chams_entity_selection"), { XOR("local"), XOR("enemy"), XOR("friendly"), XOR("history"), XOR("fake"), XOR("shot") });
-		RegisterElement(&chams_entity_selection, 1);
+		chams_entity_selection.setup( "chams selection", XOR( "chams_entity_selection" ), { XOR( "local" ), XOR( "enemy" ), XOR( "friendly" ), XOR( "history" ), XOR( "fake" ), XOR( "shot" ) } );
+		RegisterElement( &chams_entity_selection, 1 );
 
-		chams_local.setup(XOR("chams local"), XOR("chams_local"));
-		chams_local.AddShowCallback(callbacks::IsChamsSelection0);
-		RegisterElement(&chams_local, 1);
+		chams_local.setup( XOR( "chams local" ), XOR( "chams_local" ) );
+		chams_local.AddShowCallback( callbacks::IsChamsSelection0 );
+		RegisterElement( &chams_local, 1 );
 
-		chams_local_mat.setup(XOR("chams local material"), XOR("chams_local_mat"), { XOR("material"), XOR("flat"), XOR("metallic"), XOR("shaded"), XOR("glow"), XOR("Animated wireframe")});
-		chams_local_mat.AddShowCallback(callbacks::IsChamsSelection0);
-		RegisterElement(&chams_local_mat, 1);
+		chams_local_mat.setup( XOR( "chams local material" ), XOR( "chams_local_mat" ), { XOR( "material" ), XOR( "flat" ), XOR( "metallic" ), XOR( "shaded" ), XOR( "glow" ), XOR( "Animated wireframe" ) } );
+		chams_local_mat.AddShowCallback( callbacks::IsChamsSelection0 );
+		RegisterElement( &chams_local_mat, 1 );
 
-		chams_local_col.setup(XOR("color"), XOR("chams_local_col"), { 255, 255, 200 });
-		chams_local_col.AddShowCallback(callbacks::IsChamsSelection0);
-		RegisterElement(&chams_local_col, 1);
+		chams_local_col.setup( XOR( "color" ), XOR( "chams_local_col" ), { 255, 255, 200 } );
+		chams_local_col.AddShowCallback( callbacks::IsChamsSelection0 );
+		RegisterElement( &chams_local_col, 1 );
 
-		chams_local2_col.setup(XOR("glow color"), XOR("chams_local2_col"), { 255, 255, 200 });
-		chams_local2_col.AddShowCallback(callbacks::LocalGlowChamsSelection);
-		RegisterElement(&chams_local2_col, 1);
+		chams_local2_col.setup( XOR( "glow color" ), XOR( "chams_local2_col" ), { 255, 255, 200 } );
+		chams_local2_col.AddShowCallback( callbacks::LocalGlowChamsSelection );
+		RegisterElement( &chams_local2_col, 1 );
 
-		chams_local_blend.setup("", XOR("chams_local_blend"), 0.f, 100.f, false, 0, 100.f, 1.f, XOR(L"%"));
-		chams_local_blend.AddShowCallback(callbacks::IsChamsSelection0);
-		RegisterElement(&chams_local_blend, 1);
+		chams_local_blend.setup( "", XOR( "chams_local_blend" ), 0.f, 100.f, false, 0, 100.f, 1.f, XOR( L"%" ) );
+		chams_local_blend.AddShowCallback( callbacks::IsChamsSelection0 );
+		RegisterElement( &chams_local_blend, 1 );
 
-		chams_local_scope.setup(XOR("blend when scoped"), XOR("chams_local_scope"));
-		chams_local_scope.AddShowCallback(callbacks::IsChamsSelection0);
-		RegisterElement(&chams_local_scope, 1);
+		chams_local_scope.setup( XOR( "blend when scoped" ), XOR( "chams_local_scope" ) );
+		chams_local_scope.AddShowCallback( callbacks::IsChamsSelection0 );
+		RegisterElement( &chams_local_scope, 1 );
 
-		chams_local_scope_blend.setup("", XOR("chams_local_scope_blend"), 10.f, 100.f, false, 0, 100.f, 1.f, XOR(L"%"));
-		chams_local_scope_blend.AddShowCallback(callbacks::IsChamsSelection0);
-		RegisterElement(&chams_local_scope_blend, 1);
+		chams_local_scope_blend.setup( "", XOR( "chams_local_scope_blend" ), 10.f, 100.f, false, 0, 100.f, 1.f, XOR( L"%" ) );
+		chams_local_scope_blend.AddShowCallback( callbacks::IsChamsSelection0 );
+		RegisterElement( &chams_local_scope_blend, 1 );
 
-		chams_enemy.setup(XOR("chams enemy"), XOR("chams_enemy"), { XOR("visible"), XOR("invisible") });
-		chams_enemy.AddShowCallback(callbacks::IsChamsSelection1);
-		RegisterElement(&chams_enemy, 1);
+		chams_enemy.setup( XOR( "chams enemy" ), XOR( "chams_enemy" ), { XOR( "visible" ), XOR( "invisible" ) } );
+		chams_enemy.AddShowCallback( callbacks::IsChamsSelection1 );
+		RegisterElement( &chams_enemy, 1 );
 
-		chams_enemy_mat.setup(XOR("chams enemy material"), XOR("chams_enemy_mat"), { XOR("material"), XOR("flat"), XOR("metallic"), XOR("shaded"), XOR("glow"), XOR("outline glow") });
-		chams_enemy_mat.AddShowCallback(callbacks::IsChamsSelection1);
-		RegisterElement(&chams_enemy_mat, 1);
+		chams_enemy_mat.setup( XOR( "chams enemy material" ), XOR( "chams_enemy_mat" ), { XOR( "material" ), XOR( "flat" ), XOR( "metallic" ), XOR( "shaded" ), XOR( "glow" ), XOR( "outline glow" ) } );
+		chams_enemy_mat.AddShowCallback( callbacks::IsChamsSelection1 );
+		RegisterElement( &chams_enemy_mat, 1 );
 
-		chams_enemy_vis.setup(XOR("color visible"), XOR("chams_enemy_vis"), { 150, 200, 60 });
-		chams_enemy_vis.AddShowCallback(callbacks::IsChamsSelection1);
-		RegisterElement(&chams_enemy_vis, 1);
+		chams_enemy_vis.setup( XOR( "color visible" ), XOR( "chams_enemy_vis" ), { 150, 200, 60 } );
+		chams_enemy_vis.AddShowCallback( callbacks::IsChamsSelection1 );
+		RegisterElement( &chams_enemy_vis, 1 );
 
-		chams_enemy2_vis.setup(XOR("glow color"), XOR("chams_enemy2_vis"), { 255, 255, 200 });
-		chams_enemy2_vis.AddShowCallback(callbacks::EnemyGlowChamsSelection);
-		RegisterElement(&chams_enemy2_vis, 1);
+		chams_enemy2_vis.setup( XOR( "glow color" ), XOR( "chams_enemy2_vis" ), { 255, 255, 200 } );
+		chams_enemy2_vis.AddShowCallback( callbacks::EnemyGlowChamsSelection );
+		RegisterElement( &chams_enemy2_vis, 1 );
 
-		chams_enemy_invis.setup(XOR("color invisible"), XOR("chams_enemy_invis"), { 60, 180, 225 });
-		chams_enemy_invis.AddShowCallback(callbacks::IsChamsSelection1);
-		RegisterElement(&chams_enemy_invis, 1);
+		chams_enemy_invis.setup( XOR( "color invisible" ), XOR( "chams_enemy_invis" ), { 60, 180, 225 } );
+		chams_enemy_invis.AddShowCallback( callbacks::IsChamsSelection1 );
+		RegisterElement( &chams_enemy_invis, 1 );
 
-		chams_enemy2_invis.setup(XOR("glow color"), XOR("chams_enemy2_invis"), { 255, 255, 200 });
-		chams_enemy2_invis.AddShowCallback(callbacks::EnemyGlowChamsSelection);
-		RegisterElement(&chams_enemy2_invis, 1);
+		chams_enemy2_invis.setup( XOR( "glow color" ), XOR( "chams_enemy2_invis" ), { 255, 255, 200 } );
+		chams_enemy2_invis.AddShowCallback( callbacks::EnemyGlowChamsSelection );
+		RegisterElement( &chams_enemy2_invis, 1 );
 
-		chams_enemy_blend.setup("", XOR("chams_enemy_blend"), 10.f, 100.f, false, 0, 100.f, 1.f, XOR(L"%"));
-		chams_enemy_blend.AddShowCallback(callbacks::IsChamsSelection1);
-		RegisterElement(&chams_enemy_blend, 1);
+		chams_enemy_blend.setup( "", XOR( "chams_enemy_blend" ), 10.f, 100.f, false, 0, 100.f, 1.f, XOR( L"%" ) );
+		chams_enemy_blend.AddShowCallback( callbacks::IsChamsSelection1 );
+		RegisterElement( &chams_enemy_blend, 1 );
 
-		chams_friendly.setup(XOR("chams friendly"), XOR("chams_friendly"), { XOR("visible"), XOR("invisible") });
-		chams_friendly.AddShowCallback(callbacks::IsChamsSelection2);
-		RegisterElement(&chams_friendly, 1);
+		chams_friendly.setup( XOR( "chams friendly" ), XOR( "chams_friendly" ), { XOR( "visible" ), XOR( "invisible" ) } );
+		chams_friendly.AddShowCallback( callbacks::IsChamsSelection2 );
+		RegisterElement( &chams_friendly, 1 );
 
-		chams_friendly_mat.setup(XOR("chams friendly material"), XOR("chams_friendly_mat"), { XOR("material"), XOR("flat"), XOR("metallic"), XOR("shaded"), XOR("glow"), XOR("outline glow") });
-		chams_friendly_mat.AddShowCallback(callbacks::IsChamsSelection2);
-		RegisterElement(&chams_friendly_mat, 1);
+		chams_friendly_mat.setup( XOR( "chams friendly material" ), XOR( "chams_friendly_mat" ), { XOR( "material" ), XOR( "flat" ), XOR( "metallic" ), XOR( "shaded" ), XOR( "glow" ), XOR( "outline glow" ) } );
+		chams_friendly_mat.AddShowCallback( callbacks::IsChamsSelection2 );
+		RegisterElement( &chams_friendly_mat, 1 );
 
-		chams_friendly_vis.setup(XOR("color visible"), XOR("chams_friendly_vis"), { 255, 200, 0 });
-		chams_friendly_vis.AddShowCallback(callbacks::IsChamsSelection2);
-		RegisterElement(&chams_friendly_vis, 1);
+		chams_friendly_vis.setup( XOR( "color visible" ), XOR( "chams_friendly_vis" ), { 255, 200, 0 } );
+		chams_friendly_vis.AddShowCallback( callbacks::IsChamsSelection2 );
+		RegisterElement( &chams_friendly_vis, 1 );
 
-		chams_friendly_invis.setup(XOR("color invisible"), XOR("chams_friendly_invis"), { 255, 50, 0 });
-		chams_friendly_invis.AddShowCallback(callbacks::IsChamsSelection2);
-		RegisterElement(&chams_friendly_invis, 1);
+		chams_friendly_invis.setup( XOR( "color invisible" ), XOR( "chams_friendly_invis" ), { 255, 50, 0 } );
+		chams_friendly_invis.AddShowCallback( callbacks::IsChamsSelection2 );
+		RegisterElement( &chams_friendly_invis, 1 );
 
-		chams_friendly_blend.setup("", XOR("chams_friendly_blend"), 10.f, 100.f, false, 0, 100.f, 1.f, XOR(L"%"));
-		chams_friendly_blend.AddShowCallback(callbacks::IsChamsSelection2);
-		RegisterElement(&chams_friendly_blend, 1);
+		chams_friendly_blend.setup( "", XOR( "chams_friendly_blend" ), 10.f, 100.f, false, 0, 100.f, 1.f, XOR( L"%" ) );
+		chams_friendly_blend.AddShowCallback( callbacks::IsChamsSelection2 );
+		RegisterElement( &chams_friendly_blend, 1 );
 
-		chams_enemy_history.setup(XOR("chams history"), XOR("chams_history"));
-		chams_enemy_history.AddShowCallback(callbacks::IsChamsSelection3);
-		RegisterElement(&chams_enemy_history, 1);
+		chams_enemy_history.setup( XOR( "chams history" ), XOR( "chams_history" ) );
+		chams_enemy_history.AddShowCallback( callbacks::IsChamsSelection3 );
+		RegisterElement( &chams_enemy_history, 1 );
 
-		chams_enemy_history_mat.setup(XOR("chams history material"), XOR("chams_enemy_history_mat"), { XOR("material"), XOR("flat"), XOR("metallic"), XOR("shaded"), XOR("glow"), XOR("outline glow") });
-		chams_enemy_history_mat.AddShowCallback(callbacks::IsChamsSelection3);
-		RegisterElement(&chams_enemy_history_mat, 1);
+		chams_enemy_history_mat.setup( XOR( "chams history material" ), XOR( "chams_enemy_history_mat" ), { XOR( "material" ), XOR( "flat" ), XOR( "metallic" ), XOR( "shaded" ), XOR( "glow" ), XOR( "outline glow" ) } );
+		chams_enemy_history_mat.AddShowCallback( callbacks::IsChamsSelection3 );
+		RegisterElement( &chams_enemy_history_mat, 1 );
 
-		chams_enemy_history_col.setup(XOR("color"), XOR("chams_history_col"), { 255, 255, 200 });
-		chams_enemy_history_col.AddShowCallback(callbacks::IsChamsSelection3);
-		RegisterElement(&chams_enemy_history_col, 1);
+		chams_enemy_history_col.setup( XOR( "color" ), XOR( "chams_history_col" ), { 255, 255, 200 } );
+		chams_enemy_history_col.AddShowCallback( callbacks::IsChamsSelection3 );
+		RegisterElement( &chams_enemy_history_col, 1 );
 
-		chams_enemy_history_blend.setup("", XOR("chams_history_blend"), 10.f, 100.f, false, 0, 100.f, 1.f, XOR(L"%"));
-		chams_enemy_history_blend.AddShowCallback(callbacks::IsChamsSelection3);
-		RegisterElement(&chams_enemy_history_blend, 1);
+		chams_enemy_history_blend.setup( "", XOR( "chams_history_blend" ), 10.f, 100.f, false, 0, 100.f, 1.f, XOR( L"%" ) );
+		chams_enemy_history_blend.AddShowCallback( callbacks::IsChamsSelection3 );
+		RegisterElement( &chams_enemy_history_blend, 1 );
 
-		chams_fake.setup(XOR("fake chams"), XOR("chams_fake"));
-		chams_fake.AddShowCallback(callbacks::IsChamsSelection4);
-		RegisterElement(&chams_fake, 1);
+		chams_fake.setup( XOR( "fake chams" ), XOR( "chams_fake" ) );
+		chams_fake.AddShowCallback( callbacks::IsChamsSelection4 );
+		RegisterElement( &chams_fake, 1 );
 
-		chams_fake_mat.setup(XOR("chams material"), XOR("chams_fake_mat"), { XOR("material"), XOR("flat"), XOR("metallic"), XOR("shaded"), XOR("glow"), XOR("outline glow") });
-		chams_fake_mat.AddShowCallback(callbacks::IsChamsSelection4);
-		RegisterElement(&chams_fake_mat, 1);
+		chams_fake_mat.setup( XOR( "chams material" ), XOR( "chams_fake_mat" ), { XOR( "material" ), XOR( "flat" ), XOR( "metallic" ), XOR( "shaded" ), XOR( "glow" ), XOR( "outline glow" ) } );
+		chams_fake_mat.AddShowCallback( callbacks::IsChamsSelection4 );
+		RegisterElement( &chams_fake_mat, 1 );
 
-		chams_fake_col.setup(XOR("color"), XOR("chams_fake_col"), { 255, 200, 0 });
-		chams_fake_col.AddShowCallback(callbacks::IsChamsSelection4);
-		RegisterElement(&chams_fake_col, 1);
+		chams_fake_col.setup( XOR( "color" ), XOR( "chams_fake_col" ), { 255, 200, 0 } );
+		chams_fake_col.AddShowCallback( callbacks::IsChamsSelection4 );
+		RegisterElement( &chams_fake_col, 1 );
 
-		chams_fake_glow_col.setup(XOR("glow color"), XOR("chams_fake_glow_col"), { 255, 200, 0 });
-		chams_fake_glow_col.AddShowCallback(callbacks::IsChamsSelection4);
-		chams_fake_glow_col.AddShowCallback(callbacks::FakeGlowChamsSelection);
-		RegisterElement(&chams_fake_glow_col, 1);
+		chams_fake_glow_col.setup( XOR( "glow color" ), XOR( "chams_fake_glow_col" ), { 255, 200, 0 } );
+		chams_fake_glow_col.AddShowCallback( callbacks::IsChamsSelection4 );
+		chams_fake_glow_col.AddShowCallback( callbacks::FakeGlowChamsSelection );
+		RegisterElement( &chams_fake_glow_col, 1 );
 
-		chams_fake_blend.setup("", XOR("chams_fake_blend"), 10.f, 100.f, false, 0, 100.f, 1.f, XOR(L"%"));
-		chams_fake_blend.AddShowCallback(callbacks::IsChamsSelection4);
-		RegisterElement(&chams_fake_blend, 1);
+		chams_fake_blend.setup( "", XOR( "chams_fake_blend" ), 10.f, 100.f, false, 0, 100.f, 1.f, XOR( L"%" ) );
+		chams_fake_blend.AddShowCallback( callbacks::IsChamsSelection4 );
+		RegisterElement( &chams_fake_blend, 1 );
 
 
-		chams_shot.setup(XOR("shot chams"), XOR("chams_shot"));
-		chams_shot.AddShowCallback(callbacks::IsChamsSelection5);
-		RegisterElement(&chams_shot, 1);
+		chams_shot.setup( XOR( "shot chams" ), XOR( "chams_shot" ) );
+		chams_shot.AddShowCallback( callbacks::IsChamsSelection5 );
+		RegisterElement( &chams_shot, 1 );
 
-		chams_shot_mat.setup(XOR("chams material"), XOR("chams_shot_mat"), { XOR("material"), XOR("flat"), XOR("metallic"), XOR("shaded"), XOR("glow"), XOR("outline glow") });
-		chams_shot_mat.AddShowCallback(callbacks::IsChamsSelection5);
-		RegisterElement(&chams_shot_mat, 1);
+		chams_shot_mat.setup( XOR( "chams material" ), XOR( "chams_shot_mat" ), { XOR( "material" ), XOR( "flat" ), XOR( "metallic" ), XOR( "shaded" ), XOR( "glow" ), XOR( "outline glow" ) } );
+		chams_shot_mat.AddShowCallback( callbacks::IsChamsSelection5 );
+		RegisterElement( &chams_shot_mat, 1 );
 
-		chams_shot_col.setup(XOR("color"), XOR("chams_shot_col"), { 255, 255, 255 });
-		chams_shot_col.AddShowCallback(callbacks::IsChamsSelection5);
-		RegisterElement(&chams_shot_col, 1);
+		chams_shot_col.setup( XOR( "color" ), XOR( "chams_shot_col" ), { 255, 255, 255 } );
+		chams_shot_col.AddShowCallback( callbacks::IsChamsSelection5 );
+		RegisterElement( &chams_shot_col, 1 );
 
-		chams_shot_blend.setup("", XOR("chams_shot_blend"), 1.f, 255.f, false, 0, 255.f, 1.f, XOR(L"%"));
-		chams_shot_blend.AddShowCallback(callbacks::IsChamsSelection5);
-		RegisterElement(&chams_shot_blend, 1);
+		chams_shot_blend.setup( "", XOR( "chams_shot_blend" ), 1.f, 255.f, false, 0, 255.f, 1.f, XOR( L"%" ) );
+		chams_shot_blend.AddShowCallback( callbacks::IsChamsSelection5 );
+		RegisterElement( &chams_shot_blend, 1 );
 
 		/*chams_shot_fadetime.setup("fade time", XOR("chams_shot_fadetime"), 1.f, 10.f, true, 0, 4.f, 1.f, XOR(L"%"));
 		chams_shot_fadetime.AddShowCallback(callbacks::IsChamsSelection5);
@@ -824,17 +824,17 @@ public:
 		disableteam.setup( XOR( "do not render teammates" ), XOR( "disableteam" ) );
 		RegisterElement( &disableteam );
 
-		world.setup( XOR( "world" ), XOR( "world" ), { XOR( "off" ), XOR( "night" ), XOR( "fullbright" ), XOR("custom") });
-		world.SetCallback( Visuals::ModulateWorld );
-		RegisterElement( &world );
+		//world.setup( XOR( "world" ), XOR( "world" ), { XOR( "off" ), XOR( "night" ), XOR( "fullbright" ), XOR("custom") });
+		//world.SetCallback( Visuals::ModulateWorld );
+		//RegisterElement( &world );
 
-		ambient_color.setup(XOR("color"), XOR("ambient_color"), colors::white);
-		ambient_color.AddShowCallback(callbacks::IsUsingAmbientLight);
-		RegisterElement(&ambient_color);
+		//ambient_color.setup(XOR("color"), XOR("ambient_color"), colors::white);
+		//ambient_color.AddShowCallback(callbacks::IsUsingAmbientLight);
+		//RegisterElement(&ambient_color);
 
-		transparent_props.setup( XOR( "transparent props" ), XOR( "transparent_props" ) );
-		transparent_props.SetCallback( Visuals::ModulateWorld );
-		RegisterElement( &transparent_props );
+		//transparent_props.setup( XOR( "transparent props" ), XOR( "transparent_props" ) );
+		//transparent_props.SetCallback( Visuals::ModulateWorld );
+		//RegisterElement( &transparent_props );
 
 		enemy_radar.setup( XOR( "force enemies on radar" ), XOR( "enemy_radar" ) );
 		RegisterElement( &enemy_radar );
@@ -892,7 +892,7 @@ public:
 		//racist_rectangle.setup(XOR("racist rectangle"), XOR("racist_rectangle"));
 		//RegisterElement(&racist_rectangle, 1);
 
-		indicators.setup( XOR( "indicators" ), XOR( "indicators" ), { XOR( "lby" ), XOR( "lag compensation" ), XOR("fake latency"), XOR("double tap")});
+		indicators.setup( XOR( "indicators" ), XOR( "indicators" ), { XOR( "lby" ), XOR( "lag compensation" ), XOR( "fake latency" ), XOR( "double tap" ) } );
 		RegisterElement( &indicators, 1 );
 
 		tracers.setup( XOR( "grenade simulation" ), XOR( "tracers" ) );
@@ -910,12 +910,12 @@ public:
 		impact_beams_time.setup( XOR( "impact beams time" ), XOR( "impact_beams_time" ), 1.f, 10.f, true, 0, 1.f, 1.f, XOR( L"s" ) );
 		RegisterElement( &impact_beams_time, 1 );
 
-		thirdperson.setup(XOR("thirdperson"), XOR("thirdperson"));
-		thirdperson.SetToggleCallback(callbacks::ToggleThirdPerson);
-		RegisterElement(&thirdperson, 1);
+		thirdperson.setup( XOR( "thirdperson" ), XOR( "thirdperson" ) );
+		thirdperson.SetToggleCallback( callbacks::ToggleThirdPerson );
+		RegisterElement( &thirdperson, 1 );
 
-		thirdperson_dist.setup(XOR(""), XOR("thirdperson_dist"), 0, 300, false, 0, 150, 1.f, XOR(L""));
-		RegisterElement(&thirdperson_dist, 1);
+		thirdperson_dist.setup( XOR( "" ), XOR( "thirdperson_dist" ), 0, 300, false, 0, 150, 1.f, XOR( L"" ) );
+		RegisterElement( &thirdperson_dist, 1 );
 	}
 };
 
@@ -2117,59 +2117,59 @@ public:
 		SetTitle( XOR( "misc" ) );
 
 		buy1.setup( XOR( "auto buy items" ), XOR( "auto_buy1" ),
-			{
-				XOR( "galilar" ),
-				XOR( "famas" ),
-				XOR( "ak47" ),
-				XOR( "m4a1" ),
-				XOR( "m4a1_silencer" ),
-				XOR( "ssg08" ),
-				XOR( "aug" ),
-				XOR( "sg556" ),
-				XOR( "awp" ),
-				XOR( "scar20" ),
-				XOR( "g3sg1" ),
-				XOR( "nova" ),
-				XOR( "xm1014" ),
-				XOR( "mag7" ),
-				XOR( "m249" ),
-				XOR( "negev" ),
-				XOR( "mac10" ),
-				XOR( "mp9" ),
-				XOR( "mp7" ),
-				XOR( "ump45" ),
-				XOR( "p90" ),
-				XOR( "bizon" ),
-			} );
+					{
+						XOR( "galilar" ),
+						XOR( "famas" ),
+						XOR( "ak47" ),
+						XOR( "m4a1" ),
+						XOR( "m4a1_silencer" ),
+						XOR( "ssg08" ),
+						XOR( "aug" ),
+						XOR( "sg556" ),
+						XOR( "awp" ),
+						XOR( "scar20" ),
+						XOR( "g3sg1" ),
+						XOR( "nova" ),
+						XOR( "xm1014" ),
+						XOR( "mag7" ),
+						XOR( "m249" ),
+						XOR( "negev" ),
+						XOR( "mac10" ),
+						XOR( "mp9" ),
+						XOR( "mp7" ),
+						XOR( "ump45" ),
+						XOR( "p90" ),
+						XOR( "bizon" ),
+					} );
 		RegisterElement( &buy1 );
 
 		buy2.setup( "", XOR( "auto_buy2" ),
-			{
-				XOR( "glock" ),
-				XOR( "hkp2000" ),
-				XOR( "usp_silencer" ),
-				XOR( "elite" ),
-				XOR( "p250" ),
-				XOR( "tec9" ),
-				XOR( "fn57" ),
-				XOR( "deagle" ),
-			}, false );
+					{
+						XOR( "glock" ),
+						XOR( "hkp2000" ),
+						XOR( "usp_silencer" ),
+						XOR( "elite" ),
+						XOR( "p250" ),
+						XOR( "tec9" ),
+						XOR( "fn57" ),
+						XOR( "deagle" ),
+					}, false );
 		RegisterElement( &buy2 );
 
 		buy3.setup( "", XOR( "auto_buy3" ),
-			{
-				XOR( "vest" ),
-				XOR( "vesthelm" ),
-				XOR( "taser" ),
-				XOR( "defuser" ),
-				XOR( "heavyarmor" ),
-				XOR( "molotov" ),
-				XOR( "incgrenade" ),
-				XOR( "decoy" ),
-				XOR( "flashbang" ),
-				XOR( "hegrenade" ),
-				XOR( "smokegrenade" ),
-			}, false );
+					{
+						XOR( "vest" ),
+						XOR( "vesthelm" ),
+						XOR( "taser" ),
+						XOR( "defuser" ),
+						XOR( "heavyarmor" ),
+						XOR( "molotov" ),
+						XOR( "incgrenade" ),
+						XOR( "decoy" ),
+						XOR( "flashbang" ),
+						XOR( "hegrenade" ),
+						XOR( "smokegrenade" ),
+					}, false );
 		RegisterElement( &buy3 );
 
 		notifications.setup( XOR( "notifications" ), XOR( "notifications" ), { XOR( "matchmaking" ), XOR( "damage" ), XOR( "purchases" ), XOR( "bomb" ), XOR( "defuse" ) } );
@@ -2195,23 +2195,23 @@ public:
 		hitmarker.setup( XOR( "hitmarker" ), XOR( "hitmarker" ) );
 		RegisterElement( &hitmarker, 1 );
 
-		hitsounds.setup(XOR("hitsounds"), XOR("hitsounds"), { XOR("off"), XOR("arena switch"), XOR("money"), XOR("cod"), XOR("click")});
-		RegisterElement(&hitsounds, 1);
+		hitsounds.setup( XOR( "hitsounds" ), XOR( "hitsounds" ), { XOR( "off" ), XOR( "arena switch" ), XOR( "money" ), XOR( "cod" ), XOR( "click" ) } );
+		RegisterElement( &hitsounds, 1 );
 
-		bullet_impacts.setup(XOR("bullet impacts"), XOR("bullet_impacts"));
-		RegisterElement(&bullet_impacts, 1);
+		bullet_impacts.setup( XOR( "bullet impacts" ), XOR( "bullet_impacts" ) );
+		RegisterElement( &bullet_impacts, 1 );
 
-		client_impact.setup(XOR("client color"), XOR("client_impact"), Color(255, 0, 0));
-		client_impact.AddShowCallback(callbacks::IsUsingBulletImpacts);
-		RegisterElement(&client_impact, 1);
+		client_impact.setup( XOR( "client color" ), XOR( "client_impact" ), Color( 255, 0, 0 ) );
+		client_impact.AddShowCallback( callbacks::IsUsingBulletImpacts );
+		RegisterElement( &client_impact, 1 );
 
-		server_impact.setup(XOR("server color"), XOR("server_impact"), Color(0, 0, 255));
-		server_impact.AddShowCallback(callbacks::IsUsingBulletImpacts);
-		RegisterElement(&server_impact, 1);
+		server_impact.setup( XOR( "server color" ), XOR( "server_impact" ), Color( 0, 0, 255 ) );
+		server_impact.AddShowCallback( callbacks::IsUsingBulletImpacts );
+		RegisterElement( &server_impact, 1 );
 
-		impact_alpha.setup("impact alpha", XOR("impact_alpha"), 0.f, 100.f, true, 0, 60.f, 1.f, XOR(L"%"));
-		impact_alpha.AddShowCallback(callbacks::IsUsingBulletImpacts);
-		RegisterElement(&impact_alpha, 1);
+		impact_alpha.setup( "impact alpha", XOR( "impact_alpha" ), 0.f, 100.f, true, 0, 60.f, 1.f, XOR( L"%" ) );
+		impact_alpha.AddShowCallback( callbacks::IsUsingBulletImpacts );
+		RegisterElement( &impact_alpha, 1 );
 
 		ragdoll_force.setup( XOR( "ragdoll force" ), XOR( "ragdoll_force" ) );
 		RegisterElement( &ragdoll_force, 1 );
@@ -2223,11 +2223,11 @@ public:
 		killfeed.SetCallback( callbacks::ToggleKillfeed );
 		RegisterElement( &killfeed, 1 );
 
-		aspectratio.setup(XOR("aspect ratio changer"), XOR("aspectratio"));
-		RegisterElement(&aspectratio, 1);
+		aspectratio.setup( XOR( "aspect ratio changer" ), XOR( "aspectratio" ) );
+		RegisterElement( &aspectratio, 1 );
 
-		aspectraio_val.setup("", XOR("aspectraio_val"), 0.f, 500.f, false, 0, 120.f, 1.f, XOR(L"%"));
-		RegisterElement(&aspectraio_val, 1);
+		aspectraio_val.setup( "", XOR( "aspectraio_val" ), 0.f, 500.f, false, 0, 120.f, 1.f, XOR( L"%" ) );
+		RegisterElement( &aspectraio_val, 1 );
 	}
 };
 
@@ -2251,7 +2251,7 @@ public:
 	void init( ) {
 		SetTitle( XOR( "config" ) );
 
-		menu_color.setup( XOR( "menu color" ), XOR( "menu_color" ), Color(0, 71, 171), &g_gui.m_color );
+		menu_color.setup( XOR( "menu color" ), XOR( "menu_color" ), Color( 0, 71, 171 ), &g_gui.m_color );
 		RegisterElement( &menu_color );
 
 		mode.setup( XOR( "safety mode" ), XOR( "mode" ), { XOR( "matchmaking" ), XOR( "no-spread" ) } );
@@ -2331,8 +2331,8 @@ public:
 
 public:
 	void init( ) {
-		SetPosition(250, 250);
-		SetSize(516, 500);
+		SetPosition( 250, 250 );
+		SetSize( 516, 500 );
 
 		// aim.
 		RegisterTab( &aimbot );

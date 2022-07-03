@@ -18,73 +18,59 @@ void Grenades::paint( ) {
 	CGameTrace	                   trace;
 	std::pair< float, Player* >    target{ 0.f, nullptr };
 
-	if (!g_menu.main.visuals.tracers.get( ))
+	if ( !config["vis_gr"].get<bool>( ) )
 		return;
 
-	if (!g_cl.m_processing)
+	if ( !g_cl.m_processing )
 		return;
 
-	if (m_path.size( ) < 2)
+	if ( m_path.size( ) < 2 )
 		return;
 
 	filter.SetPassEntity( g_cl.m_local );
 
 	vec3_t prev = m_path.front( );
 
-	for (const auto& cur : m_path) {
-		vec2_t screen0, screen1;
-
-		if (render::WorldToScreen( prev, screen0 ) && render::WorldToScreen( cur, screen1 ))
-			render::line( screen0, screen1, { 60, 180, 225 } );
-
-		prev = cur;
-	}
-
 	// iterate all players.
-	for (int i{ 1 }; i <= g_csgo.m_globals->m_max_clients; ++i) {
+	for ( int i{ 1 }; i <= g_csgo.m_globals->m_max_clients; ++i ) {
 		Player* player = g_csgo.m_entlist->GetClientEntity< Player* >( i );
-		if (!g_aimbot.IsValidTarget( player ))
+		if ( !g_aimbot.IsValidTarget( player ) )
 			continue;
 
 		vec3_t center = player->WorldSpaceCenter( );
 
 		vec3_t delta = center - prev;
 
-		if (m_id == HEGRENADE) {
-			if (delta.length( ) > 350.f)
+		if ( m_id == HEGRENADE ) {
+			if ( delta.length( ) > 350.f )
 				continue;
 
 			g_csgo.m_engine_trace->TraceRay( Ray( prev, center ), MASK_SHOT, (ITraceFilter*)&filter, &trace );
 
-			if (!trace.m_entity || trace.m_entity != player)
+			if ( !trace.m_entity || trace.m_entity != player )
 				continue;
 
 			float d = ( delta.length( ) - 25.f ) / 140.f;
 			float damage = 105.f * std::exp( -d * d );
 			damage = penetration::scale( player, damage, 1.f, HITGROUP_CHEST );
 			damage = std::min( damage, ( player->m_ArmorValue( ) > 0 ) ? 57.f : 98.f );
-			if (damage > target.first) {
+			if ( damage > target.first ) {
 				target.first = damage;
 				target.second = player;
 			}
 		}
 	}
 
-	if (target.second) {
-		vec2_t screen;
+	auto t_dist = m_path.front( ).dist_to( m_path.back( ) );
+	for ( const auto& cur : m_path ) {
+		vec2_t screen0, screen1;
 
-		if (!m_bounces.empty( ))
-			m_bounces.back( ).color = { 0, 255, 0, 255 };
+		auto _blend = abs( sin( cur.length( ) ) );
 
-		if (render::WorldToScreen( prev, screen ))
-			render::esp_small.string( screen.x, screen.y + 5, { 255, 255, 255, 0xb4 }, tfm::format( XOR( "%i" ), (int)target.first ), render::ALIGN_CENTER );
-	}
+		if ( render::WorldToScreen( prev, screen0 ) && render::WorldToScreen( cur, screen1 ) )
+			render::line( screen0, screen1, config["vis_gr_def"].get_color( ).blend( config["vis_gr_hit"].get_color( ), _blend ) );
 
-	for (const auto& b : m_bounces) {
-		vec2_t screen;
-
-		if (render::WorldToScreen( b.point, screen ))
-			render::rect( screen.x - 2, screen.y - 2, 4, 4, b.color );
+		prev = cur;
 	}
 }
 
@@ -93,13 +79,13 @@ void Grenades::think( ) {
 
 	reset( );
 
-	if (!g_menu.main.visuals.tracers.get( ))
+	if ( !config["vis_gr"].get<bool>( ) )
 		return;
 
-	if (!g_cl.m_processing)
+	if ( !g_cl.m_processing )
 		return;
 
-	if (g_cl.m_weapon_type != WEAPONTYPE_GRENADE)
+	if ( g_cl.m_weapon_type != WEAPONTYPE_GRENADE )
 		return;
 
 	attack = ( g_cl.m_cmd->m_buttons & IN_ATTACK );
@@ -117,31 +103,31 @@ void Grenades::simulate( ) {
 
 	size_t step = (size_t)game::TIME_TO_TICKS( 0.05f ), timer{ 0u };
 
-	for (size_t i{ 0u }; i < 4096u; ++i) {
+	for ( size_t i{ 0u }; i < 4096u; ++i ) {
 
-		if (!timer)
+		if ( !timer )
 			m_path.push_back( m_start );
 
 		size_t flags = advance( i );
 
-		if (( flags & DETONATE ))
+		if ( ( flags & DETONATE ) )
 			break;
 
-		if (( flags & BOUNCE ) || timer >= step)
+		if ( ( flags & BOUNCE ) || timer >= step )
 			timer = 0;
 
 		else
 			++timer;
 
-		if (m_velocity == vec3_t{})
+		if ( m_velocity == vec3_t{} )
 			break;
 	}
 
-	if (m_id == MOLOTOV || m_id == FIREBOMB) {
+	if ( m_id == MOLOTOV || m_id == FIREBOMB ) {
 		CGameTrace trace;
 		PhysicsPushEntity( m_start, { 0.f, 0.f, -131.f }, trace, g_cl.m_local );
 
-		if (trace.m_fraction < 0.9f)
+		if ( trace.m_fraction < 0.9f )
 			m_start = trace.m_endpos;
 	}
 
@@ -154,10 +140,10 @@ void Grenades::setup( ) {
 
 	float pitch = angle.x;
 
-	if (pitch < -90.f)
+	if ( pitch < -90.f )
 		pitch += 360.f;
 
-	else if (pitch > 90.f)
+	else if ( pitch > 90.f )
 		pitch -= 360.f;
 
 	angle.x = pitch - ( 90.f - std::abs( pitch ) ) * 10.f / 90.f;
@@ -199,11 +185,11 @@ size_t Grenades::advance( size_t tick ) {
 
 	// check if the object would detonate at this point.
 	// if so stop simulating further and endthe path here.
-	if (detonate( tick, trace ))
+	if ( detonate( tick, trace ) )
 		flags |= DETONATE;
 
 	// fix collisions/bounces.
-	if (trace.m_fraction != 1.f) {
+	if ( trace.m_fraction != 1.f ) {
 		// mark as bounced.
 		flags |= BOUNCE;
 
@@ -233,29 +219,29 @@ bool Grenades::detonate( size_t tick, CGameTrace& trace ) {
 	// auto detonate at 1.5s
 	// checked every 0.2s
 
-	switch (m_id) {
-	case FLASHBANG:
-	case HEGRENADE:
-		return time >= 1.5f && !( tick % game::TIME_TO_TICKS( 0.2f ) );
+	switch ( m_id ) {
+		case FLASHBANG:
+		case HEGRENADE:
+			return time >= 1.5f && !( tick % game::TIME_TO_TICKS( 0.2f ) );
 
-	case SMOKE:
-		return m_velocity.length( ) <= 0.1f && !( tick % game::TIME_TO_TICKS( 0.2f ) );
+		case SMOKE:
+			return m_velocity.length( ) <= 0.1f && !( tick % game::TIME_TO_TICKS( 0.2f ) );
 
-	case DECOY:
-		return m_velocity.length( ) <= 0.2f && !( tick % game::TIME_TO_TICKS( 0.2f ) );
+		case DECOY:
+			return m_velocity.length( ) <= 0.2f && !( tick % game::TIME_TO_TICKS( 0.2f ) );
 
-	case MOLOTOV:
-	case FIREBOMB:
-		// detonate when hitting the floor.
-		if (trace.m_fraction != 1.f && ( std::cos( math::deg_to_rad( g_csgo.weapon_molotov_maxdetonateslope->GetFloat( ) ) ) <= trace.m_plane.m_normal.z ))
-			return true;
+		case MOLOTOV:
+		case FIREBOMB:
+			// detonate when hitting the floor.
+			if ( trace.m_fraction != 1.f && ( std::cos( math::deg_to_rad( g_csgo.weapon_molotov_maxdetonateslope->GetFloat( ) ) ) <= trace.m_plane.m_normal.z ) )
+				return true;
 
-		// detonate if we have traveled for too long.
-		// checked every 0.1s
-		return time >= g_csgo.molotov_throw_detonate_time->GetFloat( ) && !( tick % game::TIME_TO_TICKS( 0.1f ) );
+			// detonate if we have traveled for too long.
+			// checked every 0.1s
+			return time >= g_csgo.molotov_throw_detonate_time->GetFloat( ) && !( tick % game::TIME_TO_TICKS( 0.1f ) );
 
-	default:
-		return false;
+		default:
+			return false;
 	}
 
 	return false;
@@ -267,12 +253,12 @@ void Grenades::ResolveFlyCollisionBounce( CGameTrace& trace ) {
 	// assume all surfaces have the same elasticity
 	float surface = 1.f;
 
-	if (trace.m_entity) {
-		if (game::IsBreakable( trace.m_entity )) {
-			if (!trace.m_entity->is( HASH( "CFuncBrush" ) ) &&
-				!trace.m_entity->is( HASH( "CBaseDoor" ) ) &&
-				!trace.m_entity->is( HASH( "CCSPlayer" ) ) &&
-				!trace.m_entity->is( HASH( "CBaseEntity" ) )) {
+	if ( trace.m_entity ) {
+		if ( game::IsBreakable( trace.m_entity ) ) {
+			if ( !trace.m_entity->is( HASH( "CFuncBrush" ) ) &&
+				 !trace.m_entity->is( HASH( "CBaseDoor" ) ) &&
+				 !trace.m_entity->is( HASH( "CCSPlayer" ) ) &&
+				 !trace.m_entity->is( HASH( "CBaseEntity" ) ) ) {
 
 				// move object.
 				PhysicsPushEntity( m_start, m_move, trace, trace.m_entity );
@@ -294,21 +280,21 @@ void Grenades::ResolveFlyCollisionBounce( CGameTrace& trace ) {
 	PhysicsClipVelocity( m_velocity, trace.m_plane.m_normal, velocity, 2.f );
 	velocity *= elasticity;
 
-	if (trace.m_plane.m_normal.z > 0.7f) {
+	if ( trace.m_plane.m_normal.z > 0.7f ) {
 		float speed = velocity.length_sqr( );
 
 		// hit surface with insane speed.
-		if (speed > 96000.f) {
+		if ( speed > 96000.f ) {
 
 			// weird formula to slow down by normal angle?
 			float len = velocity.normalized( ).dot( trace.m_plane.m_normal );
-			if (len > 0.5f)
+			if ( len > 0.5f )
 				velocity *= 1.5f - len;
 		}
 
 		// are we going too slow?
 		// just stop completely.
-		if (speed < 400.f)
+		if ( speed < 400.f )
 			m_velocity = vec3_t{};
 
 		else {
@@ -383,10 +369,10 @@ void Grenades::PhysicsClipVelocity( const vec3_t& in, const vec3_t& normal, vec3
 
 	float backoff = in.dot( normal ) * overbounce;
 
-	for (int i{}; i < 3; ++i) {
+	for ( int i{}; i < 3; ++i ) {
 		out[i] = in[i] - ( normal[i] * backoff );
 
-		if (out[i] > -STOP_EPSILON && out[i] < STOP_EPSILON)
+		if ( out[i] > -STOP_EPSILON && out[i] < STOP_EPSILON )
 			out[i] = 0.f;
 	}
 }

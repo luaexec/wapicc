@@ -11,17 +11,17 @@ Notify     g_notify{};;
 
 void GetPlayerResource( )
 {
-	for (ClientClass* pClass = g_csgo.m_client->GetAllClasses( ); pClass; pClass = pClass->m_pNext)
+	for ( ClientClass* pClass = g_csgo.m_client->GetAllClasses( ); pClass; pClass = pClass->m_pNext )
 	{
-		if (!strcmp( pClass->m_pNetworkName, "CPlayerResource" ))
+		if ( !strcmp( pClass->m_pNetworkName, "CPlayerResource" ) )
 		{
 			RecvTable* pClassTable = pClass->m_pRecvTable;
 
-			for (int nIndex = 0; nIndex < pClassTable->m_nProps; nIndex++)
+			for ( int nIndex = 0; nIndex < pClassTable->m_nProps; nIndex++ )
 			{
 				RecvProp* pProp = &pClassTable->m_pProps[nIndex];
 
-				if (!pProp || strcmp( pProp->m_pVarName, "m_iTeam" ))
+				if ( !pProp || strcmp( pProp->m_pVarName, "m_iTeam" ) )
 					continue;
 
 				g_cl.m_resource = *reinterpret_cast<CSPlayerResource***>( DWORD( pProp->m_pDataTable->m_pProps->m_ProxyFn ) + 0x10 );
@@ -38,7 +38,7 @@ void GetPlayerResource( )
 bool CSGO::init( ) {
 	m_done = false;
 
-	if (m_done)
+	if ( m_done )
 		return false;
 
 	// wait for the game to init.
@@ -46,9 +46,9 @@ bool CSGO::init( ) {
 	// if it gets loaded we can be ensured that the entire game done loading.
 
 #ifndef KOLO
-	while (!m_serverbrowser_dll) {
+	while ( !m_serverbrowser_dll ) {
 		m_serverbrowser_dll = PE::GetModule( HASH( "serverbrowser.dll" ) );
-		if (!m_serverbrowser_dll)
+		if ( !m_serverbrowser_dll )
 			std::this_thread::sleep_for( std::chrono::milliseconds( 100 ) );
 	}
 #endif
@@ -222,7 +222,7 @@ bool CSGO::init( ) {
 #endif
 
 	// init everything else.
-	g_config.init( );
+	//g_config.init( );
 
 	// g_netvars stores all netvar offsets into an unordered_map, EntOffsets is for the raw offset values so we don't have to access the unordered_map a bunch.
 	g_netvars.init( );
@@ -231,13 +231,13 @@ bool CSGO::init( ) {
 
 	g_listener.init( );
 	render::init( );
-	g_menu.init( );
+	//g_menu.init( );
 	g_config.LoadHotkeys( );
 	g_chams.init( );
 	g_hooks.init( );
 
 	// if we injected and we're ingame, run map load func.
-	if (m_engine->IsInGame( )) {
+	if ( m_engine->IsInGame( ) ) {
 		g_cl.OnMapload( );
 		g_csgo.cl_fullupdate->m_callback( );
 	}
@@ -255,7 +255,7 @@ bool game::IsBreakable( Entity* ent ) {
 	static size_t m_takedamage_offset{ *(size_t*)( (uintptr_t)g_csgo.IsBreakableEntity + 38 ) };
 
 	// skip null ents and the world ent.
-	if (!ent || ent->index( ) == 0)
+	if ( !ent || ent->index( ) == 0 )
 		return false;
 
 	// get m_takedamage and save old m_takedamage.
@@ -265,15 +265,15 @@ bool game::IsBreakable( Entity* ent ) {
 	// get clientclass.
 	cc = ent->GetClientClass( );
 
-	if (cc) {
+	if ( cc ) {
 		// get clientclass network name.
 		name = cc->m_pNetworkName;
 
 		// CBreakableSurface, CBaseDoor, ...
-		if (name[1] != 'F'
-			|| name[4] != 'c'
-			|| name[5] != 'B'
-			|| name[9] != 'h') {
+		if ( name[1] != 'F'
+			 || name[4] != 'c'
+			 || name[5] != 'B'
+			 || name[9] != 'h' ) {
 			*takedmg = DAMAGE_YES;
 		}
 	}
@@ -289,16 +289,16 @@ Beam_t* game::CreateGenericBeam( const BeamInfo_t& beam_info ) {
 	const model_t* sprite;
 
 	out = g_csgo.BeamAlloc( g_csgo.m_beams, beam_info.m_bRenderable );
-	if (!out)
+	if ( !out )
 		return nullptr;
 
 	out->die = g_csgo.m_globals->m_curtime;
 
-	if (beam_info.m_nModelIndex < 0)
+	if ( beam_info.m_nModelIndex < 0 )
 		return nullptr;
 
 	sprite = g_csgo.m_model_info->GetModel( beam_info.m_nModelIndex );
-	if (sprite) {
+	if ( sprite ) {
 		out->type = ( beam_info.m_nType < 0 ) ? 0 : beam_info.m_nType;
 		out->modelIndex = beam_info.m_nModelIndex;
 		out->haloIndex = beam_info.m_nHaloIndex;
@@ -321,8 +321,8 @@ Beam_t* game::CreateGenericBeam( const BeamInfo_t& beam_info ) {
 
 		out->delta = ( beam_info.m_vecEnd - beam_info.m_vecStart );
 
-		if (beam_info.m_nSegments == -1) {
-			if (out->amplitude >= 0.50)
+		if ( beam_info.m_nSegments == -1 ) {
+			if ( out->amplitude >= 0.50 )
 				out->segments = out->delta.length( ) * 0.25 + 3;  // one per 4 pixels
 			else
 				out->segments = out->delta.length( ) * 0.075 + 3; // one per 16 pixels
