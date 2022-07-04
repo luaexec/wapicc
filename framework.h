@@ -102,7 +102,7 @@ namespace gui {
 
 			static vec2_t c_pos{}, c_mpos{};
 			static auto c_press = false;
-			if (g_input.hovered( m_pos, m_size.x / 2, 15 ) && g_input.GetKeyPress( 0x01 ))
+			if (g_input.hovered( m_pos, m_size.x, 10 ) && g_input.GetKeyPress( 0x01 ))
 				c_press = true;
 
 			if (c_press) {
@@ -121,7 +121,7 @@ namespace gui {
 				m_size.x = c_m_size.x + ( ( g_input.m_mouse.x ) - c_size.x );
 				m_size.y = c_m_size.y + ( ( g_input.m_mouse.y ) - c_size.y );
 				c_spress = g_input.GetKeyState( 0x01 );
-				m_size.x = std::clamp( m_size.x, 350.f, 1500.f ); m_size.y = std::clamp( m_size.y, 350.f, 1000.f );
+				m_size.x = std::clamp( m_size.x, 500.f, 1500.f ); m_size.y = std::clamp( m_size.y, 400.f, 1000.f );
 			}
 			else { c_size = vec2_t( g_input.m_mouse.x, g_input.m_mouse.y ); c_m_size = m_size; c_spress = false; }
 

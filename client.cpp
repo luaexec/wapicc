@@ -315,9 +315,9 @@ void Client::DoMove( ) {
 void Client::EndMove( CUserCmd* cmd ) {
 	UpdateInformation( );
 
-	if ( !g_csgo.m_cl->m_choked_commands ) {
-		m_real_angle = m_cmd->m_view_angles;
-	}
+	//if ( !g_csgo.m_cl->m_choked_commands ) {
+	//	m_real_angle = m_cmd->m_view_angles;
+	//}
 
 	if ( config["menu_ut"].get<bool>( ) )
 		m_cmd->m_view_angles.SanitizeAngle( );
@@ -490,8 +490,63 @@ void Client::UpdateLocal( )
 	g_csgo.m_globals->m_frametime = backup_frametime;
 }
 
+void Client::animate( ) {
+
+	if ( !m_processing )
+		return;
+
+	CCSGOPlayerAnimState* state{ m_local->m_PlayerAnimState( ) };
+	if ( !state )
+		return;
+
+	static float poses[24];
+	static C_AnimationLayer layers[13];
+
+	float backup_frametime = g_csgo.m_globals->m_frametime;
+	float backup_curtime = g_csgo.m_globals->m_curtime;
+
+	if ( state->m_frame >= ( game::TICKS_TO_TIME( g_cl.m_local->m_nTickBase( ) ) / g_csgo.m_globals->m_interval ) + .5f )
+		state->m_frame -= 1;
+
+	g_csgo.m_globals->m_curtime = g_cl.m_local->m_nTickBase( ) * g_csgo.m_globals->m_interval;
+	g_csgo.m_globals->m_frametime = g_csgo.m_globals->m_interval;
+
+	if ( /* new tick */ g_csgo.m_globals->m_curtime != state->m_time ) {
+
+		m_update_anims = true;
+
+		m_local->UpdateAnimationState( state, { m_real_angle.x, m_real_angle.y, m_real_angle.z } );
+		m_local->UpdateClientSideAnimation( );
+
+		m_abs_yaw = state->m_goal_feet_yaw;
+
+		m_update_anims = false;
+
+		m_local->GetPoseParameters( poses );
+		m_local->GetAnimLayers( layers );
+
+	}
+
+	/* animations & poses */ {
+
+		poses[6] = 1.f; // force static legs
+
+		state->m_dip_air = false; // disable hit ground animation
+
+	}
+
+	if ( poses )
+		m_local->SetPoseParameters( poses );
+
+	if ( layers )
+		m_local->SetAnimLayers( layers );
+
+	g_csgo.m_globals->m_curtime = backup_curtime;
+	g_csgo.m_globals->m_frametime = backup_frametime;
+}
+
 void Client::UpdateInformation( ) {
-	if ( g_cl.m_lag > 0 )
+	if ( !( * m_packet  ) )
 		return;
 
 	CCSGOPlayerAnimState* state = g_cl.m_local->m_PlayerAnimState( );
@@ -501,10 +556,10 @@ void Client::UpdateInformation( ) {
 	m_anim_frame = g_csgo.m_globals->m_curtime - m_anim_time;
 	m_anim_time = g_csgo.m_globals->m_curtime;
 
-	m_angle = g_cl.m_cmd->m_view_angles;
+	m_real_angle = g_cl.m_cmd->m_view_angles;
 
-	math::clamp( m_angle.x, -90.f, 90.f );
-	m_angle.normalize( );
+	math::clamp( m_real_angle.x, -90.f, 90.f );
+	m_real_angle.normalize( );
 
 	g_cl.m_local->m_flLowerBodyYawTarget( ) = m_body;
 
@@ -513,13 +568,13 @@ void Client::UpdateInformation( ) {
 
 		if ( state->m_speed > 0.1f || fabsf( state->m_fall_velocity ) > 100.f ) {
 			g_cl.m_body_pred = g_cl.m_anim_time + ( CSGO_ANIM_LOWER_REALIGN_DELAY * 0.2f );
-			g_cl.m_body = m_angle.y;
+			g_cl.m_body = m_real_angle.y;
 		}
 
 		else {
 			if ( g_cl.m_anim_time > g_cl.m_body_pred ) {
 				g_cl.m_body_pred = g_cl.m_anim_time + CSGO_ANIM_LOWER_REALIGN_DELAY;
-				g_cl.m_body = m_angle.y;
+				g_cl.m_body = m_real_angle.y;
 			}
 		}
 	}

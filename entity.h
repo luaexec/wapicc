@@ -336,23 +336,6 @@ public:
 		return get< bool >( g_entoffsets.m_bReadyToDraw );
 	}
 
-	void UpdateAnimationState( CCSGOPlayerAnimState* state, vec3_t angle )
-	{
-		static auto UpdateAnimState = pattern::find( g_csgo.m_client_dll, "55 8B EC 83 E4 F8 83 EC 18 56 57 8B F9 F3 0F 11 54 24" );
-		if ( !UpdateAnimState )
-			return;
-
-		__asm
-		{
-			mov ecx, state
-
-			movss xmm1, dword ptr[angle + 4]
-			movss xmm2, dword ptr[angle]
-
-			call UpdateAnimState
-		}
-	}
-
 	__forceinline CHandle<Player>& m_hThrower( ) {
 		return get< CHandle<Player> >( g_entoffsets.m_hThrower );
 	}
@@ -733,6 +716,29 @@ public:
 
 	__forceinline bool& m_bClientSideAnimation( ) {
 		return get< bool >( g_entoffsets.m_bClientSideAnimation );
+	}
+
+	void UpdateAnimationState( CCSGOPlayerAnimState* state, vec3_t angle )
+	{
+		static auto UpdateAnimState = pattern::find( g_csgo.m_client_dll, "55 8B EC 83 E4 F8 83 EC 18 56 57 8B F9 F3 0F 11 54 24" );
+		if ( !UpdateAnimState )
+			return;
+
+		//const bool old_upd = this->m_bClientSideAnimation( );
+
+		//this->m_bClientSideAnimation( ) = true;
+
+		__asm
+		{
+			mov ecx, state
+
+			movss xmm1, dword ptr[angle + 4]
+			movss xmm2, dword ptr[angle]
+
+			call UpdateAnimState
+		}
+
+		//this->m_bClientSideAnimation( ) = old_upd;
 	}
 
 	__forceinline bool& m_bHasHeavyArmor( ) {

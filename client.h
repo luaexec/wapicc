@@ -35,6 +35,7 @@ public:
 	void UpdateLocal();
 	void SetAngles( );
 	void UpdateAnimations( );
+	void animate( );
 	void KillFeed( );
 
 	void ThirdPersonFSN();

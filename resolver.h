@@ -45,7 +45,7 @@ public:
 
 			if ( hit[int( fs_dir::FS_LEFT )] || hit[int( fs_dir::FS_RIGHT )] ) {
 
-				auto sort = ( fraction[int( fs_dir::FS_LEFT )] <= fraction[int( fs_dir::FS_RIGHT )] ) ? int( fs_dir::FS_LEFT ) : int( fs_dir::FS_RIGHT );
+				auto sort = ( fraction[int( fs_dir::FS_LEFT )] > fraction[int( fs_dir::FS_RIGHT )] ) ? int( fs_dir::FS_LEFT ) : int( fs_dir::FS_RIGHT );
 				return fs_yaw[sort];
 
 			}

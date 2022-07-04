@@ -713,9 +713,9 @@ void Resolver::ResolveStand( AimPlayer* data, LagRecord* record ) {
 		//else
 		//	FindBestAngle( record );
 
-		record->m_eye_angles.y = away + m_fsrecord[data->m_player->index( )].get_yaw( record, data->m_missed_shots % 2 == 1 );
+		record->m_eye_angles.y = away + m_fsrecord[data->m_player->index( )].get_yaw( record, ( record->m_pred_origin.x - g_cl.m_local->m_vecOrigin( ).x ) > 0 );
 
-		record->m_resolver = XOR( "fs" );
+		record->m_resolver = ( record->m_pred_origin.x - g_cl.m_local->m_vecOrigin( ).x ) > 0 ? XOR( "rfs" ) : XOR( "fs" );
 	}
 
 	// @note : hella potential;

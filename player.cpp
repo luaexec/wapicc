@@ -1,37 +1,38 @@
 #include "includes.h"
 
 void Hooks::DoExtraBoneProcessing( int a2, int a3, int a4, int a5, int a6, int a7 ) {
-	// cast thisptr to player ptr.
-	Player* player = (Player*)this;
+	//// cast thisptr to player ptr.
+	//Player* player = (Player*)this;
 
-	/*
-		zero out animstate player pointer so CCSGOPlayerAnimState::DoProceduralFootPlant will not do anything.
+	///*
+	//	zero out animstate player pointer so CCSGOPlayerAnimState::DoProceduralFootPlant will not do anything.
 
-		.text:103BB25D 8B 56 60                                mov     edx, [esi+60h]
-		.text:103BB260 85 D2                                   test    edx, edx
-		.text:103BB262 0F 84 B4 0E 00 00                       jz      loc_103BC11C
-	*/
+	//	.text:103BB25D 8B 56 60                                mov     edx, [esi+60h]
+	//	.text:103BB260 85 D2                                   test    edx, edx
+	//	.text:103BB262 0F 84 B4 0E 00 00                       jz      loc_103BC11C
+	//*/
 
-	// get animstate ptr.
-	CCSGOPlayerAnimState* animstate = player->m_PlayerAnimState( );
+	//// get animstate ptr.
+	//CCSGOPlayerAnimState* animstate = player->m_PlayerAnimState( );
 
-	// backup pointer.
-	Player* backup{ nullptr };
+	//// backup pointer.
+	//Player* backup{ nullptr };
 
-	if ( animstate ) {
-		// backup player ptr.
-		backup = animstate->m_player;
+	//if ( animstate ) {
+	//	// backup player ptr.
+	//	backup = animstate->m_player;
 
-		// null player ptr, GUWOP gang.
-		animstate->m_player = nullptr;
-	}
+	//	// null player ptr, GUWOP gang.
+	//	animstate->m_player = nullptr;
+	//}
 
-	// call og.
-	g_hooks.m_DoExtraBoneProcessing( this, a2, a3, a4, a5, a6, a7 );
+	//// call og.
+	//g_hooks.m_DoExtraBoneProcessing( this, a2, a3, a4, a5, a6, a7 );
 
-	// restore ptr.
-	if ( animstate && backup )
-		animstate->m_player = backup;
+	//// restore ptr.
+	//if ( animstate && backup )
+	//	animstate->m_player = backup;
+	return;
 }
 
 void Hooks::CalcView( vec3_t& eye_origin, vec3_t& eye_angles, float& z_near, float& z_far, float& fov )

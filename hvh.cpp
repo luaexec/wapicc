@@ -8,11 +8,8 @@ void HVH::SendFakeFlick( ) {
 	if ( !( cfg_t::get_hotkey( "aa_fflick", "aa_fflick_mode" ) ) || !g_cl.m_local || !g_cl.m_local->alive( ) )
 		return;
 
-	if ( g_csgo.m_globals->m_tick_count % 10 == 0 ) {
-		g_cl.m_cmd->m_view_angles.y -= 113.f;
-	}
-	else if ( g_csgo.m_globals->m_tick_count % 10 == 9 ) {
-		g_cl.m_cmd->m_view_angles.y += 113.f;
+	if ( g_cl.GetNextUpdate( ) % 5 == 0 ) {
+		g_cl.m_cmd->m_view_angles.y += m_updates % 2 == 0 ? 113.f : -113.f;
 	}
 
 }
@@ -22,13 +19,9 @@ void HVH::fake_flick( )
 	if ( !( cfg_t::get_hotkey( "aa_fflick", "aa_fflick_mode" ) ) || !g_cl.m_local || !g_cl.m_local->alive( ) )
 		return;
 
-	if ( g_csgo.m_globals->m_tick_count % 10 == 0 ) {
-		g_cl.m_cmd->m_view_angles.y += 113.f;
-		g_cl.m_cmd->m_side_move = -450.f;
-	}
-	else if ( g_csgo.m_globals->m_tick_count % 10 == 9 ) {
-		g_cl.m_cmd->m_view_angles.y -= 113.f;
-		g_cl.m_cmd->m_side_move = 450.f;
+	if ( g_cl.GetNextUpdate( ) % 5 == 0 ) {
+		g_cl.m_cmd->m_view_angles.y += m_updates % 2 == 0 ? 113.f : -113.f;
+		g_cl.m_cmd->m_side_move = m_updates % 2 == 0 ? 450.f : -450.f;
 	}
 }
 
@@ -225,8 +218,23 @@ void HVH::GetAntiAimDirection( ) {
 
 	if ( config["aa_fs"].get<bool>( ) && best_target && m_mode != AntiAimMode::AIR ) {
 
-		AutoDirection( );
-		m_direction = m_auto;
+		//AutoDirection( );
+		//m_direction = m_auto;
+
+		auto& rec{ g_resolver.m_fsrecord[best_target->index( )] };
+		auto* data{ &g_aimbot.m_players[best_target->index( ) - 1] };
+		if ( data && !data->m_records.empty( ) ) {
+
+			auto* record{ data->m_records.front( ).get( ) };
+			if ( record ) {
+
+				float fs_yaw{ rec.get_yaw( record, false ) };
+				if ( abs( fs_yaw ) == 90 )
+					m_direction = m_view + fs_yaw;
+
+			}
+
+		}
 
 	}
 
@@ -424,15 +432,14 @@ void HVH::DoRealAntiAim( ) {
 		float goal_feet_yaw = g_cl.m_abs_yaw;
 		float eye_delta = math::NormalizedAngle( goal_feet_yaw - g_cl.m_cmd->m_view_angles.y );
 
-		// check if we will have a lby fake this tick.
-		if ( !g_cl.m_lag && g_csgo.m_globals->m_curtime >= g_cl.m_body_pred && stand ) {
+		bool do_flick = config["aa_fb"].get<bool>( ) && !cfg_t::get_hotkey( "aa_fflick", "aa_fflick_mode" ) && (
+			!g_cl.m_lag && g_csgo.m_globals->m_curtime >= g_cl.m_body_pred && stand
+			);
+		if ( do_flick ) {
 			// there will be an lbyt update on this tick.
 			*g_cl.m_packet = true;
-			if ( config["aa_fb"].get<bool>( ) && !cfg_t::get_hotkey( "aa_fflick", "aa_fflick_mode" ) ) {
 
-				g_cl.m_cmd->m_view_angles.y += eye_delta + config["aa_fb_ang"].get<int>( );
-
-			}
+			g_cl.m_cmd->m_view_angles.y += eye_delta + config["aa_fb_ang"].get<int>( );
 		}
 
 		fake_flick( );
