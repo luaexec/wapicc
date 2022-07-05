@@ -205,6 +205,10 @@ public:
 		return std::sqrt( length_sqr( ) );
 	}
 
+	__forceinline vec3_t absolute( ) const {
+		return vec3_t( abs( this->x ), abs( this->y ), abs( this->z ) );
+	}
+
 	__forceinline float length_2d( ) const {
 		return std::sqrt( length_2d_sqr( ) );
 	}

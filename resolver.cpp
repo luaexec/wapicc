@@ -614,7 +614,7 @@ void Resolver::ResolveStand( AimPlayer* data, LagRecord* record ) {
 
 	/* freestand */ {
 		auto& rec{ m_fsrecord[data->m_player->index( )] };
-		auto ext = std::min( g_cl.m_local->m_vecVelocity( ).length( ), vec3_t( 100, 100, 0 ).length( ) ) == g_cl.m_local->m_vecVelocity( ).length( ) ? g_cl.m_local->m_vecVelocity( ) : vec3_t( 100, 100, 0 );
+		auto ext = std::max( g_cl.m_local->m_vecVelocity( ).absolute( ).length( ), vec3_t( 100, 100, 0 ).length( ) ) == g_cl.m_local->m_vecVelocity( ).absolute( ).length( ) ? g_cl.m_local->m_vecVelocity( ).absolute( ) : vec3_t( 300, 0, 0 );
 
 		Ray ray;
 		CGameTrace trace;
@@ -712,10 +712,25 @@ void Resolver::ResolveStand( AimPlayer* data, LagRecord* record ) {
 		//	record->m_eye_angles.y = away - 90.f;
 		//else
 		//	FindBestAngle( record );
+		auto standard = m_fsrecord[data->m_player->index( )].get_yaw( record, false );
+		auto reversed = m_fsrecord[data->m_player->index( )].get_yaw( record, true );
 
-		record->m_eye_angles.y = away + m_fsrecord[data->m_player->index( )].get_yaw( record, ( record->m_pred_origin.x - g_cl.m_local->m_vecOrigin( ).x ) > 0 );
+		auto inverse = [&]( ) {
+			CGameTrace tr;
+			CTraceFilterSimple filter{ };
+			filter.m_pass_ent1 = g_cl.m_local;
 
-		record->m_resolver = ( record->m_pred_origin.x - g_cl.m_local->m_vecOrigin( ).x ) > 0 ? XOR( "rfs" ) : XOR( "fs" );
+			auto start = g_cl.m_shoot_pos;
+			auto dir = ( record->m_player->m_vecOrigin( ) - start ).normalized( );
+
+			g_csgo.m_engine_trace->TraceRay( Ray( start, record->m_player->m_vecOrigin( ) ), MASK_SHOT | CONTENTS_GRATE, &filter, &tr );
+
+			return tr.m_entity == record->m_player || tr.m_fraction > 0.97f;
+		};
+
+		record->m_eye_angles.y = away + ( inverse( ) ? reversed : standard );
+
+		record->m_resolver = inverse( ) ? XOR( "rfs" ) : XOR( "fs" );
 	}
 
 	// @note : hella potential;

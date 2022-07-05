@@ -898,14 +898,33 @@ void Visuals::DrawPlayer( Player* player ) {
 		AimPlayer* data = &g_aimbot.m_players[player->index( )];
 		if ( data ) {
 
-			if ( !data->m_records.empty( ) && data->m_records.size( ) > 1 ) {
+			auto tr_fract = [&]( vec3_t pos ) {
+				CGameTrace tr;
+				CTraceFilterSimple filter{ };
+				filter.m_pass_ent1 = g_cl.m_local;
 
-				LagRecord* cur = data->m_records.front( ).get( );
-				if ( cur ) {
-					flags.push_back( { cur->m_resolver, { 255, 255, 255, int( m_alpha[i] ) } } );
-				}
+				auto start = g_cl.m_shoot_pos;
+				auto dir = ( pos - start ).normalized( );
 
-			}
+				g_csgo.m_engine_trace->TraceRay( Ray( start, pos ), MASK_SHOT | CONTENTS_GRATE, &filter, &tr );
+
+				return tr.m_fraction;
+			};
+
+			auto ext = std::max( g_cl.m_local->m_vecVelocity( ).absolute( ).length( ), player->m_vecVelocity( ).absolute( ).length( ) ) == g_cl.m_local->m_vecVelocity( ).absolute( ).length( ) ? g_cl.m_local->m_vecVelocity( ).absolute( ) : player->m_vecVelocity( ).absolute( );
+			auto fr_left = tr_fract( player->m_vecOrigin( ) + ( ext * ( g_csgo.m_globals->m_interval * 20 ) ) );
+			auto fr_right = tr_fract( player->m_vecOrigin( ) + ( ext * ( g_csgo.m_globals->m_interval * -20 ) ) );
+			auto fr_back = tr_fract( player->m_vecOrigin( ) );
+
+			if ( fr_left > fr_right && fr_left > fr_back )
+				flags.push_back( { "l", { 255, 155, 155, int( m_alpha[i] ) } } );
+
+			else if ( fr_right > fr_left && fr_right > fr_back )
+				flags.push_back( { "r", { 255, 155, 155, int( m_alpha[i] ) } } );
+
+			else if ( fr_back > fr_left && fr_back > fr_right )
+				flags.push_back( { "b", { 255, 155, 155, int( m_alpha[i] ) } } );
+
 		}
 
 		// iterate flags.
