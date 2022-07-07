@@ -119,6 +119,24 @@ void Client::OnPaint( ) {
 	g_grenades.paint( );
 	g_notify.think( gui::m_accent );
 
+	/* hotkeys 4 cmove */ {
+
+		if ( g_input.GetKeyPress( config["aa_left"].get<int>( ) ) && ( g_hvh.m_manual == AntiAimSide::M_LEFT || g_hvh.m_manual != AntiAimSide::M_LEFT ) ) {
+			g_hvh.m_manual = g_hvh.m_manual == AntiAimSide::M_LEFT ? AntiAimSide::M_NONE : AntiAimSide::M_LEFT;
+		}
+
+		if ( g_input.GetKeyPress( config["aa_right"].get<int>( ) ) && ( g_hvh.m_manual == AntiAimSide::M_RIGHT || g_hvh.m_manual != AntiAimSide::M_RIGHT ) ) {
+			g_hvh.m_manual = g_hvh.m_manual == AntiAimSide::M_RIGHT ? AntiAimSide::M_NONE : AntiAimSide::M_RIGHT;
+		}
+
+		if ( g_input.GetKeyPress( config["aa_back"].get<int>( ) ) && ( g_hvh.m_manual == AntiAimSide::M_BACK || g_hvh.m_manual != AntiAimSide::M_BACK ) ) {
+			g_hvh.m_manual = g_hvh.m_manual == AntiAimSide::M_BACK ? AntiAimSide::M_NONE : AntiAimSide::M_BACK;
+		}
+
+		g_aimbot.m_damage_ovr = cfg_t::get_hotkey( "rage_ovrkey", "rage_ovrkey_mode" );
+
+	}
+
 	for ( auto k = 0; k < g_csgo.m_entlist->GetHighestEntityIndex( ); k++ )
 	{
 		Player* entity = g_csgo.m_entlist->GetClientEntity( k )->as<Player*>( );
@@ -315,9 +333,9 @@ void Client::DoMove( ) {
 void Client::EndMove( CUserCmd* cmd ) {
 	UpdateInformation( );
 
-	//if ( !g_csgo.m_cl->m_choked_commands ) {
-	//	m_real_angle = m_cmd->m_view_angles;
-	//}
+	if ( !g_csgo.m_cl->m_choked_commands ) {
+		m_real_angle = m_cmd->m_view_angles;
+	}
 
 	if ( config["menu_ut"].get<bool>( ) )
 		m_cmd->m_view_angles.SanitizeAngle( );
@@ -491,7 +509,6 @@ void Client::UpdateLocal( )
 }
 
 void Client::animate( ) {
-
 	if ( !m_processing )
 		return;
 
@@ -515,7 +532,7 @@ void Client::animate( ) {
 
 		m_update_anims = true;
 
-		m_local->UpdateAnimationState( state, { m_real_angle.x, m_real_angle.y, m_real_angle.z } );
+		m_local->UpdateAnimationState( state, vec3_t( m_real_angle.x, m_real_angle.y, m_real_angle.z ) );
 		m_local->UpdateClientSideAnimation( );
 
 		m_abs_yaw = state->m_goal_feet_yaw;
@@ -533,6 +550,8 @@ void Client::animate( ) {
 
 		state->m_dip_air = false; // disable hit ground animation
 
+		layers[12].m_weight = 0.f;
+
 	}
 
 	if ( poses )
@@ -546,7 +565,7 @@ void Client::animate( ) {
 }
 
 void Client::UpdateInformation( ) {
-	if ( !( * m_packet  ) )
+	if ( !( *m_packet ) )
 		return;
 
 	CCSGOPlayerAnimState* state = g_cl.m_local->m_PlayerAnimState( );
@@ -556,10 +575,10 @@ void Client::UpdateInformation( ) {
 	m_anim_frame = g_csgo.m_globals->m_curtime - m_anim_time;
 	m_anim_time = g_csgo.m_globals->m_curtime;
 
-	m_real_angle = g_cl.m_cmd->m_view_angles;
+	m_angle = g_cl.m_cmd->m_view_angles;
 
-	math::clamp( m_real_angle.x, -90.f, 90.f );
-	m_real_angle.normalize( );
+	math::clamp( m_angle.x, -90.f, 90.f );
+	m_angle.normalize( );
 
 	g_cl.m_local->m_flLowerBodyYawTarget( ) = m_body;
 
@@ -568,13 +587,13 @@ void Client::UpdateInformation( ) {
 
 		if ( state->m_speed > 0.1f || fabsf( state->m_fall_velocity ) > 100.f ) {
 			g_cl.m_body_pred = g_cl.m_anim_time + ( CSGO_ANIM_LOWER_REALIGN_DELAY * 0.2f );
-			g_cl.m_body = m_real_angle.y;
+			g_cl.m_body = m_angle.y;
 		}
 
 		else {
 			if ( g_cl.m_anim_time > g_cl.m_body_pred ) {
 				g_cl.m_body_pred = g_cl.m_anim_time + CSGO_ANIM_LOWER_REALIGN_DELAY;
-				g_cl.m_body = m_real_angle.y;
+				g_cl.m_body = m_angle.y;
 			}
 		}
 	}

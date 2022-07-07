@@ -1,10 +1,10 @@
 #pragma once
 
 enum HitscanMode : int {
-	NORMAL  = 0,
-	LETHAL  = 1,
+	NORMAL = 0,
+	LETHAL = 1,
 	LETHAL2 = 3,
-	PREFER  = 4
+	PREFER = 4
 };
 
 struct AnimationBackup_t {
@@ -12,7 +12,7 @@ struct AnimationBackup_t {
 	vec3_t           m_velocity, m_abs_velocity;
 	int              m_flags, m_eflags;
 	float            m_duck, m_body;
-	C_AnimationLayer m_layers[ 13 ];
+	C_AnimationLayer m_layers[13];
 };
 
 struct HitscanData_t {
@@ -34,12 +34,12 @@ struct HitscanBox_t {
 
 class AimPlayer {
 public:
-	using records_t   = std::deque< std::shared_ptr< LagRecord > >;
+	using records_t = std::deque< std::shared_ptr< LagRecord > >;
 	using hitboxcan_t = stdpp::unique_vector< HitscanBox_t >;
 
 public:
 	// essential data.
-	Player*   m_player;
+	Player* m_player;
 	float	  m_spawn;
 	records_t m_records;
 
@@ -80,10 +80,10 @@ public:
 
 public:
 	void reset( ) {
-		m_player       = nullptr;
-		m_spawn        = 0.f;
-		m_walk_record  = LagRecord{};
-		m_shots        = 0;
+		m_player = nullptr;
+		m_spawn = 0.f;
+		m_walk_record = LagRecord{};
+		m_shots = 0;
 		m_missed_shots = 0;
 
 		m_records.clear( );
@@ -94,7 +94,7 @@ public:
 class Aimbot {
 private:
 	struct target_t {
-		Player*    m_player;
+		Player* m_player;
 		AimPlayer* m_data;
 	};
 
@@ -104,8 +104,8 @@ private:
 	};
 
 	struct table_t {
-		uint8_t swing[ 2 ][ 2 ][ 2 ]; // [ first ][ armor ][ back ]
-		uint8_t stab[ 2 ][ 2 ];		  // [ armor ][ back ]
+		uint8_t swing[2][2][2]; // [ first ][ armor ][ back ]
+		uint8_t stab[2][2];		  // [ armor ][ back ]
 	};
 
 	const table_t m_knife_dmg{ { { { 25, 90 }, { 21, 76 } }, { { 40, 90 }, { 34, 76 } } }, { { 65, 180 }, { 55, 153 } } };
@@ -120,7 +120,7 @@ public:
 	std::array< AimPlayer, 64 > m_players;
 	std::vector< AimPlayer* >   m_targets;
 
-	BackupRecord m_backup[ 64 ];
+	BackupRecord m_backup[64];
 
 	// target selection stuff.
 	float m_best_dist;
@@ -131,7 +131,7 @@ public:
 	float m_best_height;
 
 	// found target stuff.
-	Player*    m_target;
+	Player* m_target;
 	ang_t      m_angle;
 	vec3_t     m_aim;
 	float      m_damage;
@@ -141,6 +141,7 @@ public:
 	BoneArray* m_current_matrix;
 
 	bool m_double_tap;
+	bool m_damage_ovr;
 
 	// fake latency stuff.
 	bool       m_fake_latency;
@@ -153,30 +154,30 @@ public:
 		init( );
 
 		// reset all players data.
-		for( auto& p : m_players )
+		for ( auto& p : m_players )
 			p.reset( );
 	}
 
 	__forceinline bool IsValidTarget( Player* player ) {
-		if( !player )
+		if ( !player )
 			return false;
 
-		if( !player->IsPlayer( ) )
+		if ( !player->IsPlayer( ) )
 			return false;
 
-		if( !player->alive( ) )
+		if ( !player->alive( ) )
 			return false;
 
-		if( player->m_bIsLocalPlayer( ) )
+		if ( player->m_bIsLocalPlayer( ) )
 			return false;
 
-		if( !player->enemy( g_cl.m_local ) )
+		if ( !player->enemy( g_cl.m_local ) )
 			return false;
 
-		if (player->dormant())
+		if ( player->dormant( ) )
 			return false;
 
-		if (player->m_fImmuneToGunGameDamageTime())
+		if ( player->m_fImmuneToGunGameDamageTime( ) )
 			return false;
 
 		return true;
@@ -188,14 +189,14 @@ public:
 	void StripAttack( );
 	void think( );
 	void find( );
-	bool CanHit(const vec3_t start, const vec3_t end, LagRecord* animation, int box, bool in_shot, BoneArray* bones);
-	bool CanHitchance( ang_t angle, vec3_t point, Player * player, float chance, int hitbox, float damage );
+	bool CanHit( const vec3_t start, const vec3_t end, LagRecord* animation, int box, bool in_shot, BoneArray* bones );
+	bool CanHitchance( ang_t angle, vec3_t point, Player* player, float chance, int hitbox, float damage );
 	bool CheckHitchance( Player* player, const ang_t& angle );
 	bool SelectTarget( LagRecord* record, const vec3_t& aim, float damage );
 	void apply( );
 	void NoSpread( );
-	void DoubleTap();
-	bool CanDT();
+	void DoubleTap( );
+	bool CanDT( );
 
 	// knifebot.
 	void knife( );

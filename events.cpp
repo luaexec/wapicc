@@ -31,18 +31,29 @@ void events::round_start( IGameEvent* evt ) {
 
 	// buybot.
 	{
-		auto buy1 = g_menu.main.misc.buy1.GetActiveItems( );
-		auto buy2 = g_menu.main.misc.buy2.GetActiveItems( );
-		auto buy3 = g_menu.main.misc.buy3.GetActiveItems( );
+		switch ( config["misc_bb"].get<int>( ) ) {
+			case 1:
+				{
+					g_csgo.m_engine->ExecuteClientCmd( "buy scar20" );
+				}
+				break;
+			case 2:
+				{
+					g_csgo.m_engine->ExecuteClientCmd( "buy ssg08" );
+				}
+				break;
+			case 3:
+				{
+					g_csgo.m_engine->ExecuteClientCmd( "buy awp" );
+				}
+				break;
+			default:
+				break;
+		}
 
-		for ( auto it = buy1.begin( ); it != buy1.end( ); ++it )
-			g_csgo.m_engine->ExecuteClientCmd( tfm::format( XOR( "buy %s" ), *it ).data( ) );
-
-		for ( auto it = buy2.begin( ); it != buy2.end( ); ++it )
-			g_csgo.m_engine->ExecuteClientCmd( tfm::format( XOR( "buy %s" ), *it ).data( ) );
-
-		for ( auto it = buy3.begin( ); it != buy3.end( ); ++it )
-			g_csgo.m_engine->ExecuteClientCmd( tfm::format( XOR( "buy %s" ), *it ).data( ) );
+		if ( config["misc_bb"].get<int>( ) > 0 ) {
+			g_csgo.m_engine->ExecuteClientCmd( "buy vesthelm; buy taser; buy defuser; buy smokegrenade; buy hegrenade; buy molotov;" );
+		}
 	}
 
 	// update all players.

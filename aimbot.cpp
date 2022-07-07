@@ -646,9 +646,6 @@ void Aimbot::find( ) {
 	if ( m_targets.empty( ) )
 		return;
 
-	if ( g_cl.m_weapon_id == ZEUS )
-		return;
-
 	// iterate all targets.
 	for ( const auto& t : m_targets ) {
 		if ( t->m_records.empty( ) )
@@ -1154,7 +1151,7 @@ bool AimPlayer::GetBestAimPosition( vec3_t& aim, float& damage, int& hitbox, Lag
 	}
 
 	else {
-		auto mindmg = config["rage_dmg"].get<int>( );
+		auto mindmg = g_aimbot.m_damage_ovr ? config["rage"].get<int>( ) : config["rage_dmg"].get<int>( );
 		dmg = mindmg;
 		if ( mindmg >= hp )
 			dmg = hp;

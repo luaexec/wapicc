@@ -218,7 +218,7 @@ void HVH::GetAntiAimDirection( ) {
 
 	if ( config["aa_fs"].get<bool>( ) && best_target && m_mode != AntiAimMode::AIR ) {
 
-		//AutoDirection( );
+		AutoDirection( );
 		//m_direction = m_auto;
 
 		auto& rec{ g_resolver.m_fsrecord[best_target->index( )] };
@@ -230,7 +230,7 @@ void HVH::GetAntiAimDirection( ) {
 
 				float fs_yaw{ rec.get_yaw( record, false ) };
 				if ( abs( fs_yaw ) == 90 )
-					m_direction = m_view + fs_yaw;
+					m_direction = m_auto;
 
 			}
 
@@ -392,20 +392,8 @@ void HVH::DoExploitWalk( )
 void HVH::DoRealAntiAim( ) {
 	DoExploitWalk( );
 
-	if ( g_input.GetKeyPress( config["aa_left"].get<int>( ) ) && ( m_manual == AntiAimSide::M_LEFT || m_manual != AntiAimSide::M_LEFT ) ) {
-		m_manual = m_manual == AntiAimSide::M_LEFT ? AntiAimSide::M_NONE : AntiAimSide::M_LEFT;
-	}
-
-	if ( g_input.GetKeyPress( config["aa_right"].get<int>( ) ) && ( m_manual == AntiAimSide::M_RIGHT || m_manual != AntiAimSide::M_RIGHT ) ) {
-		m_manual = m_manual == AntiAimSide::M_RIGHT ? AntiAimSide::M_NONE : AntiAimSide::M_RIGHT;
-	}
-
-	if ( g_input.GetKeyPress( config["aa_back"].get<int>( ) ) && ( m_manual == AntiAimSide::M_BACK || m_manual != AntiAimSide::M_BACK ) ) {
-		m_manual = m_manual == AntiAimSide::M_BACK ? AntiAimSide::M_NONE : AntiAimSide::M_BACK;
-	}
-
 	// if we have a yaw antaim.
-	if ( 1 ) {
+	if ( true ) {
 
 		switch ( m_manual ) {
 			case AntiAimSide::M_BACK:
@@ -472,7 +460,7 @@ void HVH::DoFakeAntiAim( ) {
 	*g_cl.m_packet = true;
 
 	if ( config["aa_fake"].get<bool>( ) )
-		g_cl.m_cmd->m_view_angles.y = m_direction + config["aa_fake_offset"].get<float>( );
+		g_cl.m_cmd->m_view_angles.y = m_direction + 180.f - config["aa_fake_offset"].get<float>( );
 
 	SendFakeFlick( );
 

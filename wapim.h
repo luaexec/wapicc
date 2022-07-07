@@ -48,6 +48,16 @@ namespace wapim {
 					);
 				general->add_slider( damage.get( ) );
 
+				auto ovrkey = std::make_unique<gui::hotkey_t>(
+					"override damage", "rage_ovrkey"
+					);
+				general->add_hotkey( ovrkey.get( ) );
+
+				auto overdamage = std::make_unique<gui::slider_t>(
+					"override damage", "rage_ovrdmg", value_t( 0 ), 0.f, 100.f, "DMG"
+					);
+				general->add_slider( overdamage.get( ) );
+
 			}
 
 		}
@@ -708,6 +718,12 @@ namespace wapim {
 					);
 				movement->add_hotkey( fakewalk.get( ) );
 
+				auto buybot = std::make_unique<gui::dropdown_t>(
+					"buybot", "misc_bb", value_t( 0 ), std::vector<std::string>{
+					"none", "auto", "ssg", "awp"
+				} );
+				movement->add_dropdown( buybot.get( ) );
+
 				auto airstuck = std::make_unique<gui::hotkey_t>(
 					"airstuck", "misc_as"
 					);
@@ -761,6 +777,22 @@ namespace wapim {
 				);
 			if ( !r )
 				settings->add_button( load.get( ) );
+
+			static std::function<void( )> cvar_fn = [&]( ) {
+				if ( !g_csgo.m_cvar )
+					return;
+
+				auto p = **reinterpret_cast<ConVar***>( g_csgo.m_cvar + 0x34 );
+				for ( auto c = p->m_next; c != nullptr; c = c->m_next ) {
+					c->m_flags &= ~FCVAR_DEVELOPMENTONLY;
+					c->m_flags &= ~FCVAR_HIDDEN;
+				}
+			};
+			static auto cvar = std::make_unique<gui::button_t>(
+				"unlock hidden cvars", cvar_fn
+				);
+			if ( !r )
+				settings->add_button( cvar.get( ) );
 
 		}
 		settings->finish( );

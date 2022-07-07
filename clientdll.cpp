@@ -4,7 +4,7 @@ void Hooks::LevelInitPreEntity( const char* map ) {
 	float rate{ 1.f / g_csgo.m_globals->m_interval };
 
 	// set rates when joining a server.
-	if (g_csgo.m_globals->m_interval != 0) {
+	if ( g_csgo.m_globals->m_interval != 0 ) {
 		g_csgo.cl_updaterate->SetValue( rate );
 		g_csgo.cl_cmdrate->SetValue( rate );
 	}
@@ -72,15 +72,15 @@ void WriteUsercmd( bf_write* buf, CUserCmd* in, CUserCmd* out )
 bool Hooks::WriteUsercmdDeltaToBuffer( int slot, bf_write* buf, int from, int to, bool isnewcommand )
 {
 
-	if (g_cl.m_processing && g_csgo.m_engine->IsConnected( ) && g_csgo.m_engine->IsInGame( )) {
+	if ( g_cl.m_processing && g_csgo.m_engine->IsConnected( ) && g_csgo.m_engine->IsInGame( ) ) {
 
-		if (g_csgo.m_gamerules->m_bFreezePeriod( ))
+		if ( g_csgo.m_gamerules->m_bFreezePeriod( ) )
 			return g_hooks.m_client.GetOldMethod< WriteUsercmdDeltaToBuffer_t >( CHLClient::USRCMDTODELTABUFFER )( this, slot, buf, from, to, isnewcommand );
 
-		if (g_cl.m_tick_to_shift <= 0 || g_csgo.m_cl->m_choked_commands > 3)
+		if ( g_cl.m_tick_to_shift <= 0 || g_csgo.m_cl->m_choked_commands > 3 )
 			return g_hooks.m_client.GetOldMethod< WriteUsercmdDeltaToBuffer_t >( CHLClient::USRCMDTODELTABUFFER )( this, slot, buf, from, to, isnewcommand );
 
-		if (from != -1)
+		if ( from != -1 )
 			return true;
 
 		uintptr_t stackbase;
@@ -98,8 +98,8 @@ bool Hooks::WriteUsercmdDeltaToBuffer( int slot, bf_write* buf, int from, int to
 		msg->new_commands = total_new_commands;
 		msg->backup_commands = 0;
 
-		for (to = next_cmdnr - new_commands + 1; to <= next_cmdnr; to++) {
-			if (!g_hooks.m_client.GetOldMethod< WriteUsercmdDeltaToBuffer_t >( CHLClient::USRCMDTODELTABUFFER )( this, slot, buf, from, to, isnewcommand ))
+		for ( to = next_cmdnr - new_commands + 1; to <= next_cmdnr; to++ ) {
+			if ( !g_hooks.m_client.GetOldMethod< WriteUsercmdDeltaToBuffer_t >( CHLClient::USRCMDTODELTABUFFER )( this, slot, buf, from, to, isnewcommand ) )
 				return false;
 
 			from = to;
@@ -108,14 +108,14 @@ bool Hooks::WriteUsercmdDeltaToBuffer( int slot, bf_write* buf, int from, int to
 		CUserCmd* last_realCmd = g_csgo.m_input->GetUserCmd( slot, from );
 		CUserCmd fromCmd;
 
-		if (last_realCmd)
+		if ( last_realCmd )
 			fromCmd = *last_realCmd;
 
 		CUserCmd toCmd = fromCmd;
 		toCmd.m_command_number++;
 		toCmd.m_tick++;
 
-		for (int i = new_commands; i <= total_new_commands; i++) {
+		for ( int i = new_commands; i <= total_new_commands; i++ ) {
 			WriteUsercmd( buf, &toCmd, &fromCmd );
 			fromCmd = toCmd;
 			toCmd.m_command_number++;
@@ -130,13 +130,13 @@ bool Hooks::WriteUsercmdDeltaToBuffer( int slot, bf_write* buf, int from, int to
 
 void Hooks::FrameStageNotify( Stage_t stage ) {
 	// save stage.
-	if (stage != FRAME_START)
+	if ( stage != FRAME_START )
 		g_cl.m_stage = stage;
 
 	// damn son.
 	g_cl.m_local = g_csgo.m_entlist->GetClientEntity< Player* >( g_csgo.m_engine->GetLocalPlayer( ) );
 
-	if (stage == FRAME_RENDER_START) {
+	if ( stage == FRAME_RENDER_START ) {
 		g_cl.UpdateAnimations( );
 
 		g_cl.ThirdPersonFSN( );
@@ -151,22 +151,22 @@ void Hooks::FrameStageNotify( Stage_t stage ) {
 	// call og.
 	g_hooks.m_client.GetOldMethod< FrameStageNotify_t >( CHLClient::FRAMESTAGENOTIFY )( this, stage );
 
-	if (stage == FRAME_RENDER_START) {
+	if ( stage == FRAME_RENDER_START ) {
 		// ...
 	}
 
-	else if (stage == FRAME_NET_UPDATE_POSTDATAUPDATE_START) {
+	else if ( stage == FRAME_NET_UPDATE_POSTDATAUPDATE_START ) {
 		// restore non-compressed netvars.
 		// g_netdata.apply( );
 
 		g_skins.think( );
 	}
 
-	else if (stage == FRAME_NET_UPDATE_POSTDATAUPDATE_END) {
+	else if ( stage == FRAME_NET_UPDATE_POSTDATAUPDATE_END ) {
 		g_visuals.NoSmoke( );
 	}
 
-	else if (stage == FRAME_NET_UPDATE_END) {
+	else if ( stage == FRAME_NET_UPDATE_END ) {
 		// restore non-compressed netvars.
 		g_netdata.apply( );
 
@@ -174,9 +174,9 @@ void Hooks::FrameStageNotify( Stage_t stage ) {
 		g_cl.animate( );
 
 		// update all players.
-		for (int i{ 1 }; i <= g_csgo.m_globals->m_max_clients; ++i) {
+		for ( int i{ 1 }; i <= g_csgo.m_globals->m_max_clients; ++i ) {
 			Player* player = g_csgo.m_entlist->GetClientEntity< Player* >( i );
-			if (!player || player->m_bIsLocalPlayer( ))
+			if ( !player || player->m_bIsLocalPlayer( ) )
 				continue;
 
 			AimPlayer* data = &g_aimbot.m_players[i - 1];

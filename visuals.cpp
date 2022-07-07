@@ -247,6 +247,14 @@ void Visuals::hotkeys( )
 		indicators.push_back( ind );
 	}
 
+	if ( g_aimbot.m_damage_ovr ) {
+		Indicator_t ind{ };
+		ind.color = gui::m_accent;
+		ind.text = XOR( "dmg" );
+		ind.mode = config["rage_ovrkey_mode"].get<int>( );
+		indicators.push_back( ind );
+	}
+
 	if ( cfg_t::get_hotkey( "acc_forcebody", "acc_forcebody_mode" ) ) {
 		Indicator_t ind{ };
 		ind.color = gui::m_accent;
@@ -746,7 +754,8 @@ void Visuals::DrawPlayer( Player* player ) {
 		Color clr = config["esp_box_clr"].get_color( );
 		clr.a( ) *= m_alpha[i] / 255.f;
 
-		render::rect_outlined( bbox.x, bbox.y, bbox.w, bbox.h, !player->dormant( ) ? clr : Color( 141, 141, 141, int( m_alpha[i] ) ), { 10, 10, 10, int( m_alpha[i] ) } );
+		render::rect( bbox.x + 1, bbox.y + 1, bbox.w, bbox.h, Color( 10, 10, 10, int( m_alpha[i] / 2.f ) ) );
+		render::rect( bbox.x, bbox.y, bbox.w, bbox.h, !player->dormant( ) ? clr : Color( 141, 141, 141, int( m_alpha[i] ) ) );
 	}
 
 	/*  health  */

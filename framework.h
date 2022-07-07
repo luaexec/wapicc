@@ -11,7 +11,7 @@ namespace gui {
 	__forceinline float m_alpha( float _alpha = 255.f ) { return _alpha * m_anim; }
 
 	__forceinline void animate( bool condition, float speed, float& anim ) {
-		if (condition) { anim += speed * g_csgo.m_globals->m_frametime; }
+		if ( condition ) { anim += speed * g_csgo.m_globals->m_frametime; }
 		else { anim -= speed * g_csgo.m_globals->m_frametime; }
 		anim = std::clamp( anim, 0.f, 1.f );
 	}
@@ -22,34 +22,34 @@ namespace gui {
 		int Result;
 		char Buffer[128];
 
-		switch (VirtualKey) {
-		case VK_LEFT: case VK_UP: case VK_RIGHT: case VK_DOWN:
-		case VK_RCONTROL: case VK_RMENU:
-		case VK_LWIN: case VK_RWIN: case VK_APPS:
-		case VK_PRIOR: case VK_NEXT:
-		case VK_END: case VK_HOME:
-		case VK_INSERT: case VK_DELETE:
-		case VK_DIVIDE:
-		case VK_NUMLOCK:
-			Code |= KF_EXTENDED;
-		default:
-			Result = GetKeyNameTextA( Code << 16, Buffer, 128 );
+		switch ( VirtualKey ) {
+			case VK_LEFT: case VK_UP: case VK_RIGHT: case VK_DOWN:
+			case VK_RCONTROL: case VK_RMENU:
+			case VK_LWIN: case VK_RWIN: case VK_APPS:
+			case VK_PRIOR: case VK_NEXT:
+			case VK_END: case VK_HOME:
+			case VK_INSERT: case VK_DELETE:
+			case VK_DIVIDE:
+			case VK_NUMLOCK:
+				Code |= KF_EXTENDED;
+			default:
+				Result = GetKeyNameTextA( Code << 16, Buffer, 128 );
 		}
 
-		if (Result == 0) {
-			switch (VirtualKey) {
-			case VK_XBUTTON1:
-				return "mouse4";
-			case VK_XBUTTON2:
-				return "mouse5";
-			case VK_LBUTTON:
-				return "mouse1";
-			case VK_MBUTTON:
-				return "mouse3";
-			case VK_RBUTTON:
-				return "mouse2";
-			default:
-				return "-";
+		if ( Result == 0 ) {
+			switch ( VirtualKey ) {
+				case VK_XBUTTON1:
+					return "mouse4";
+				case VK_XBUTTON2:
+					return "mouse5";
+				case VK_LBUTTON:
+					return "mouse1";
+				case VK_MBUTTON:
+					return "mouse3";
+				case VK_RBUTTON:
+					return "mouse2";
+				default:
+					return "-";
 			}
 		}
 
@@ -88,24 +88,24 @@ namespace gui {
 		int cur_tab{ 0 };
 	public:
 		window_t( std::vector<std::string> _tabs ) {
-			for (auto t : _tabs)
+			for ( auto t : _tabs )
 				add_tab( tab_t( t ) );
 		}
 
 		bool begin( std::string title ) {
 			animate( m_open, 4.5f, m_anim );
 
-			if (g_input.GetKeyPress( VK_INSERT ))
+			if ( g_input.GetKeyPress( VK_INSERT ) )
 				m_open = !m_open;
 
 			m_accent = config["menu_accent"].get_color( 255 );
 
 			static vec2_t c_pos{}, c_mpos{};
 			static auto c_press = false;
-			if (g_input.hovered( m_pos, m_size.x, 10 ) && g_input.GetKeyPress( 0x01 ))
+			if ( g_input.hovered( m_pos, m_size.x, 10 ) && g_input.GetKeyPress( 0x01 ) )
 				c_press = true;
 
-			if (c_press) {
+			if ( c_press ) {
 				m_pos.x = c_mpos.x + ( ( g_input.m_mouse.x ) - c_pos.x );
 				m_pos.y = c_mpos.y + ( ( g_input.m_mouse.y ) - c_pos.y );
 				c_press = g_input.GetKeyState( 0x01 );
@@ -114,10 +114,10 @@ namespace gui {
 
 			static vec2_t c_size{}, c_m_size{};
 			static auto c_spress = false;
-			if (g_input.hovered( m_pos + m_size - vec2_t( 8, 8 ), 8, 8 ) && g_input.GetKeyPress( 0x01 ))
+			if ( g_input.hovered( m_pos + m_size - vec2_t( 8, 8 ), 8, 8 ) && g_input.GetKeyPress( 0x01 ) )
 				c_spress = true;
 
-			if (c_spress) {
+			if ( c_spress ) {
 				m_size.x = c_m_size.x + ( ( g_input.m_mouse.x ) - c_size.x );
 				m_size.y = c_m_size.y + ( ( g_input.m_mouse.y ) - c_size.y );
 				c_spress = g_input.GetKeyState( 0x01 );
@@ -133,17 +133,17 @@ namespace gui {
 			render::round_rect( m_pos.x + 1, m_pos.y + 1, 100, m_size.y - 2, 2, palette::grey.alpha( m_alpha( ) ) );
 
 			auto i{ 0 };
-			for (auto& t : tabs) {
+			for ( auto& t : tabs ) {
 				animate( cur_tab == i, 4.5f, t.anim );
 				auto area = render::esp.size( t.title );
 
-				if (cur_tab == i) {
+				if ( cur_tab == i ) {
 					render::rect_filled( m_pos.x + 10, m_pos.y + 8 + ( 20 * i ), 91, 20, palette::dark.alpha( m_alpha( ) ) );
 					render::gradient1337( m_pos.x + 11, m_pos.y + 9 + ( 20 * i ), 91, 18, m_accent.alpha( m_alpha( 55 ) ), colors::black.alpha( m_alpha( 0 ) ) );
 				}
 				render::esp.string( m_pos.x + 10 + ( 7.f * t.anim ), m_pos.y + 10 + ( 20 * i ), colors::white.blend( m_accent, t.anim ).alpha( m_alpha( ) ), t.title );
 
-				if (g_input.hovered( m_pos.x, m_pos.y + 8 + ( 20 * i ), 100, 20 ) && g_input.GetKeyPress( 0x01 ))
+				if ( g_input.hovered( m_pos.x, m_pos.y + 8 + ( 20 * i ), 100, 20 ) && g_input.GetKeyPress( 0x01 ) )
 					cur_tab = i;
 
 				i++;
@@ -166,7 +166,7 @@ namespace gui {
 			title = _t; var = _v;
 
 			bool found = config.find( var ) != config.end( );
-			if (!found) {
+			if ( !found ) {
 				config.insert( { var, def } );
 			}
 		}
@@ -180,7 +180,7 @@ namespace gui {
 
 			render::esp.string( area.x + 15, area.y - 3, colors::white.alpha( m_alpha( ) ), title );
 
-			if (g_input.hovered( area.x, area.y, 12 + render::esp.size( title ).m_width, 15 ) && g_input.GetKeyPress( 0x01 ) && use)
+			if ( g_input.hovered( area.x, area.y, 12 + render::esp.size( title ).m_width, 15 ) && g_input.GetKeyPress( 0x01 ) && use )
 				config[var].set<bool>( !config[var].get<bool>( ) );
 
 			area += vec2_t( 0, 15 );
@@ -198,7 +198,7 @@ namespace gui {
 			title = _t; var = _v; min = _min; max = _max; prefix = _pre;
 
 			bool found = config.find( var ) != config.end( );
-			if (!found) {
+			if ( !found ) {
 				config.insert( { var, def } );
 			}
 		}
@@ -211,7 +211,7 @@ namespace gui {
 			render::rect_filled( area.x + 9.f, area.y + 15, size, 8, palette::med.alpha( m_alpha( ) ) );
 			render::rect( area.x + 9.f, area.y + 15, size, 8, palette::light.alpha( m_alpha( ) ) );
 
-			if (min >= 0.f) {
+			if ( min >= 0.f ) {
 				render::gradient1337( area.x + 11, area.y + 17, ( ( size - 4.f ) * float( config[var].get<float>( ) / float( max ) ) ), 4, m_accent.alpha( m_alpha( 155 ) ), colors::black.alpha( m_alpha( 0 ) ) );
 			}
 			else {
@@ -221,10 +221,10 @@ namespace gui {
 			}
 
 			float dx = std::clamp( ( g_input.m_mouse.x - ( area.x ) ) / size, 0.f, 1.f );
-			if (g_input.GetKeyPress( 0x01 ) && g_input.hovered( area - vec2_t( 1, 0 ), size + 2, 7 + 15 ) && use)
+			if ( g_input.GetKeyPress( 0x01 ) && g_input.hovered( area - vec2_t( 1, 0 ), size + 2, 7 + 15 ) && use )
 				dragging = true;
 
-			if (dragging) {
+			if ( dragging ) {
 				int difference = abs( min - max );
 				config[var].set<int>( min + ( difference * dx ) );
 				dragging = g_input.GetKeyState( 0x01 );
@@ -250,7 +250,7 @@ namespace gui {
 			title = _t; var = _v; elements = _e;
 
 			bool found = config.find( var ) != config.end( );
-			if (!found) {
+			if ( !found ) {
 				config.insert( { var, def } );
 			}
 		}
@@ -266,8 +266,8 @@ namespace gui {
 
 			render::esp.string( area.x + 12, area.y + 18, colors::white.alpha( m_alpha( ) ), elements[config[var].get<int>( )] );
 
-			if (g_input.GetKeyPress( 0x01 )) {
-				if (( g_input.hovered( area.x + 9, area.y + 15, size, 20 ) && ( use || open ) ) || ( !g_input.hovered( area.x + 9, area.y + 35, size, 10 + ( elements.size( ) * 15 ) ) && open ))
+			if ( g_input.GetKeyPress( 0x01 ) ) {
+				if ( ( g_input.hovered( area.x + 9, area.y + 15, size, 20 ) && ( use || open ) ) || ( !g_input.hovered( area.x + 9, area.y + 35, size, 10 + ( elements.size( ) * 15 ) ) && open ) )
 					open = !open;
 			}
 
@@ -280,13 +280,13 @@ namespace gui {
 			render::rect( area.x + 9, area.y + 35, size, 10 + ( elements.size( ) * 15 ), palette::light.alpha( m_alpha( 255.f * anim ) ) );
 
 			int i{ 0 }, selection{ config[var].get<int>( ) };
-			for (auto e : elements) {
-				if (selection == i)
+			for ( auto e : elements ) {
+				if ( selection == i )
 					render::gradient1337( area.x + 13, area.y + 41 + ( i * 15 ), size - 2, 13, m_accent.alpha( m_alpha( 55 ) ), colors::black.alpha( m_alpha( 0 ) ) );
 
 				render::esp.string( area.x + 12 + ( selection == i ? 5 * anim : 0 ), area.y + 40 + ( i * 15 ), ( selection == i ? m_accent : colors::white ).alpha( m_alpha( 255.f * anim ) ), e );
 
-				if (g_input.GetKeyPress( 0x01 ) && g_input.hovered( area.x + 9, area.y + 40 + ( i * 15 ), size, 15 )) {
+				if ( g_input.GetKeyPress( 0x01 ) && g_input.hovered( area.x + 9, area.y + 40 + ( i * 15 ), size, 15 ) ) {
 					config[var].set<int>( i );
 					open = false;
 				}
@@ -316,9 +316,9 @@ namespace gui {
 		multidropdown_t( std::string _t, std::vector<multitems_t> _i ) {
 			title = _t; items = _i;
 
-			for (auto i : items) {
+			for ( auto i : items ) {
 				bool found = config.find( i.var ) != config.end( );
-				if (!found) {
+				if ( !found ) {
 					config.insert( { i.var, i.val } );
 				}
 			}
@@ -334,11 +334,11 @@ namespace gui {
 			render::rect( area.x + 9, area.y + 15, size, 20, palette::light.alpha( m_alpha( ) ) );
 
 			std::string preview{ "" };
-			for (auto e : items) {
-				if (config[e.var].get<bool>( ))
+			for ( auto e : items ) {
+				if ( config[e.var].get<bool>( ) )
 					preview.append( preview == "" ? e.name : ( std::string( ", " ).append( e.name ) ) );
 			}
-			if (preview == "")
+			if ( preview == "" )
 				preview = "empty..";
 
 			bool too_big = preview.length( ) > ( size / 7 );
@@ -346,8 +346,8 @@ namespace gui {
 
 			render::esp.string( area.x + 12, area.y + 18, colors::white.alpha( m_alpha( ) ), preview );
 
-			if (g_input.GetKeyPress( 0x01 )) {
-				if (( g_input.hovered( area.x + 9, area.y + 15, size, 20 ) && ( use || open ) ) || ( !g_input.hovered( area.x + 9, area.y + 35, size, 10 + ( items.size( ) * 15 ) ) && open ))
+			if ( g_input.GetKeyPress( 0x01 ) ) {
+				if ( ( g_input.hovered( area.x + 9, area.y + 15, size, 20 ) && ( use || open ) ) || ( !g_input.hovered( area.x + 9, area.y + 35, size, 10 + ( items.size( ) * 15 ) ) && open ) )
 					open = !open;
 			}
 
@@ -360,14 +360,14 @@ namespace gui {
 			render::rect( area.x + 9, area.y + 35, size, 10 + ( items.size( ) * 15 ), palette::light.alpha( m_alpha( 255.f * anim ) ) );
 
 			int i{ 0 };
-			for (auto e : items) {
+			for ( auto e : items ) {
 				bool active = config[e.var].get<bool>( );
-				if (active)
+				if ( active )
 					render::gradient1337( area.x + 13, area.y + 41 + ( i * 15 ), size - 2, 13, m_accent.alpha( m_alpha( 55 ) ), colors::black.alpha( m_alpha( 0 ) ) );
 
 				render::esp.string( area.x + 12 + ( active ? 5 * anim : 0 ), area.y + 40 + ( i * 15 ), ( active ? m_accent : colors::white ).alpha( m_alpha( 255.f * anim ) ), e.name );
 
-				if (g_input.GetKeyPress( 0x01 ) && g_input.hovered( area.x + 9, area.y + 40 + ( i * 15 ), size, 15 )) {
+				if ( g_input.GetKeyPress( 0x01 ) && g_input.hovered( area.x + 9, area.y + 40 + ( i * 15 ), size, 15 ) ) {
 					config[e.var].set<bool>( !config[e.var].get<bool>( ) );
 				}
 
@@ -392,7 +392,7 @@ namespace gui {
 			title = _t; var = _v; def = _d; in_line = _i; offset = _o;
 
 			bool found = config.find( var ) != config.end( );
-			if (!found) {
+			if ( !found ) {
 				config.insert( { var, def } );
 			}
 		}
@@ -403,14 +403,14 @@ namespace gui {
 			auto size = tab_area( false ).x - 20 - 2;
 			auto draw = area - ( in_line ? vec2_t( 0, 20 ) : vec2_t( 0, 0 ) ) + offset;
 
-			if (!in_line)
+			if ( !in_line )
 				render::esp.string( draw.x, draw.y, colors::white.alpha( m_alpha( ) ), title );
 
 			auto preview{ config[var].get_color( 255 ) };
 			render::round_rect( draw.x + size - 15, draw.y + 5, 15, 8, 2, palette::light.alpha( m_alpha( ) ) );
 			render::round_rect( draw.x + size - 14, draw.y + 6, 13, 6, 2, preview.alpha( m_alpha( ) ) );
 
-			if (g_input.hovered( draw.x + size - 15, draw.y + 5, 15, 8 ) && !primary && !secondary && in_line) {
+			if ( g_input.hovered( draw.x + size - 15, draw.y + 5, 15, 8 ) && !primary && !secondary && in_line ) {
 				auto sz = render::esp.size( title ).m_width + 10;
 				hanim += 4.f * g_csgo.m_globals->m_frametime;
 				hanim = std::clamp( hanim, 0.f, 1.f );
@@ -423,8 +423,8 @@ namespace gui {
 				hanim -= 4.f * g_csgo.m_globals->m_frametime;
 			hanim = std::clamp( hanim, 0.f, 1.f );
 
-			if (g_input.GetKeyPress( 0x01 )) {
-				if (( g_input.hovered( draw.x + size - 15, draw.y + 5, 15, 8 ) && ( use || ( primary && !secondary ) ) ) || ( !g_input.hovered( draw.x + size + 5 - 200, draw.y, 200, 200 ) ) && ( primary && !secondary ))
+			if ( g_input.GetKeyPress( 0x01 ) ) {
+				if ( ( g_input.hovered( draw.x + size - 15, draw.y + 5, 15, 8 ) && ( use || ( primary && !secondary ) ) ) || ( !g_input.hovered( draw.x + size + 5 - 200, draw.y, 200, 200 ) ) && ( primary && !secondary ) )
 					primary = !primary;
 			}
 
@@ -433,7 +433,7 @@ namespace gui {
 					secondary = !secondary;
 			}*/
 
-			if (!in_line)
+			if ( !in_line )
 				area += vec2_t( 0, 20 );
 		}
 
@@ -460,10 +460,10 @@ namespace gui {
 
 			/* alpha */ {
 				float dx = std::clamp( ( g_input.m_mouse.y - ( draw.y + 20 ) ) / ( size.y - 30 ), 0.f, 1.f );
-				if (g_input.GetKeyPress( 0x01 ) && g_input.hovered( draw.x + size.x - 10, draw.y + 20, 10, size.y - 30 ) && !dragging_main && !dragging_hue)
+				if ( g_input.GetKeyPress( 0x01 ) && g_input.hovered( draw.x + size.x - 10, draw.y + 20, 10, size.y - 30 ) && !dragging_main && !dragging_hue )
 					dragging_alpha = true;
 
-				if (dragging_alpha) {
+				if ( dragging_alpha ) {
 					n_alpha = 255.f * dx;
 					config[var].set_color( Color::hsv_to_rgb( n_hsv.h, n_hsv.s, n_hsv.v ).alpha( 255.f * dx ) );
 					dragging_alpha = g_input.GetKeyState( 0x01 );
@@ -477,10 +477,10 @@ namespace gui {
 
 			/* hue */ {
 				float dx = std::clamp( ( g_input.m_mouse.x - ( draw.x + 10 ) ) / ( size.x - 25 ), 0.f, 1.f );
-				if (g_input.GetKeyPress( 0x01 ) && g_input.hovered( draw.x + 10, draw.y + size.y - 20, size.x - 25, 10 ) && !dragging_main && !dragging_alpha)
+				if ( g_input.GetKeyPress( 0x01 ) && g_input.hovered( draw.x + 10, draw.y + size.y - 20, size.x - 25, 10 ) && !dragging_main && !dragging_alpha )
 					dragging_hue = true;
 
-				if (dragging_hue) {
+				if ( dragging_hue ) {
 					n_hsv.h = 360.f * dx;
 					config[var].set_color( Color::hsv_to_rgb( 360.f * dx, n_hsv.s, n_hsv.v ).alpha( n_alpha ) );
 					dragging_hue = g_input.GetKeyState( 0x01 );
@@ -501,17 +501,17 @@ namespace gui {
 				float dx = std::clamp( ( g_input.m_mouse.x - ( draw.x + 10 ) ) / ( size.x - _off ), 0.f, 1.f );
 				float dy = std::clamp( ( g_input.m_mouse.y - ( draw.y + 5 ) ) / ( size.y - _off ), 0.f, 1.f );
 
-				if (g_input.GetKeyPress( 0x01 ) && g_input.hovered( draw.x + 10, draw.y + 10, size.x - _off, size.y - _off ) && !dragging_hue && !dragging_alpha)
+				if ( g_input.GetKeyPress( 0x01 ) && g_input.hovered( draw.x + 10, draw.y + 10, size.x - _off, size.y - _off ) && !dragging_hue && !dragging_alpha )
 					dragging_main = true;
 
-				if (dragging_main) {
+				if ( dragging_main ) {
 					n_hsv.s = dx; n_hsv.v = dy;
 					config[var].set_color( Color::hsv_to_rgb( n_hsv.h, dx, dy ).alpha( n_alpha ) );
 					dragging_main = g_input.GetKeyState( 0x01 );
 				}
 				else { dragging_main = false; }
 
-				for (int i = 0; i < ( ( size.y - _off ) / 5 ); i++) {
+				for ( int i = 0; i < ( ( size.y - _off ) / 5 ); i++ ) {
 					render::gradient1337( draw.x + 10, draw.y + 5 + ( i * 5 ), size.x - _off, 5, Color::hsv_to_rgb( n_hsv.h, 0.f, float( i ) / ( ( size.y - _off ) / 5 ) ).alpha( m_alpha( ) ), Color::hsv_to_rgb( n_hsv.h, 1.f, float( i ) / ( ( size.y - _off ) / 5 ) ).alpha( m_alpha( ) ) );
 				}
 				render::rect( draw.x + 10, draw.y + 5, size.x - _off, size.y - _off, palette::light.alpha( m_alpha( ) ) );
@@ -527,10 +527,10 @@ namespace gui {
 		}
 
 		void finish( vec2_t area ) {
-			if (primary)
+			if ( primary )
 				return primary_r( area );
 
-			if (secondary)
+			if ( secondary )
 				return secondary_r( area );
 		}
 	};
@@ -551,12 +551,12 @@ namespace gui {
 			render::rect( area.x + 9, area.y, size, 20, palette::light.alpha( m_alpha( ) ) );
 
 			render::gradient1337( area.x + 9 + 2, area.y + 2, size - 4, 16, m_accent.alpha( m_alpha( 55 * anim ) ), colors::black.alpha( m_alpha( 0 ) ) );
-			render::esp.string( area.x + ( ( size - 4 ) / 2.f ), area.y + 3, colors::white.blend( m_accent, anim ).alpha( m_alpha( ) ), title, render::ALIGN_CENTER );
+			render::esp.string( area.x + 9 + ( ( size - 4 ) / 2.f ), area.y + 3, colors::white.blend( m_accent, anim ).alpha( m_alpha( ) ), title, render::ALIGN_CENTER );
 
 			anim -= 4.f * g_csgo.m_globals->m_frametime;
 			anim = std::clamp( anim, 0.f, 1.f );
 
-			if (g_input.GetKeyPress( 0x01 ) && g_input.hovered( area.x + 9, area.y, size, 20 ) && use) {
+			if ( g_input.GetKeyPress( 0x01 ) && g_input.hovered( area.x + 9, area.y, size, 20 ) && use ) {
 				fn( );
 				anim = 1.f;
 			}
@@ -578,12 +578,12 @@ namespace gui {
 			title = _t; var = _v; mode = tfm::format( "%s_mode", _v );
 
 			bool found = config.find( var ) != config.end( );
-			if (!found) {
+			if ( !found ) {
 				config.insert( { var, value_t( 0 ) } );
 			}
 
 			bool found2 = config.find( mode ) != config.end( );
-			if (!found2) {
+			if ( !found2 ) {
 				config.insert( { mode, value_t( 0 ) } );
 			}
 		}
@@ -599,17 +599,17 @@ namespace gui {
 			auto size = render::esp.size( key_name( key ) ).m_width;
 			render::esp.string( area.x + tab - size, area.y, colors::white.blend( m_accent, anim ).alpha( m_alpha( ) ), key_name( key ) );
 
-			if (g_input.GetKeyPress( 0x01 ) && g_input.hovered( area.x + tab - size, area.y, size, 15 ) && use) {
+			if ( g_input.GetKeyPress( 0x01 ) && g_input.hovered( area.x + tab - size, area.y, size, 15 ) && use ) {
 				binding = !binding;
 			}
 
-			if (binding) {
-				for (int _key = 2; _key < 256; _key++) {
-					if (g_input.GetKeyPress( _key )) {
-						if (_key == VK_ESCAPE) {
+			if ( binding ) {
+				for ( int _key = 2; _key < 256; _key++ ) {
+					if ( g_input.GetKeyPress( _key ) ) {
+						if ( _key == VK_ESCAPE ) {
 							binding = false;
 						}
-						else if (_key == VK_BACK) {
+						else if ( _key == VK_BACK ) {
 							config[var].set<int>( 0 );
 							binding = false;
 						}
@@ -622,8 +622,8 @@ namespace gui {
 			}
 
 
-			if (g_input.GetKeyPress( 0x02 )) {
-				if (( g_input.hovered( area.x + tab - size, area.y, size, 15 ) && ( use || open ) ) || ( !g_input.hovered( area.x + tab - 50, area.y, 50, 40 ) && open ))
+			if ( g_input.GetKeyPress( 0x02 ) ) {
+				if ( ( g_input.hovered( area.x + tab - size, area.y, size, 15 ) && ( use || open ) ) || ( !g_input.hovered( area.x + tab - 50, area.y, 50, 40 ) && open ) )
 					open = !open;
 			}
 
@@ -639,15 +639,15 @@ namespace gui {
 
 			std::vector<std::string> modes{ "hold", "toggle" };
 			int i{ 0 };
-			for (auto m : modes) {
+			for ( auto m : modes ) {
 				bool s = config[mode].get<int>( ) == i;
 
-				if (s)
+				if ( s )
 					render::gradient1337( area.x + tab - size.x + 2, area.y + 7 + ( i * 15 ), size.x - 4, 11, m_accent.alpha( m_alpha( 55 ) ), colors::black.alpha( m_alpha( 0 ) ) );
 
-				render::esp.string( area.x + tab - size.x + 9 + ( 5 * int( s ) ), area.y + 5 + ( i * 15 ), ( s ? m_accent : colors::white ).alpha( m_alpha( ) ), m );
+				render::esp.string( area.x + tab - size.x + 5, area.y + 5 + ( i * 15 ), ( s ? m_accent : colors::white ).alpha( m_alpha( ) ), m );
 
-				if (g_input.GetKeyPress( 0x01 ) && g_input.hovered( area.x + tab - size.x, area.y + 5 + ( i * 15 ), size.x, 15 )) {
+				if ( g_input.GetKeyPress( 0x01 ) && g_input.hovered( area.x + tab - size.x, area.y + 5 + ( i * 15 ), size.x, 15 ) ) {
 					config[mode].set<int>( i );
 					open = !open;
 				}
@@ -694,37 +694,37 @@ namespace gui {
 		}
 
 		bool render( vec2_t& area = vec2_t( 0, 0 ), bool use = true ) {
-			if (checkbox.has_value( )) {
+			if ( checkbox.has_value( ) ) {
 				checkbox->render( area, use );
 				return true;
 			}
 
-			if (slider.has_value( )) {
+			if ( slider.has_value( ) ) {
 				slider->render( area, use );
 				return true;
 			}
 
-			if (dropdown.has_value( )) {
+			if ( dropdown.has_value( ) ) {
 				dropdown->render( area, use );
 				return true;
 			}
 
-			if (multidropdown.has_value( )) {
+			if ( multidropdown.has_value( ) ) {
 				multidropdown->render( area, use );
 				return true;
 			}
 
-			if (colorpicker.has_value( )) {
+			if ( colorpicker.has_value( ) ) {
 				colorpicker->render( area, use );
 				return true;
 			}
 
-			if (button.has_value( )) {
+			if ( button.has_value( ) ) {
 				button->render( area, use );
 				return true;
 			}
 
-			if (hotkey.has_value( )) {
+			if ( hotkey.has_value( ) ) {
 				hotkey->render( area, use );
 				return true;
 			}
@@ -733,16 +733,16 @@ namespace gui {
 		}
 
 		void finish( vec2_t area ) {
-			if (dropdown.has_value( ) && dropdown->open)
+			if ( dropdown.has_value( ) && dropdown->open )
 				return dropdown->finish( area );
 
-			if (multidropdown.has_value( ) && multidropdown->open)
+			if ( multidropdown.has_value( ) && multidropdown->open )
 				return multidropdown->finish( area );
 
-			if (colorpicker.has_value( ) && ( colorpicker->primary || colorpicker->secondary ))
+			if ( colorpicker.has_value( ) && ( colorpicker->primary || colorpicker->secondary ) )
 				return colorpicker->finish( area );
 
-			if (hotkey.has_value( ) && hotkey->open)
+			if ( hotkey.has_value( ) && hotkey->open )
 				return hotkey->finish( area );
 		}
 
@@ -829,22 +829,22 @@ namespace gui {
 
 			control_t topmost{ };
 			vec2_t _pos;
-			for (auto& c : controls) {
-				if (c.contains( )) {
+			for ( auto& c : controls ) {
+				if ( c.contains( ) ) {
 					topmost = c;
 					_pos = area( );
 				}
 
 				c.render( area( ), !topmost.contains( ) );
 			}
-			if (topmost.contains( ))
+			if ( topmost.contains( ) )
 				topmost.finish( _pos );
 
 			auto diff = ( draw.y - og_draw.y ) + ( -5 + abs( scroll ) );
 			max_scroll = diff;
 			float s_diff = diff - size.y;
 
-			if (last_scroll != g_csgo.m_input_system->get_analog_value( analog_code_t::MOUSE_WHEEL ) && g_input.hovered( pos.x, pos.y, size.x, size.y ) && s_diff >= 0) {
+			if ( last_scroll != g_csgo.m_input_system->get_analog_value( analog_code_t::MOUSE_WHEEL ) && g_input.hovered( pos.x, pos.y, size.x, size.y ) && s_diff >= 0 ) {
 				scroll += g_csgo.m_input_system->get_analog_delta( analog_code_t::MOUSE_WHEEL ) * 8;
 				last_scroll = g_csgo.m_input_system->get_analog_value( analog_code_t::MOUSE_WHEEL );
 				scroll = std::clamp( scroll, int( -( s_diff + 10 ) ), 0 );
