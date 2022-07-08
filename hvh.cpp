@@ -19,9 +19,14 @@ void HVH::fake_flick( )
 	if ( !( cfg_t::get_hotkey( "aa_fflick", "aa_fflick_mode" ) ) || !g_cl.m_local || !g_cl.m_local->alive( ) )
 		return;
 
-	if ( g_cl.GetNextUpdate( ) % 5 == 0 ) {
-		g_cl.m_cmd->m_view_angles.y += m_updates % 2 == 0 ? 113.f : -113.f;
-		g_cl.m_cmd->m_side_move = m_updates % 2 == 0 ? 450.f : -450.f;
+	if ( g_csgo.m_globals->m_tick_count % 7 > 4 ) {
+		g_cl.m_cmd->m_forward_move = 7;
+		if ( g_csgo.m_globals->m_tick_count % 4 > 2 ) {
+			g_cl.m_cmd->m_forward_move = -7;
+			g_cl.m_cmd->m_view_angles.y += -115.f;
+		}
+		else
+			g_cl.m_cmd->m_view_angles.y += 115.f;
 	}
 }
 
@@ -192,7 +197,7 @@ void HVH::GetAntiAimDirection( ) {
 		if ( !target )
 			continue;
 
-		if ( !target->alive( ) )
+		if ( !target->alive( ) || target->dormant( ) )
 			continue;
 
 		fov = math::GetFOV( g_cl.m_view_angles, g_cl.m_shoot_pos, target->WorldSpaceCenter( ) );
@@ -209,12 +214,19 @@ void HVH::GetAntiAimDirection( ) {
 			math::VectorAngles( best_target->m_vecOrigin( ) - g_cl.m_local->m_vecOrigin( ), angle );
 			m_view = angle.y;
 		}
+		else
+			m_view = g_cl.m_view_angles.y;
 	}
 
 	m_direction = m_view + 180.f;
 
 	if ( config["aa_yaw"].get<int>( ) == 1 && m_mode == AntiAimMode::AIR )
 		m_direction = m_view + 150.f + ( sin( g_csgo.m_globals->m_curtime * 3.f ) * 60.f );
+
+	float velyaw = math::rad_to_deg( std::atan2( g_cl.m_local->m_vecVelocity( ).x, g_cl.m_local->m_vecVelocity( ).y ) );
+
+	if ( config["aa_yaw"].get<int>( ) == 2 && m_mode == AntiAimMode::AIR )
+		m_direction = velyaw;
 
 	if ( config["aa_fs"].get<bool>( ) && best_target && m_mode != AntiAimMode::AIR ) {
 
@@ -462,7 +474,7 @@ void HVH::DoFakeAntiAim( ) {
 	if ( config["aa_fake"].get<bool>( ) )
 		g_cl.m_cmd->m_view_angles.y = m_direction + 180.f - config["aa_fake_offset"].get<float>( );
 
-	SendFakeFlick( );
+	//SendFakeFlick( );
 
 	// normalize fake angle.
 	math::NormalizeAngle( g_cl.m_cmd->m_view_angles.y );

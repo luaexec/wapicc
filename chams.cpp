@@ -368,7 +368,7 @@ void Chams::RenderPlayer( Player* player ) {
 	bool enemy = g_cl.m_local && player->enemy( g_cl.m_local );
 
 	if ( enemy && config["chams_bt"].get<bool>( ) ) {
-		RenderHistoryChams( player->index( ) );
+		//RenderHistoryChams( player->index( ) );
 	}
 
 	if ( enemy && config["chams_enemy"].get<bool>( ) ) {

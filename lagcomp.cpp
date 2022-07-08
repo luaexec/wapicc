@@ -5,55 +5,46 @@ LagCompensation g_lagcomp{};;
 bool LagCompensation::StartPrediction( AimPlayer* data ) {
 	// we have no data to work with.
 	// this should never happen if we call this
-	if ( data->m_records.empty( ) )
+	if ( data->m_records.size( ) <= 0 )
 		return false;
 
 	// meme.
 	if ( data->m_player->dormant( ) )
 		return false;
 
-	if ( data->m_records.size( ) < 2 )
-		return false;
+	// compute the true amount of updated records
+	// since the last time the player entered pvs.
+	size_t size{};
 
-	LagRecord* front = data->m_records[0].get( );
+	// iterate records.
+	for ( const auto& it : data->m_records ) {
+		if ( it->dormant( ) )
+			break;
 
+		// increment total amount of data.
+		++size;
+	}
 
-	if ( !front || front->dormant( ) || !front->valid( ) || front->immune( ) )
-		return false;
-
-	LagRecord* previous = data->m_records[1].get( );
-
-	if ( !previous || previous->dormant( ) || !previous->valid( ) || previous->immune( ) )
-		return false;
+	// get first record.
+	LagRecord* record = data->m_records[0].get( );
 
 	// reset all prediction related variables.
 	// this has been a recurring problem in all my hacks lmfao.
 	// causes the prediction to stack on eachother.
-	front->predict( );
-
-	bool front_distance = ( front->m_origin - previous->m_origin ).length_sqr( ) > 4096.f;
-	bool previous_distance = false;
-
-	if ( data->m_records.size( ) >= 3 ) {
-
-		LagRecord* previous_previous = data->m_records[2].get( );
-		bool invalid = !previous_previous || previous_previous->dormant( ) || !previous_previous->valid( ) || previous_previous->immune( );
-		if ( !invalid ) {
-			previous_distance = ( previous->m_origin - previous_previous->m_origin ).length_sqr( ) > 4096.f;
-		}
-	}
+	record->predict( );
 
 	// check if lc broken.
-	if ( front_distance || previous_distance )
-		front->m_broke_lc = true;
+	if ( size > 1 && ( ( record->m_origin - data->m_records[1]->m_origin ).length_sqr( ) > 4096.f
+		 || size > 2 && ( data->m_records[1]->m_origin - data->m_records[2]->m_origin ).length_sqr( ) > 4096.f ) )
+		record->m_broke_lc = true;
 
 	// we are not breaking lagcomp at this point.
 	// return false so it can aim at all the records it once
 	// since server-sided lagcomp is still active and we can abuse that.
-	if ( !front->m_broke_lc )
+	if ( !record->m_broke_lc )
 		return false;
 
-	int simulation = game::TIME_TO_TICKS( front->m_sim_time );
+	int simulation = game::TIME_TO_TICKS( record->m_sim_time );
 
 	// this is too much lag to fix.
 	if ( std::abs( g_cl.m_arrival_tick - simulation ) >= 128 )
@@ -61,17 +52,15 @@ bool LagCompensation::StartPrediction( AimPlayer* data ) {
 
 	// compute the amount of lag that we will predict for, if we have one set of data, use that.
 	// if we have more data available, use the prevoius lag delta to counter weird fakelags that switch between 14 and 2.
-	int lag = ( data->m_records.size( ) <= 2 ) ? game::TIME_TO_TICKS( front->m_sim_time - previous->m_sim_time )
-		: game::TIME_TO_TICKS( previous->m_sim_time - data->m_records[2]->m_sim_time );
+	int lag = ( size <= 2 ) ? game::TIME_TO_TICKS( record->m_sim_time - data->m_records[1]->m_sim_time )
+		: game::TIME_TO_TICKS( data->m_records[1]->m_sim_time - data->m_records[2]->m_sim_time );
 
 	// clamp this just to be sure.
 	math::clamp( lag, 1, 15 );
 
-	lag -= 1;
-
 	// get the delta in ticks between the last server net update
 	// and the net update on which we created this record.
-	int updatedelta = g_cl.m_server_tick - front->m_tick;
+	int updatedelta = g_cl.m_server_tick - record->m_tick;
 
 	// if the lag delta that is remaining is less than the current netlag
 	// that means that we can shoot now and when our shot will get processed
@@ -80,164 +69,182 @@ bool LagCompensation::StartPrediction( AimPlayer* data ) {
 		return true;
 
 	// the next update will come in, wait for it.
-	int next = front->m_tick + 1;
+	int next = record->m_tick + 1;
 	if ( next + lag >= g_cl.m_arrival_tick )
 		return true;
 
-	float change = 0.f, dir = 0.f;
+	//float change = 0.f, dir = 0.f;
 
-	// get the direction of the current velocity.
-	if ( front->m_velocity.y != 0.f || front->m_velocity.x != 0.f )
-		dir = math::rad_to_deg( std::atan2( front->m_velocity.y, front->m_velocity.x ) );
+	//// get the direction of the current velocity.
+	//if( record->m_velocity.y != 0.f || record->m_velocity.x != 0.f )
+	//	dir = math::rad_to_deg( std::atan2( record->m_velocity.y, record->m_velocity.x ) );
 
-	// we have more than one update
-	// we can compute the direction.
-	if ( data->m_records.size( ) > 2 ) {
-		// get the delta time between the 2 most recent records.
-		float dt = front->m_sim_time - previous->m_sim_time;
+	//// we have more than one update
+	//// we can compute the direction.
+	//if( size > 1 ) {
+	//	// get the delta time between the 2 most recent records.
+	//	float dt = record->m_sim_time - data->m_records[ 1 ]->m_sim_time;
 
-		// init to 0.
-		float prevdir = 0.f;
+	//	// init to 0.
+	//	float prevdir = 0.f;
 
-		// get the direction of the prevoius velocity.
-		if ( previous->m_velocity.y != 0.f || previous->m_velocity.x != 0.f )
-			prevdir = math::rad_to_deg( std::atan2( previous->m_velocity.y, previous->m_velocity.x ) );
+	//	// get the direction of the prevoius velocity.
+	//	if( data->m_records[ 1 ]->m_velocity.y != 0.f || data->m_records[ 1 ]->m_velocity.x != 0.f )
+	//		prevdir = math::rad_to_deg( std::atan2( data->m_records[ 1 ]->m_velocity.y, data->m_records[ 1 ]->m_velocity.x ) );
 
-		// compute the direction change per tick.
-		change = ( math::NormalizedAngle( dir - prevdir ) / dt ) * g_csgo.m_globals->m_interval;
-	}
+	//	// compute the direction change per tick.
+	//	change = ( math::NormalizedAngle( dir - prevdir ) / dt ) * g_csgo.m_globals->m_interval;
+	//}
 
-	if ( std::abs( change ) > 6.f )
-		change = 0.f;
+	//if( std::abs( change ) > 6.f )
+	//	change = 0.f;
 
-	// get the pointer to the players animation state.
-	CCSGOPlayerAnimState* state = data->m_player->m_PlayerAnimState( );
+	//// get the pointer to the players animation state.
+	//CCSGOPlayerAnimState* state = data->m_player->m_PlayerAnimState( );
 
-	// backup the animation state.
-	CCSGOPlayerAnimState backup{};
-	if ( state )
-		std::memcpy( &backup, state, sizeof( CCSGOPlayerAnimState ) );
+	//// backup the animation state.
+	//CCSGOPlayerAnimState backup{};
+	//if( state )
+	//	std::memcpy( &backup, state, sizeof( CCSGOPlayerAnimState ) );
 
-	int pred = 0;
+	//// add in the shot prediction here.
+	//int shot = 0;
 
-	// start our predicton loop.
-	while ( true ) {
-		// see if by predicting this amount of lag
-		// we do not break stuff.
-		next += lag;
-		if ( next >= g_cl.m_arrival_tick )
-			break;
+	///*Weapon* pWeapon = data->m_player->GetActiveWeapon( );
+	//if( pWeapon && !data->m_fire_bullet.empty( ) ) {
 
-		// make sure we clamp the simulated lag ticks we are predicting.
-			// from eso.
-		if ( lag >= 1 ) {
-			if ( lag > 15 )
-				lag = 15;
-		}
-		else {
-			lag = 0;
-		}
+	//	static Address offset = g_netvars.get( HASH( "DT_BaseCombatWeapon" ), HASH( "m_fLastShotTime" ) );
+	//	float last = pWeapon->get< float >( offset );
 
-		// predict lag.
-		for ( int sim{ }; sim < lag; ++sim ) {
-			// predict movement direction by adding the direction change per tick to the previous direction.
-			// make sure to normalize it, in case we go over the -180/180 turning point.
-			dir = math::NormalizedAngle( dir + change );
+	//	if( game::TIME_TO_TICKS( data->m_fire_bullet.front( ).m_sim_time - last ) == 1 ) {
+	//		WeaponInfo* wpndata = pWeapon->GetWpnData( );
 
-			// pythagorean theorem
-			// a^2 + b^2 = c^2
-			// we know a and b, we square them and add them together, then root.
-			float hyp = front->m_pred_velocity.length_2d( );
+	//		if( wpndata )
+	//			shot = game::TIME_TO_TICKS( last + wpndata->m_cycletime ) + 1;
+	//	}
+	//}*/
 
-			// compute the base velocity for our new direction.
-			// since at this point the hypotenuse is known for us and so is the angle.
-			// we can compute the adjacent and opposite sides like so:
-			// cos(x) = a / h -> a = cos(x) * h
-			// sin(x) = o / h -> o = sin(x) * h
-			front->m_pred_velocity.x = std::cos( math::deg_to_rad( dir ) ) * hyp;
-			front->m_pred_velocity.y = std::sin( math::deg_to_rad( dir ) ) * hyp;
+	//int pred = 0;
 
-			// we hit the ground, set the upwards impulse and apply CS:GO speed restrictions.
-			if ( front->m_pred_flags & FL_ONGROUND ) {
-				if ( !g_csgo.sv_enablebunnyhopping->GetInt( ) ) {
+	//// start our predicton loop.
+	//while( true ) {
+	//	// can the player shoot within his lag delta.
+	//	/*if( shot && shot >= simulation && shot < simulation + lag ) {
+	//	
+	//		// if so his new lag will be the time until he shot again.
+	//		lag = shot - simulation;
+	//		math::clamp( lag, 3, 15 );
+	//	
+	//		// only predict a shot once.
+	//		shot = 0;
+	//	}*/
 
-					// 260 x 1.1 = 286 units/s.
-					float max = data->m_player->m_flMaxspeed( ) * 1.1f;
+	//	// see if by predicting this amount of lag
+	//	// we do not break stuff.
+	//	next += lag;
+	//	if( next >= g_cl.m_arrival_tick )
+	//		break;
 
-					// get current velocity.
-					float speed = front->m_pred_velocity.length( );
+	//	// predict lag.
+	//	for( int sim{}; sim < lag; ++sim ) {
+	//		// predict movement direction by adding the direction change per tick to the previous direction.
+	//		// make sure to normalize it, in case we go over the -180/180 turning point.
+	//		dir = math::NormalizedAngle( dir + change );
 
-					// reset velocity to 286 units/s.
-					if ( max > 0.f && speed > max )
-						front->m_pred_velocity *= ( max / speed );
-				}
+	//		// pythagorean theorem
+	//		// a^2 + b^2 = c^2
+	//		// we know a and b, we square them and add them together, then root.
+	//		float hyp = record->m_pred_velocity.length_2d( );
 
-				// assume the player is bunnyhopping here so set the upwards impulse.
-				front->m_pred_velocity.z = g_csgo.sv_jump_impulse->GetFloat( );
-			}
+	//		// compute the base velocity for our new direction.
+	//		// since at this point the hypotenuse is known for us and so is the angle.
+	//		// we can compute the adjacent and opposite sides like so:
+	//		// cos(x) = a / h -> a = cos(x) * h
+	//		// sin(x) = o / h -> o = sin(x) * h
+	//		record->m_pred_velocity.x = std::cos( math::deg_to_rad( dir ) ) * hyp;
+	//		record->m_pred_velocity.y = std::sin( math::deg_to_rad( dir ) ) * hyp;
 
-			// we are not on the ground
-			// apply gravity and airaccel.
-			else {
-				// apply one tick of gravity.
-				front->m_pred_velocity.z -= g_csgo.sv_gravity->GetFloat( ) * g_csgo.m_globals->m_interval;
+	//		// we hit the ground, set the upwards impulse and apply CS:GO speed restrictions.
+	//		if( record->m_pred_flags & FL_ONGROUND ) {
+	//			if( !g_csgo.sv_enablebunnyhopping->GetInt( ) ) {
 
-				// compute the ideal strafe angle for this velocity.
-				float speed2d = front->m_pred_velocity.length_2d( );
-				float ideal = ( speed2d > 0.f ) ? math::rad_to_deg( std::asin( 15.f / speed2d ) ) : 90.f;
-				math::clamp( ideal, 0.f, 90.f );
+	//				// 260 x 1.1 = 286 units/s.
+	//				float max = data->m_player->m_flMaxspeed( ) * 1.1f;
 
-				float smove = 0.f;
-				float abschange = std::abs( change );
+	//				// get current velocity.
+	//				float speed = record->m_pred_velocity.length( );
 
-				if ( abschange <= ideal || abschange >= 30.f ) {
-					static float mod{ 1.f };
+	//				// reset velocity to 286 units/s.
+	//				if( max > 0.f && speed > max )
+	//					record->m_pred_velocity *= ( max / speed );
+	//			}
 
-					dir += ( ideal * mod );
-					smove = 450.f * mod;
-					mod *= -1.f;
-				}
+	//			// assume the player is bunnyhopping here so set the upwards impulse.
+	//			record->m_pred_velocity.z = g_csgo.sv_jump_impulse->GetFloat( );
+	//		}
 
-				else if ( change > 0.f )
-					smove = -450.f;
+	//		// we are not on the ground
+	//		// apply gravity and airaccel.
+	//		else {
+	//			// apply one tick of gravity.
+	//			record->m_pred_velocity.z -= g_csgo.sv_gravity->GetFloat( ) * g_csgo.m_globals->m_interval;
 
-				else
-					smove = 450.f;
+	//			// compute the ideal strafe angle for this velocity.
+	//			float speed2d = record->m_pred_velocity.length_2d( );
+	//			float ideal   = ( speed2d > 0.f ) ? math::rad_to_deg( std::asin( 15.f / speed2d ) ) : 90.f;
+	//			math::clamp( ideal, 0.f, 90.f );
 
-				// apply air accel.
-				AirAccelerate( front, ang_t{ 0.f, dir, 0.f }, 0.f, smove );
-			}
+	//			float smove = 0.f;
+	//			float abschange = std::abs( change );
 
-			// predict player.
-			// convert newly computed velocity
-			// to origin and flags.
-			PlayerMove( front );
+	//			if( abschange <= ideal || abschange >= 30.f ) {
+	//				static float mod{ 1.f };
 
-			// move time forward by one.
-			front->m_pred_time += g_csgo.m_globals->m_interval;
+	//				dir  += ( ideal * mod );
+	//				smove = 450.f * mod;
+	//				mod  *= -1.f;
+	//			}
 
-			// increment total amt of predicted ticks.
-			++pred;
+	//			else if( change > 0.f )
+	//				smove = -450.f;
 
-			// the server animates every first choked command.
-			// therefore we should do that too.
-			if ( sim == 0 && state )
-				PredictAnimations( state, front );
-		}
-	}
+	//			else
+	//				smove = 450.f;
 
-	// restore state.
-	if ( state )
-		std::memcpy( state, &backup, sizeof( CCSGOPlayerAnimState ) );
+	//			// apply air accel.
+	//			AirAccelerate( record, ang_t{ 0.f, dir, 0.f }, 0.f, smove );
+	//		}
 
-	if ( pred <= 0 )
-		return true;
+	//		// predict player.
+	//		// convert newly computed velocity
+	//		// to origin and flags.
+	//		PlayerMove( record );
 
-	// lagcomp broken, invalidate bones.
-	front->invalidate( );
+	//		// move time forward by one.
+	//		record->m_pred_time += g_csgo.m_globals->m_interval;
 
-	// re-setup bones for this record.
-	g_bones.setup( data->m_player, nullptr, front );
+	//		// increment total amt of predicted ticks.
+	//		++pred;
+
+	//		// the server animates every first choked command.
+	//		// therefore we should do that too.
+	//		if( sim == 0 && state )
+	//			PredictAnimations( state, record );
+	//	}
+	//}
+
+	//// restore state.
+	//if( state )
+	//	std::memcpy( state, &backup, sizeof( CCSGOPlayerAnimState ) );
+
+	//if( pred <= 0 )
+	//	return true;
+
+	//// lagcomp broken, invalidate bones.
+	//record->invalidate( );
+
+	//// re-setup bones for this record.
+	////g_bones.setup( data->m_player, nullptr, record );
 
 	return true;
 }
@@ -246,12 +253,19 @@ void LagCompensation::PlayerMove( LagRecord* record ) {
 	vec3_t                start, end, normal;
 	CGameTrace            trace;
 	CTraceFilterWorldOnly filter;
+	if ( record->m_pred_flags & FL_ONGROUND )
+		record->m_velocity.z = g_csgo.sv_jump_impulse->GetFloat( );
+	else
+		record->m_velocity.z -= g_csgo.sv_gravity->GetFloat( ) * g_csgo.m_globals->m_interval;
+
+	// get chocked ticks.
+	int m_choked_ticks = std::clamp( game::TIME_TO_TICKS( record->m_lag ), 1, 16 );
 
 	// define trace start.
-	start = record->m_pred_origin;
+	start = record->m_origin;
 
 	// move trace end one tick into the future using predicted velocity.
-	end = start + ( record->m_pred_velocity * g_csgo.m_globals->m_interval );
+	end = start + ( ( record->m_velocity * g_csgo.m_globals->m_interval ) * m_choked_ticks );
 
 	// trace.
 	g_csgo.m_engine_trace->TraceRay( Ray( start, end, record->m_mins, record->m_maxs ), CONTENTS_SOLID, &filter, &trace );
@@ -259,27 +273,26 @@ void LagCompensation::PlayerMove( LagRecord* record ) {
 	// we hit shit
 	// we need to fix hit.
 	if ( trace.m_fraction != 1.f ) {
-		auto v1 = 0;
-		// fix sliding on planes.
-		do {
-			record->m_pred_velocity -= trace.m_plane.m_normal * record->m_pred_velocity.dot( trace.m_plane.m_normal );
 
-			float adjust = record->m_pred_velocity.dot( trace.m_plane.m_normal );
+		// fix sliding on planes.
+		for ( int i{}; i < 2; ++i ) {
+			record->m_velocity -= trace.m_plane.m_normal * record->m_velocity.dot( trace.m_plane.m_normal );
+
+			float adjust = record->m_velocity.dot( trace.m_plane.m_normal );
 			if ( adjust < 0.f )
-				record->m_pred_velocity -= ( trace.m_plane.m_normal * adjust );
+				record->m_velocity -= ( trace.m_plane.m_normal * adjust );
 
 			start = trace.m_endpos;
-			end = start + ( record->m_pred_velocity * ( g_csgo.m_globals->m_interval * ( 1.f - trace.m_fraction ) ) );
+			end = start + ( record->m_velocity * ( g_csgo.m_globals->m_interval * ( 1.f - trace.m_fraction ) ) );
 
 			g_csgo.m_engine_trace->TraceRay( Ray( start, end, record->m_mins, record->m_maxs ), CONTENTS_SOLID, &filter, &trace );
 			if ( trace.m_fraction == 1.f )
 				break;
-			++v1;
-		} while ( v1 < 2 );
+		}
 	}
 
 	// set new final origin.
-	start = end = record->m_pred_origin = trace.m_endpos;
+	start = end = record->m_origin = trace.m_endpos;
 
 	// move endpos 2 units down.
 	// this way we can check if we are in/on the ground.
@@ -289,18 +302,11 @@ void LagCompensation::PlayerMove( LagRecord* record ) {
 	g_csgo.m_engine_trace->TraceRay( Ray( start, end, record->m_mins, record->m_maxs ), CONTENTS_SOLID, &filter, &trace );
 
 	// strip onground flag.
-	record->m_pred_flags &= ~FL_ONGROUND;
+	record->m_flags &= ~FL_ONGROUND;
 
 	// add back onground flag if we are onground.
 	if ( trace.m_fraction != 1.f && trace.m_plane.m_normal.z > 0.7f )
-		record->m_pred_flags |= FL_ONGROUND;
-
-	// luaghin to the bank haha.
-	if ( !( record->m_pred_flags & FL_ONGROUND ) ) {
-		// thanks eso.
-		record->m_layers[4].m_cycle = 0.0f;
-		record->m_layers[4].m_weight = 0.0f;
-	}
+		record->m_flags |= FL_ONGROUND;
 }
 
 void LagCompensation::AirAccelerate( LagRecord* record, ang_t angle, float fmove, float smove ) {
@@ -319,7 +325,7 @@ void LagCompensation::AirAccelerate( LagRecord* record, ang_t angle, float fmove
 	right.normalize( );
 
 	// determine x and y parts of velocity.
-	for ( int i{ }; i < 2; ++i )
+	for ( int i{}; i < 2; ++i )
 		wishvel[i] = ( fwd[i] * fmove ) + ( right[i] * smove );
 
 	// zero out z part of velocity.
@@ -389,14 +395,9 @@ void LagCompensation::PredictAnimations( CCSGOPlayerAnimState* state, LagRecord*
 	g_csgo.m_globals->m_curtime = record->m_pred_time;
 	g_csgo.m_globals->m_frametime = g_csgo.m_globals->m_interval;
 
-	enum dirty
-	{
-		EFL_DIRTY_ABSTRANSFORM = ( 1 << 11 ),
-		EFL_DIRTY_ABSVELOCITY = ( 1 << 12 ),
-	};
-
-	// force to use correct abs origin and velocity ( no CalcAbsolutePosition and CalcAbsoluteVelocity calls )
-	player->m_iEFlags( ) &= ~( EFL_DIRTY_ABSTRANSFORM | EFL_DIRTY_ABSVELOCITY );
+	// EFL_DIRTY_ABSVELOCITY
+	// skip call to C_BaseEntity::CalcAbsoluteVelocity
+	player->m_iEFlags( ) &= ~0x1000;
 
 	// set predicted flags and velocity.
 	player->m_fFlags( ) = record->m_pred_flags;
@@ -433,4 +434,3 @@ void LagCompensation::PredictAnimations( CCSGOPlayerAnimState* state, LagRecord*
 	player->m_iEFlags( ) = backup.eflags;
 	player->m_vecAbsVelocity( ) = backup.velocity;
 }
-

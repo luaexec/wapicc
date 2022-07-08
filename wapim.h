@@ -144,7 +144,7 @@ namespace wapim {
 
 				auto yaw = std::make_unique<gui::dropdown_t>(
 					"yaw", "aa_yaw", value_t( 0 ), std::vector<std::string>{
-					"backwards", "180z"
+					"backwards", "180z", "air velocity"
 				} );
 				general->add_dropdown( yaw.get( ) );
 

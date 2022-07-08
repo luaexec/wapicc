@@ -38,6 +38,15 @@ void Visuals::ModulateWorld( ) {
 	g_csgo.m_cvar->FindVar( HASH( "mat_ambient_light_r" ) )->SetValue( _a.r( ) / 255.f );
 	g_csgo.m_cvar->FindVar( HASH( "mat_ambient_light_g" ) )->SetValue( _a.g( ) / 255.f );
 	g_csgo.m_cvar->FindVar( HASH( "mat_ambient_light_b" ) )->SetValue( _a.b( ) / 255.f );
+
+	if ( config["vis_ss"].get<bool>( ) ) {
+		g_csgo.m_cvar->FindVar( HASH( "cl_csm_rot_override" ) )->SetValue( "1" );
+		g_csgo.m_cvar->FindVar( HASH( "cl_csm_rot_x" ) )->SetValue( "0" );
+	}
+	else {
+		g_csgo.m_cvar->FindVar( HASH( "cl_csm_rot_override" ) )->SetValue( "0" );
+		g_csgo.m_cvar->FindVar( HASH( "cl_csm_rot_x" ) )->SetValue( "50" );
+	}
 }
 
 void Visuals::ThirdpersonThink( ) {

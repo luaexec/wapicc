@@ -11,6 +11,7 @@ public:
 
 public:
 	__forceinline NotifyText( const std::string& text, Color color, float time ) : m_text{ text }, m_color{ color }, m_time{ time } {}
+	__forceinline float remainder( ) { return g_csgo.m_globals->m_curtime - m_time; }
 };
 
 class Notify {
@@ -21,43 +22,75 @@ public:
 	__forceinline Notify( ) : m_notify_text{} {}
 
 	__forceinline void add( const std::string& text, Color color = colors::white, float time = 5.f, bool console = true ) {
-		m_notify_text.push_back( std::make_shared< NotifyText >( text, color, time ) );
+		m_notify_text.push_back( std::make_shared< NotifyText >( text, color, g_csgo.m_globals->m_curtime + time ) );
 
 		if ( console )
 			g_cl.print( text );
 	}
 
 	void think( Color nigga ) {
-		int		x{ 8 }, y{ 5 }, size{ render::esp.m_size.m_height + 1 };
-		Color	color;
-		float	left;
+		int y{ 0 }, palpha{ -1 };
 
-		// update lifetimes.
-		for ( size_t i{}; i < m_notify_text.size( ); ++i ) {
-			auto notify = m_notify_text[i];
+		auto out_quart = [&]( double t ) {
+			t = ( --t ) * t;
+			return 1 - t * t;
+		};
 
-			notify->m_time -= g_csgo.m_globals->m_frametime;
+		auto out_quint = [&]( double t ) {
+			const double t2 = ( --t ) * t;
+			return 1 + t * t2 * t2;
+		};
 
-			if ( notify->m_time <= 0.f ) {
-				m_notify_text.erase( m_notify_text.begin( ) + i );
-				continue;
-			}
-		}
+		auto in_quint = [&]( double t ) {
+			const double t2 = t * t;
+			return t * t2 * t2;
+		};
+
+		auto inout_sine = [&]( double t ) {
+			return 0.5 * ( 1 + sin( 3.1415926 * ( t - 0.5 ) ) );
+		};
 
 		if ( m_notify_text.empty( ) )
 			return;
 
-		for ( size_t i{}; i < m_notify_text.size( ); ++i ) {
-			auto notify = m_notify_text[i];
+		for ( size_t idx{ }; idx < m_notify_text.size( ); ++idx ) {
+			auto info = m_notify_text[idx].get( );
 
-			auto s = std::min( 5.f - notify->m_time, 0.5f ) * 2.f;
-			auto e = std::min( notify->m_time, 0.5f ) * 2.f;
-			auto t = std::min( s, e );
-			color = notify->m_color;
+			auto size = render::esp.size( std::string( "wapicc" ).append( info->m_text ) ).m_width;
 
-			render::esp.string( x - render::esp.size( notify->m_text ).m_width + ( render::esp.size( notify->m_text ).m_width * t ), y, nigga.alpha( 255.f * t ), notify->m_text );
-			y += size;
+			float start = 5 - info->remainder( );
+			start = std::clamp( start, 0.f, 1.f );
+
+			float end = info->remainder( );
+			end = std::clamp( end, 0.f, 1.f );
+			float end_a = 1 - end;
+
+			if ( end_a != 1.f )
+				y -= int( 15.f * out_quart( end_a ) );
+
+			float alpha_multiplier = end_a != 0 ? out_quint( end ) : start != 1 ? inout_sine( start ) : 1.f;
+
+			auto accent_s = nigga.alpha( 255 );
+			accent_s.a( ) *= alpha_multiplier;
+
+			auto accent_e = info->m_color.alpha( 255 );
+			accent_e.a( ) *= in_quint( alpha_multiplier );
+
+			int max_logs = 10;
+
+			bool over = ( m_notify_text.size( ) > max_logs ) && ( m_notify_text.size( ) - max_logs > idx );
+			if ( info->remainder( ) <= 0 || over ) {
+				m_notify_text.erase( m_notify_text.begin( ) + idx );
+				continue;
+			}
+
+			render::esp.string( 7 * out_quart( start ), y, accent_s, "wapicc" );
+			render::esp.string( 7 * out_quart( start ) + render::esp.size( "wapicc" ).m_width + 4, y, accent_e, info->m_text );
+
+			y += 15;
+			palpha = 255 * alpha_multiplier;
 		}
+
 	}
 };
 

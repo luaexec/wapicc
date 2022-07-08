@@ -234,8 +234,9 @@ void Resolver::SetMode( LagRecord* record ) {
 void Resolver::ResolveAngles( Player* player, LagRecord* record ) {
 	AimPlayer* data = &g_aimbot.m_players[player->index( ) - 1];
 
-	if ( config["acc_correct_os"].get<bool>( ) && MatchShot( data, record ) )
-		return;
+	if ( config["acc_correct_os"].get<bool>( ) )
+		if ( MatchShot( data, record ) )
+			return;
 
 	SetMode( record );
 
@@ -259,7 +260,7 @@ void Resolver::ResolveWalk( AimPlayer* data, LagRecord* record ) {
 	record->m_eye_angles.y = record->m_body;
 
 	data->m_body_update = record->m_anim_time + 0.22f;
-	//data->m_moved = false;
+	data->m_moved = false;
 
 	data->m_missed_shots = 0;
 	data->m_body_index = 0;
@@ -633,72 +634,109 @@ void Resolver::ResolveStand( AimPlayer* data, LagRecord* record ) {
 		rec.update( trace, fs_dir::FS_BACK );
 	}
 
+	auto tr_fract = [&]( vec3_t pos ) {
+		CGameTrace tr;
+		CTraceFilterSimple filter{ };
+		filter.m_pass_ent1 = g_cl.m_local;
+
+		auto start = g_cl.m_shoot_pos;
+		auto dir = ( pos - start ).normalized( );
+
+		g_csgo.m_engine_trace->TraceRay( Ray( start, pos ), MASK_SHOT | CONTENTS_GRATE, &filter, &tr );
+
+		return tr.m_fraction;
+	};
+
+	auto dick = std::max( g_cl.m_local->m_vecVelocity( ).absolute( ).length( ), record->m_player->m_vecVelocity( ).absolute( ).length( ) ) == g_cl.m_local->m_vecVelocity( ).absolute( ).length( ) ? g_cl.m_local->m_vecVelocity( ).absolute( ) : record->m_player->m_vecVelocity( ).absolute( );
+	auto ball = std::max( dick.length( ), vec3_t( 300, 0, 0 ).length( ) ) == dick.length( ) ? dick : vec3_t( 300, 0, 0 );
+
+	auto fr_left = tr_fract( record->m_player->m_vecOrigin( ) + ( ball * ( g_csgo.m_globals->m_interval * 20 ) ) );
+	auto fr_right = tr_fract( record->m_player->m_vecOrigin( ) + ( ball * ( g_csgo.m_globals->m_interval * -20 ) ) );
+	auto fr_back = tr_fract( record->m_player->m_vecOrigin( ) );
+
 	if ( data->m_moved && config["acc_correct_lm"].get<bool>( ) ) {
 		float diff = math::NormalizedAngle( record->m_body - move->m_body );
 		const Directions direction = HandleDirections( data );
 
-		if ( fabsf( move->m_body - record->m_body ) >= 36.f && !record->m_fake_walk ) {
-			if ( IsLastMoveValid( record, move->m_body ) ) {
-				record->m_eye_angles.y = move->m_body;
-				record->m_resolver = XOR( "*last" );
-			}
-			else {
-				//if ( direction == Directions::YAW_LEFT )
-				//	record->m_eye_angles.y = away + 90.f;
-				//else if ( direction == Directions::YAW_RIGHT )
-				//	record->m_eye_angles.y = away - 90.f;
-				//else
-				//	record->m_eye_angles.y = away - 180.f;
-
-				//record->m_resolver = XOR( "*dir" );
-
-				record->m_eye_angles.y = record->m_body;
-				record->m_resolver = XOR( "*cur" );
-			}
-		}
-		else {
-			FindBestAngle( record );
-			record->m_resolver = XOR( "*dir" );
-		}
-
-		// last move is valid.
-		//if ( IsLastMoveValid( record, move->m_body ) && !record->m_fake_walk && fabsf( move->m_body - record->m_body ) >= 36.f ) {
-		//	record->m_mode = Modes::RESOLVE_LM;
-
-		//	// if these are the case then it is 100%
-		//	if ( direction == Directions::YAW_LEFT )
-		//		record->m_eye_angles.y = away + 90.f;
-		//	else if ( direction == Directions::YAW_RIGHT )
-		//		record->m_eye_angles.y = away - 90.f;
-
-		//	// if not just lastmove resolve
-		//	else
+		//if ( fabsf( move->m_body - record->m_body ) >= 36.f && !record->m_fake_walk ) {
+		//	if ( IsLastMoveValid( record, move->m_body ) ) {
 		//		record->m_eye_angles.y = move->m_body;
-
-		//	record->m_resolver = XOR( "*lm" );
-		//}
-		//else {
-
-		//	if ( data->m_missed_shots < 1 ) {
-		//		// set our resolver mode
-		//		record->m_mode = Modes::RESOLVE_FREESTAND;
-
-		//		if ( direction == Directions::YAW_LEFT )
-		//			record->m_eye_angles.y = away - 90.f;
-		//		else if ( direction == Directions::YAW_RIGHT )
-		//			record->m_eye_angles.y = away + 90.f;
-
-		//		// seemed to work the best.
-		//		else
-		//			FindBestAngle( record );
-
-		//		record->m_resolver = XOR( "*dir" );
+		//		record->m_resolver = XOR( "*last" );
 		//	}
 		//	else {
-		//		record->m_eye_angles.y = away - 180.f;
-		//		record->m_resolver = XOR( "*back" );
+		//		if ( direction == Directions::YAW_LEFT )
+		//			record->m_eye_angles.y = away + 90.f;
+		//		else if ( direction == Directions::YAW_RIGHT )
+		//			record->m_eye_angles.y = away - 90.f;
+		//		else
+		//			record->m_eye_angles.y = away - 180.f;
+
+		//		record->m_resolver = XOR( "*fs" );
+
+		//		//auto standard = m_fsrecord[data->m_player->index( )].get_yaw( record, false );
+		//		//auto reversed = m_fsrecord[data->m_player->index( )].get_yaw( record, true );
+
+		//		//auto inverse = [&]( ) {
+		//		//	CGameTrace tr;
+		//		//	CTraceFilterSimple filter{ };
+		//		//	filter.m_pass_ent1 = g_cl.m_local;
+
+		//		//	auto start = g_cl.m_shoot_pos;
+		//		//	auto dir = ( record->m_player->m_vecOrigin( ) - start ).normalized( );
+
+		//		//	g_csgo.m_engine_trace->TraceRay( Ray( start, record->m_player->m_vecOrigin( ) ), MASK_SHOT | CONTENTS_GRATE, &filter, &tr );
+
+		//		//	return tr.m_entity == record->m_player || tr.m_fraction > 0.97f;
+		//		//};
+
+		//		//record->m_eye_angles.y = away + ( inverse( ) ? reversed : standard );
+
+		//		//record->m_resolver = inverse( ) ? XOR( "*rfs" ) : XOR( "*fs" );
 		//	}
 		//}
+		//else {
+		//	FindBestAngle( record );
+		//	record->m_resolver = XOR( "*dir" );
+		//}
+
+		// last move is valid.
+		if ( IsLastMoveValid( record, move->m_body ) && !record->m_fake_walk && fabsf( move->m_body - record->m_body ) >= 36.f ) {
+			record->m_mode = Modes::RESOLVE_LM;
+
+			// if these are the case then it is 100%
+			if ( direction == Directions::YAW_LEFT )
+				record->m_eye_angles.y = away + 90.f;
+			else if ( direction == Directions::YAW_RIGHT )
+				record->m_eye_angles.y = away - 90.f;
+
+			// if not just lastmove resolve
+			else
+				record->m_eye_angles.y = move->m_body;
+
+			record->m_resolver = XOR( "*lm" );
+		}
+		else {
+
+			if ( data->m_missed_shots < 1 ) {
+				// set our resolver mode
+				record->m_mode = Modes::RESOLVE_FREESTAND;
+
+				if ( direction == Directions::YAW_LEFT )
+					record->m_eye_angles.y = away - 90.f;
+				else if ( direction == Directions::YAW_RIGHT )
+					record->m_eye_angles.y = away + 90.f;
+
+				// seemed to work the best.
+				else
+					FindBestAngle( record );
+
+				record->m_resolver = XOR( "*dir" );
+			}
+			else {
+				record->m_eye_angles.y = away - 180.f;
+				record->m_resolver = XOR( "*back" );
+			}
+		}
 	}
 	else
 	{
@@ -706,31 +744,106 @@ void Resolver::ResolveStand( AimPlayer* data, LagRecord* record ) {
 
 		record->m_mode = Modes::RESOLVE_FREESTAND;
 
+		switch ( data->m_missed_shots % 5 ) {
+			case 0:
+			case 1:
+				{
+					if ( direction == Directions::YAW_LEFT )
+						record->m_eye_angles.y = away + 90.f;
+					else if ( direction == Directions::YAW_RIGHT )
+						record->m_eye_angles.y = away - 90.f;
+					else
+						FindBestAngle( record );
+
+					record->m_resolver = XOR( "fs[0]" );
+				}
+				break;
+			case 2:
+			case 3:
+				{
+					if ( fr_left > fr_right && fr_left > fr_back )
+						record->m_eye_angles.y = away - 90.f;
+					else if ( fr_right > fr_left && fr_right > fr_back )
+						record->m_eye_angles.y = away + 90.f;
+					else
+						record->m_eye_angles.y = away + 180.f;
+
+					record->m_resolver = XOR( "fs[1]" );
+				}
+				break;
+			default:
+				{
+					record->m_eye_angles.y = away + 180.f;
+
+					record->m_resolver = XOR( "fs[2]" );
+				}
+				break;
+		}
+
 		//if ( direction == Directions::YAW_LEFT )
 		//	record->m_eye_angles.y = away + 90.f;
 		//else if ( direction == Directions::YAW_RIGHT )
 		//	record->m_eye_angles.y = away - 90.f;
 		//else
 		//	FindBestAngle( record );
-		auto standard = m_fsrecord[data->m_player->index( )].get_yaw( record, false );
-		auto reversed = m_fsrecord[data->m_player->index( )].get_yaw( record, true );
 
-		auto inverse = [&]( ) {
-			CGameTrace tr;
-			CTraceFilterSimple filter{ };
-			filter.m_pass_ent1 = g_cl.m_local;
+		//switch ( data->m_missed_shots % 4 ) {
+		//	case 0:
+		//		{
+		//			if ( fr_left > fr_right && fr_left > fr_back )
+		//				record->m_eye_angles.y = away - 90.f;
 
-			auto start = g_cl.m_shoot_pos;
-			auto dir = ( record->m_player->m_vecOrigin( ) - start ).normalized( );
+		//			else if ( fr_right > fr_left && fr_right > fr_back )
+		//				record->m_eye_angles.y = away + 90.f;
 
-			g_csgo.m_engine_trace->TraceRay( Ray( start, record->m_player->m_vecOrigin( ) ), MASK_SHOT | CONTENTS_GRATE, &filter, &tr );
+		//			else if ( fr_back > fr_left && fr_back > fr_right )
+		//				record->m_eye_angles.y = away + 180.f;
+		//			else
+		//				FindBestAngle( record );
 
-			return tr.m_entity == record->m_player || tr.m_fraction > 0.97f;
-		};
+		//			record->m_resolver = XOR( "fs[0]" );
+		//		}
+		//		break;
+		//	case 1:
+		//		{
+		//			auto standard = m_fsrecord[data->m_player->index( )].get_yaw( record, false );
+		//			auto reversed = m_fsrecord[data->m_player->index( )].get_yaw( record, true );
 
-		record->m_eye_angles.y = away + ( inverse( ) ? reversed : standard );
+		//			auto inverse = [&]( ) {
+		//				CGameTrace tr;
+		//				CTraceFilterSimple filter{ };
+		//				filter.m_pass_ent1 = g_cl.m_local;
 
-		record->m_resolver = inverse( ) ? XOR( "rfs" ) : XOR( "fs" );
+		//				auto start = g_cl.m_shoot_pos;
+		//				auto dir = ( record->m_player->m_vecOrigin( ) - start ).normalized( );
+
+		//				g_csgo.m_engine_trace->TraceRay( Ray( start, record->m_player->m_vecOrigin( ) ), MASK_SHOT | CONTENTS_GRATE, &filter, &tr );
+
+		//				return tr.m_entity == record->m_player || tr.m_fraction > 0.97f;
+		//			};
+
+		//			record->m_eye_angles.y = away + ( inverse( ) ? reversed : standard );
+
+		//			record->m_resolver = XOR( "fs[1]" );
+		//		}
+		//		break;
+		//	case 2:
+		//		{
+		//			record->m_eye_angles.y = away + 180.f;
+
+		//			record->m_resolver = XOR( "fs[2]" );
+		//		}
+		//		break;
+		//	case 3:
+		//		{
+		//			FindBestAngle( record );
+
+		//			record->m_resolver = XOR( "fs[3]" );
+		//		}
+		//	default:
+		//		break;
+		//}
+
 	}
 
 	// @note : hella potential;
