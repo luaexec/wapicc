@@ -92,7 +92,8 @@ public:
 	float  m_interp_time;
 	float  m_choke_time;
 
-	std::string m_resolver = XOR( "def" );
+
+	std::string m_dbg = XOR( "def" );
 public:
 
 	// default ctor.
@@ -223,7 +224,7 @@ public:
 
 		float delta = fabsf( correct - ( curtime - m_sim_time ) );
 
-		if (delta > 0.2f)
+		if ( delta > 0.2f )
 			return false;
 
 		// calculate difference between tick sent by player and our latency based tick.

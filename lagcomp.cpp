@@ -411,14 +411,11 @@ void LagCompensation::PredictAnimations( CCSGOPlayerAnimState* state, LagRecord*
 
 	// rerun the resolver since we edited the origin.
 	if ( fake )
-		g_resolver.ResolveAngles( player, record );
+		g_resolver.on_player( record );
 
 	// update animations.
 	game::UpdateAnimationState( state, record->m_eye_angles );
 
-	// rerun the pose correction cuz we are re-setupping them.
-	if ( fake )
-		g_resolver.ResolvePoses( player, record );
 
 	// get new rotation poses and layers.
 	player->GetPoseParameters( record->m_poses );
