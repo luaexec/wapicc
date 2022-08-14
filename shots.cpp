@@ -147,20 +147,15 @@ void Shots::OnImpact( IGameEvent* evt ) {
 
 	g_csgo.m_engine_trace->ClipRayToEntity( Ray( start, end ), MASK_SHOT, target, &trace );
 
-	std::string info = tfm::format( XOR( "pdmg: %s - phb: %s - choke: %s - delta: %s - solver: %s - runtime: %s" ), shot->m_damage, shot->m_hitbox, shot->m_record->m_lag, match.delta, shot->m_record->m_resolver, game::TICKS_TO_TIME( g_csgo.m_globals->m_tick_count - g_resolver.m_runtime[shot->m_record->m_player->index( )] ) );
-	if ( shot->m_record->m_broke_lc ) {
+	std::string info = tfm::format( XOR( "pdmg: %s - phb: %s - choke: %s - delta: %s - solver: %s - runtime: %s" ), shot->m_damage, shot->m_hitbox, shot->m_record->m_lag, match.delta, shot->m_record->m_dbg, game::TICKS_TO_TIME( g_csgo.m_globals->m_tick_count - g_resolver.m_runtime[shot->m_record->m_player->index( )] ) );
+	if ( shot->m_record->m_broke_lc )
 		g_notify.add( tfm::format( XOR( "missed shot (r: broke lc - %s)\n" ), info ) );
-	}
-	else if ( !trace.m_entity || !trace.m_entity->IsPlayer( ) ) {
+	else if ( !trace.m_entity || !trace.m_entity->IsPlayer( ) )
 		g_notify.add( tfm::format( XOR( "missed shot (r: spread - %s)\n" ), info ) );
-	}
-	else if ( trace.m_entity == target ) {
+	else if ( trace.m_entity == target )
 		g_notify.add( tfm::format( XOR( "missed shot (r: unaccounted - %s)\n" ), info ) );
 
-		size_t mode = shot->m_record->m_mode;
-
-		++data->m_missed_shots;
-	}
+	++data->m_missed_shots;
 
 	bool ut = !config["menu_ut"].get<bool>( );
 

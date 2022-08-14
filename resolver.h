@@ -1,123 +1,54 @@
 #pragma once
 
-struct AntiFreestandingRecord
-{
-	int right_damage = 0, left_damage = 0, back_damage = 0;
-	float right_fraction = 0.f, left_fraction = 0.f, back_fraction = 0.f;
-};
+class ShotRecord;
 
 class Resolver {
 public:
 	enum Modes : size_t {
-		RESOLVE_NONE = 0,
-		RESOLVE_WALK,
-		RESOLVE_STAND,
-		RESOLVE_AIR,
-		RESOLVE_BODY,
-		RESOLVE_LM,
-		RESOLVE_FREESTAND,
+		R_NONE = 0,
+		R_SNAP,
+		R_FREESTAND,
+		R_EDGE,
+		R_UPDATE,
+		R_MOVE,
+		R_AIR,
+		R_ROT,
 	};
 
-	enum class Directions : int {
+	enum Directions : int {
 		YAW_RIGHT = -1,
 		YAW_BACK,
 		YAW_LEFT,
 		YAW_NONE,
 	};
 
-	enum class fs_dir : int {
-		FS_LEFT = 0,
-		FS_RIGHT,
-		FS_BACK
-	};
-
-	struct fs_record {
-		float fraction[3];
-		bool  hit[3];
-
-		__forceinline float get_yaw( LagRecord* record, bool r ) {
-
-			float fs_yaw[3] = {
-				r ? 90.f : -90.f,
-				r ? -90.f : 90.f,
-				180.f,
-			};
-
-			if ( hit[int( fs_dir::FS_LEFT )] || hit[int( fs_dir::FS_RIGHT )] ) {
-
-				auto sort = ( fraction[int( fs_dir::FS_LEFT )] > fraction[int( fs_dir::FS_RIGHT )] ) ? int( fs_dir::FS_LEFT ) : int( fs_dir::FS_RIGHT );
-				return fs_yaw[sort];
-
-			}
-
-			return fs_yaw[int( fs_dir::FS_BACK )];
-		}
-
-		__forceinline void update( CGameTrace t, fs_dir d ) {
-			fraction[int( d )] = t.m_fraction;
-			hit[int( d )] = t.hit( );
-		}
-	};
-
 public:
 	LagRecord* FindIdealRecord( AimPlayer* data );
 	LagRecord* FindLastRecord( AimPlayer* data );
 
-	bool ResolveBodyUpdates( Player* player, LagRecord* record );
 	void OnBodyUpdate( Player* player, float value );
 	float GetAwayAngle( LagRecord* record );
 
-	bool MatchShot( AimPlayer* data, LagRecord* record );
-	void SetMode( LagRecord* record );
+	void MatchShot( AimPlayer* data, LagRecord* record );
 
-	void collect_wall_detect( const Stage_t stage );
-	bool AntiFreestanding( Player* entity, AimPlayer* data, float& yaw );
+	void on_player( LagRecord* record );
 
-	void ResolveAngles( Player* player, LagRecord* record );
-	void ResolveWalk( AimPlayer* data, LagRecord* record );
-	void FindBestAngle( LagRecord* record );
-	Directions HandleDirections( AimPlayer* data, int ticks = 10, float threshold = 20.f );
-	void ResolveStand( AimPlayer* data, LagRecord* record );
-	void ResolveAir( AimPlayer* data, LagRecord* record );
-	void ResolvePoses( Player* player, LagRecord* record );
+	bool do_update( AimPlayer* data, LagRecord* record );
+	bool edge( AimPlayer* data, LagRecord* record, float extension, float& angle );
+	void freestand( AimPlayer* data, LagRecord* record, float extension );
+	void snap( AimPlayer* data, LagRecord* record, float angle, std::string prefix );
+	bool flick( AimPlayer* data, LagRecord* record );
+	void best_angle( LagRecord* record );
+	Directions get_direction( AimPlayer* data );
+
+	void standard( AimPlayer* data, LagRecord* record );
+	void move( AimPlayer* data, LagRecord* record );
+	void air( AimPlayer* data, LagRecord* record );
 
 public:
 	std::array< vec3_t, 64 > m_impacts;
-	int m_runtime[64];
-	fs_record m_fsrecord[64];
-
-	// check if the players yaw is sideways.
-	__forceinline bool IsLastMoveValid( LagRecord* record, float m_yaw ) {
-		const auto away = GetAwayAngle( record );
-		const float delta = fabs( math::NormalizedAngle( away - m_yaw ) );
-		return delta > 20.f && delta < 160.f;
-	}
-
-	AntiFreestandingRecord anti_freestanding_record;
-
-	class PlayerResolveRecord
-	{
-	public:
-		struct AntiFreestandingRecord
-		{
-			int right_damage = 0, left_damage = 0;
-			float right_fraction = 0.f, left_fraction = 0.f;
-		};
-
-	public:
-		AntiFreestandingRecord m_sAntiEdge;
-	};
-
-	vec3_t last_eye;
-
-	bool using_anti_freestand;
-
-	float left_damage[64];
-	float right_damage[64];
-	float back_damage[64];
-
-	std::vector<vec3_t> last_eye_positions;
-
+	float m_runtime[64];
+	std::string m_dbg[64];
 };
 
 extern Resolver g_resolver;

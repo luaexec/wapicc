@@ -322,6 +322,7 @@
     <ClInclude Include="penetration.h" />
     <ClInclude Include="pred.h" />
     <ClInclude Include="prediction.h" />
+    <ClInclude Include="ragebot.h" />
     <ClInclude Include="render.h" />
     <ClInclude Include="resolver.h" />
     <ClInclude Include="sdk.h" />
@@ -335,6 +336,7 @@
     <ClInclude Include="surface.h" />
     <ClInclude Include="syscall.h" />
     <ClInclude Include="tab.h" />
+    <ClInclude Include="tickbase.h" />
     <ClInclude Include="tinyformat.h" />
     <ClInclude Include="trace.h" />
     <ClInclude Include="unique_vector.h" />
@@ -368,6 +370,7 @@
     <ClCompile Include="keybind.cpp" />
     <ClCompile Include="matchframework.cpp" />
     <ClCompile Include="materialsystem.cpp" />
+    <ClCompile Include="ragebot.cpp" />
     <ClCompile Include="shadowmgr.cpp" />
     <ClCompile Include="csgo.cpp" />
     <ClCompile Include="cvar.cpp" />
@@ -398,6 +401,7 @@
     <ClCompile Include="pred.cpp" />
     <ClCompile Include="netchannel.cpp" />
     <ClCompile Include="render.cpp" />
+    <ClCompile Include="tickbase.cpp" />
     <ClCompile Include="viewrender.cpp" />
     <ClCompile Include="resolver.cpp" />
     <ClCompile Include="prediction.cpp" />

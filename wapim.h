@@ -87,7 +87,7 @@ namespace wapim {
 
 				auto res_modes = std::make_unique<gui::multidropdown_t>(
 					"correction additions", std::vector<gui::multitems_t>{
-					gui::multitems_t( "fake flick", "acc_correct_fflick" ), gui::multitems_t( "lower-body update", "acc_correct_upd" ), gui::multitems_t( "onshot", "acc_correct_os" ), gui::multitems_t( "last-moving", "acc_correct_lm" )
+					gui::multitems_t( "rotate", "acc_correct_rot" ), gui::multitems_t( "last-moving", "acc_correct_lm" ), gui::multitems_t( "edge", "acc_correct_edge" )
 				} );
 				accuracy->add_multidropdown( res_modes.get( ) );
 
@@ -112,6 +112,16 @@ namespace wapim {
 					"force body-aim", "acc_forcebody"
 					);
 				accuracy->add_hotkey( body_key.get( ) );
+
+				auto dt_ket = std::make_unique<gui::hotkey_t>(
+					"double-tap", "acc_dt"
+					);
+				accuracy->add_hotkey( dt_ket.get( ) );
+
+				auto hitchance = std::make_unique<gui::slider_t>(
+					"double-tap hitchance", "rage_dthc", value_t( 0 ), 0.f, 100.f, "%"
+					);
+				accuracy->add_slider( hitchance.get( ) );
 
 			}
 

@@ -1,5 +1,4 @@
 #include "includes.h"
-
 Resolver g_resolver{};;
 
 LagRecord* Resolver::FindIdealRecord( AimPlayer* data ) {
@@ -23,12 +22,12 @@ LagRecord* Resolver::FindIdealRecord( AimPlayer* data ) {
 			first_valid = current;
 
 		// try to find a record with a shot, lby update, walking or no anti-aim.
-		if ( it->m_shot || it->m_mode == Modes::RESOLVE_BODY || it->m_mode == Modes::RESOLVE_WALK || it->m_mode == Modes::RESOLVE_NONE )
+		if ( it->m_shot || it->m_mode == Modes::R_UPDATE || it->m_mode == Modes::R_MOVE || it->m_mode == Modes::R_NONE )
 			return current;
 	}
 
 	// none found above, return the first valid record if possible.
-	return ( first_valid ) ? first_valid : nullptr; // ( first_valid ) ? first_valid : nullptr
+	return first_valid;
 }
 
 LagRecord* Resolver::FindLastRecord( AimPlayer* data ) {
@@ -48,67 +47,6 @@ LagRecord* Resolver::FindLastRecord( AimPlayer* data ) {
 	}
 
 	return nullptr;
-}
-
-bool Resolver::ResolveBodyUpdates( Player* player, LagRecord* record ) {
-	AimPlayer* data = &g_aimbot.m_players[player->index( ) - 1];
-
-	// from csgo src sdk.
-	const float CSGO_ANIM_LOWER_REALIGN_DELAY = 1.1f;
-
-	// first we are gonna start of with some checks.
-	if ( !g_cl.m_processing ) {
-		data->m_moved = false;
-		return false;
-	}
-
-	// dont predict on doramnt players.
-	if ( record->dormant( ) ) {
-		return false;
-	}
-
-	// if we have missed 2 shots lets predict until he moves again.
-	/*
-	if ( data->m_missed_shots > 2 ) {
-		return false;
-	}
-	*/
-
-	bool lby_change = false;
-
-	if ( data->m_records.size( ) >= 2 ) {
-		LagRecord* previous = data->m_records[1].get( );
-
-		if ( previous && !previous->dormant( ) && previous->valid( ) ) {
-			lby_change = previous->m_body != record->m_body;
-		}
-	}
-
-	// on ground and not moving.
-	if ( ( record->m_flags & FL_ONGROUND ) && record->m_velocity.length( ) <= 0.1f && ( data->m_body_update != FLT_MAX || lby_change || ( data->m_player->m_AnimOverlay( ) && data->m_player->m_AnimOverlay( )[3].m_cycle == 0 ) ) ) {
-		// lets time our updates.
-		if ( record->m_sim_time >= data->m_body_update || lby_change || data->m_player->m_AnimOverlay( )[3].m_cycle == 0 ) {
-			// inform cheat of resolver method.
-			record->m_mode = Modes::RESOLVE_BODY;
-
-			// set angles to current LBY.
-			record->m_eye_angles.y = record->m_body;
-
-			// set next predicted time, till update.
-			data->m_body_update = record->m_sim_time + CSGO_ANIM_LOWER_REALIGN_DELAY;
-
-			record->m_resolver = XOR( "upd" );
-
-			return true;
-		}
-
-	}
-	else if ( record->m_velocity.length( ) > 0.1f ) {
-		// set delayed predicted time, after they stop moving.
-		data->m_body_update = record->m_sim_time + 0.22f;
-	}
-
-	return false;
 }
 
 void Resolver::OnBodyUpdate( Player* player, float value ) {
@@ -165,10 +103,10 @@ float Resolver::GetAwayAngle( LagRecord* record ) {
 	//return away.y;
 }
 
-bool Resolver::MatchShot( AimPlayer* data, LagRecord* record ) {
+void Resolver::MatchShot( AimPlayer* data, LagRecord* record ) {
 	// do not attempt to do this in nospread mode.
-	if ( !config["menu_ut"].get<bool>( ) )
-		return false;
+	if ( g_menu.main.config.mode.get( ) == 1 )
+		return;
 
 	float shoot_time = -1.f;
 
@@ -180,97 +118,283 @@ bool Resolver::MatchShot( AimPlayer* data, LagRecord* record ) {
 	}
 
 	// this record has a shot on it.
-	if ( game::TIME_TO_TICKS( shoot_time ) == game::TIME_TO_TICKS( record->m_sim_time ) && data->m_player->m_AnimOverlay( )[1].m_cycle == 0 ) {
-		if ( record->m_lag <= 2 ) {
+	if ( game::TIME_TO_TICKS( shoot_time ) == game::TIME_TO_TICKS( record->m_sim_time ) ) {
+		if ( record->m_lag <= 2 )
 			record->m_shot = true;
-			record->m_eye_angles.x = 0.f;
-		}
+
 		// more then 1 choke, cant hit pitch, apply prev pitch.
 		else if ( data->m_records.size( ) >= 2 ) {
 			LagRecord* previous = data->m_records[1].get( );
 
-			if ( previous && !previous->dormant( ) ) {
+			if ( previous && !previous->dormant( ) )
 				record->m_eye_angles.x = previous->m_eye_angles.x;
-			}
 		}
+	}
+}
 
-		record->m_eye_angles.y = GetAwayAngle( record );
-		record->m_resolver = XOR( "shot" );
+void Resolver::on_player( LagRecord* record ) {
+
+	// @doc: entity run-time.
+	// @goal: envoke moving resolver past initial .22 'update'.
+	float speed = record->m_anim_velocity.length( );
+	if ( speed <= 0.2f )
+		m_runtime[record->m_player->index( )] = g_csgo.m_globals->m_tick_count;
+
+	auto flicked{ game::TICKS_TO_TIME( g_csgo.m_globals->m_tick_count - m_runtime[record->m_player->index( )] ) > 0.22f };
+
+	// @doc: collect aimplayer data.
+	AimPlayer* data{ &g_aimbot.m_players[record->m_player->index( ) - 1] };
+
+	// @doc: envoke chosen resolver type.
+	if ( !( record->m_player->m_fFlags( ) & FL_ONGROUND ) )
+		air( data, record );
+	else if ( ( speed > .1f || record->m_fake_walk ) && flicked )
+		move( data, record );
+	else
+		standard( data, record );
+
+	// @doc: standarise output.
+	math::NormalizeAngle( record->m_eye_angles.y );
+
+}
+
+bool Resolver::do_update( AimPlayer* data, LagRecord* record ) {
+
+	// @doc: player isn't idle.
+	if ( g_csgo.m_globals->m_tick_count - m_runtime[record->m_player->index( )] > 0.f ) {
+		data->dbg_info.push_back( tfm::format( "update-cond: runtime validity (%s)", g_csgo.m_globals->m_tick_count - m_runtime[record->m_player->index( )] ) );
+		return false;
+	}
+
+	if ( data->m_body_update > record->m_anim_time )
+		return false;
+
+	// @doc: resolve player.
+	record->m_eye_angles.y = record->m_body;
+
+	// @doc: increment body-update time.
+	data->m_body_update = record->m_anim_time + 1.1f;
+
+	// @doc: output.
+	record->m_dbg = m_dbg[record->m_player->index( )] = XOR( "UPD" );
+	record->m_mode = Modes::R_UPDATE;
+
+	// @doc: update flick record storage.
+	data->m_update_record = record;
+
+	return true;
+}
+
+bool Resolver::edge( AimPlayer* data, LagRecord* record, float extension, float& angle ) {
+
+	if ( !config["acc_correct_edge"].get<bool>( ) )
+		return false;
+
+	auto angles{
+		ang_t( 0.f, record->m_eye_angles.y, record->m_eye_angles.z )
+	};
+
+	vec3_t shoot_pos;
+	math::AngleVectors( angles, &shoot_pos );
+
+	vec3_t ext{ record->m_velocity };
+	auto e_pos{ math::extrapolate_pos( shoot_pos, ext, 20 * extension ) };
+
+	auto left_pos{ math::extend_vector( e_pos, 60 * extension, angles.y - 30.f ) },
+		right_pos{ math::extend_vector( e_pos, 60 * extension, angles.y + 30.f ) };
+
+	auto left_start{ math::extend_vector( e_pos, 30 * extension, angles.y - 90.f ) },
+		right_start{ math::extend_vector( e_pos, 30 * extension, angles.y + 90.f ) };
+
+	CTraceFilterSimple filter;
+	filter.m_pass_ent1 = g_cl.m_local;
+
+	CGameTrace left;
+	g_csgo.m_engine_trace->TraceRay( Ray( left_pos, right_pos ), MASK_ALL, &filter, &left );
+
+	CGameTrace right;
+	g_csgo.m_engine_trace->TraceRay( Ray( right_pos, left_pos ), MASK_ALL, &filter, &right );
+
+	CGameTrace lpiw;
+	g_csgo.m_engine_trace->TraceRay( Ray( e_pos, left_start ), MASK_ALL, &filter, &lpiw );
+	auto left_point_in_wall{ lpiw.m_fraction != 1.f };
+
+	CGameTrace rpiw;
+	g_csgo.m_engine_trace->TraceRay( Ray( e_pos, right_start ), MASK_ALL, &filter, &rpiw );
+	auto right_point_in_wall{ rpiw.m_fraction != 1.f };
+
+	CGameTrace liw;
+	g_csgo.m_engine_trace->TraceRay( Ray( left_start, left_pos ), MASK_ALL, &filter, &liw );
+	auto left_in_wall{ liw.m_fraction != 1.f ? true : left_point_in_wall };
+
+	CGameTrace riw;
+	g_csgo.m_engine_trace->TraceRay( Ray( right_start, right_pos ), MASK_ALL, &filter, &riw );
+	auto right_in_wall{ riw.m_fraction != 1.f ? true : right_point_in_wall };
+
+	if ( right_in_wall || left_in_wall ) {
+		auto left_fr{ left_in_wall ? 0.f : left.m_fraction };
+		auto right_fr{ right_in_wall ? 0.f : right.m_fraction };
+		auto final_ang{ 180.f - ( right_fr - left_fr ) * 180.f };
+
+		angle = final_ang;
 
 		return true;
 	}
 
+	data->dbg_info.push_back( "edge: invalid" );
 	return false;
 }
 
-void Resolver::SetMode( LagRecord* record ) {
-	float speed = record->m_velocity.length( );
-	//if (speed > 0.1f)
-	if ( speed <= 0.2f )
-		m_runtime[record->m_player->index( )] = g_csgo.m_globals->m_tick_count;
+void Resolver::freestand( AimPlayer* data, LagRecord* record, float extension ) {
 
-	bool flicked = game::TICKS_TO_TIME( g_csgo.m_globals->m_tick_count - m_runtime[record->m_player->index( )] ) > 0.22f;
+	enum e_freestand : int {
+		E_BACK = 180,
+		E_LEFT = 90,
+		E_RIGHT = -90,
+		E_FRONT = 0,
+	};
 
-	// first running flick has surpassed.
-	if ( ( record->m_flags & FL_ONGROUND ) && speed > 0.1f && !( record->m_fake_walk ) ) {
+	auto fs_angle{ e_freestand::E_BACK };
 
-		if ( config["acc_correct_fflick"].get<bool>( ) ) {
-			if ( flicked )
-				record->m_mode = Modes::RESOLVE_WALK;
-			else
-				record->m_mode = Modes::RESOLVE_STAND;
-		}
-		else
-			record->m_mode = Modes::RESOLVE_WALK;
+	auto left_pos{ math::extrapolate_pos( record->m_origin, vec3_t( 300, 0, 0 ), 20 * extension ) },
+		right_pos{ math::extrapolate_pos( record->m_origin, vec3_t( -300, 0, 0 ), 20 * extension ) },
+		back_pos{ math::extrapolate_pos( record->m_origin, vec3_t( 0, 0, 0 ), 20 * extension ) };
+
+	CTraceFilterSimple filter;
+	filter.m_pass_ent1 = g_cl.m_local;
+
+	CGameTrace back;
+	g_csgo.m_engine_trace->TraceRay( Ray( g_cl.m_shoot_pos, back_pos ), MASK_ALL, &filter, &back );
+
+	CGameTrace left;
+	g_csgo.m_engine_trace->TraceRay( Ray( g_cl.m_shoot_pos, left_pos ), MASK_ALL, &filter, &left );
+
+	CGameTrace right;
+	g_csgo.m_engine_trace->TraceRay( Ray( g_cl.m_shoot_pos, right_pos ), MASK_ALL, &filter, &right );
+
+	// @doc: logically solve.
+	if ( back.m_fraction > right.m_fraction && back.m_fraction > left.m_fraction )
+	{ // @doc: tagged a player, exit.
+		fs_angle = e_freestand::E_BACK;
+	}
+	else if (
+		left.hit( ) /* @note: hit entity. */
+		|| left.m_fraction > right.m_fraction /* @note: greater fraction. */
+		) {
+		// @doc: right.
+		fs_angle = e_freestand::E_RIGHT;
+	}
+	else if (
+		right.hit( ) /* @note: hit entity. */
+		|| right.m_fraction > left.m_fraction /* @note: greater fraction. */
+		) {
+		// @doc: left.
+		fs_angle = e_freestand::E_LEFT;
 	}
 
-	else if ( ( record->m_flags & FL_ONGROUND ) && ( speed <= 0.1f || record->m_fake_walk ) )
-		record->m_mode = Modes::RESOLVE_STAND;
+	// @doc: correct yaw.
+	record->m_eye_angles.y = GetAwayAngle( record ) + fs_angle;
 
-	else if ( !( record->m_flags & FL_ONGROUND ) )
-		record->m_mode = Modes::RESOLVE_AIR;
+	// @doc: update.
+	record->m_mode = Modes::R_FREESTAND;
+	record->m_dbg = m_dbg[data->m_player->index( )] = tfm::format( "FS[%s]", fs_angle );
+
 }
 
-void Resolver::ResolveAngles( Player* player, LagRecord* record ) {
-	AimPlayer* data = &g_aimbot.m_players[player->index( ) - 1];
+void Resolver::snap( AimPlayer* data, LagRecord* record, float angle, std::string prefix ) {
 
-	if ( config["acc_correct_os"].get<bool>( ) )
-		if ( MatchShot( data, record ) )
-			return;
+	// @doc: prerequisites.
+	auto base{ GetAwayAngle( record ) }, reversed{ angle };
 
-	SetMode( record );
+	// @doc: base angle offsets.
+	enum e_snapyaw : int {
+		E_BACK = 180,
+		E_LEFT = 90,
+		E_RIGHT = -90,
+		E_FRONT = 0,
+	};
 
-	if ( !config["menu_ut"].get<bool>( ) )
-		record->m_eye_angles.x = 90.f;
+	// @doc: available angles.
+	auto angles{ std::vector<float>{
+			base + e_snapyaw::E_BACK,
+			base + e_snapyaw::E_LEFT,
+			base + e_snapyaw::E_RIGHT,
+			base + e_snapyaw::E_FRONT,
+	} };
 
-	if ( record->m_mode == Modes::RESOLVE_WALK )
-		ResolveWalk( data, record );
+	// @doc: best angle methods.
+	struct best_angle {
+		float yaw;
+		float diff;
 
-	else if ( record->m_mode == Modes::RESOLVE_STAND )
-		ResolveStand( data, record );
+		bool update( float ang ) {
+			return abs( ang ) < abs( diff );
+		}
 
-	else if ( record->m_mode == Modes::RESOLVE_AIR )
-		ResolveAir( data, record );
+		void set( float a, float d ) {
+			yaw = a; diff = d;
+		}
 
-	// normalize the eye angles, doesn't really matter but its clean.
-	math::NormalizeAngle( record->m_eye_angles.y );
+		best_angle( float y = 180.f, float d = 180.f ) {
+			yaw = y; diff = d;
+		}
+	};
+
+	// @doc: iterate and locate closest angle.
+	best_angle best{ angles.front( ) };
+	for ( auto& a : angles ) {
+		auto difference{ reversed - a };
+
+		if ( best.update( difference ) )
+			best.set( a, difference );
+	}
+
+	// @doc: correct yaw.
+	record->m_eye_angles.y = best.yaw;
+
+	// @doc: update resolver information.
+	record->m_dbg = m_dbg[data->m_player->index( )] = tfm::format( "%s%s[%s/%s]", "SNAP-", prefix, (int)best.yaw, (int)best.diff );
+	record->m_mode = Modes::R_SNAP;
+
 }
 
-void Resolver::ResolveWalk( AimPlayer* data, LagRecord* record ) {
-	record->m_eye_angles.y = record->m_body;
+bool Resolver::flick( AimPlayer* data, LagRecord* record ) {
 
-	data->m_body_update = record->m_anim_time + 0.22f;
-	data->m_moved = false;
+	if ( !config["acc_correct_rot"].get<bool>( ) )
+		return false;
 
-	data->m_missed_shots = 0;
-	data->m_body_index = 0;
+	if ( !data->m_update_record ) {
+		data->dbg_info.push_back( "flick-yaw: empty upd" );
+		return false;
+	}
 
-	record->m_resolver = XOR( "move" );
+	if ( abs( record->m_sim_time - data->m_update_record->m_sim_time ) >= .22f ) { // @note: previously .22f.
+		data->dbg_info.push_back( tfm::format( "flick-yaw: decay(%s)", abs( record->m_sim_time - data->m_update_record->m_sim_time ) ) );
+		return false;
+	}
 
-	std::memcpy( &data->m_walk_record, record, sizeof( LagRecord ) );
+	// @doc: lby delta.
+	auto delta{ record->m_body - data->m_body };
+
+	// @doc: rotated.
+	auto yaw{ data->m_update_record->m_body - delta };
+
+	// @doc: adjust.
+	auto adj{ data->m_player->m_AnimOverlay( )[3].m_weight * ( delta * 2.f ) };
+	yaw += adj;
+
+	// @doc: correct yaw.
+	record->m_eye_angles.y = yaw;
+
+	// @doc: output.
+	record->m_dbg = m_dbg[record->m_player->index( )] = tfm::format( "ROT[%s|%s]", (int)delta, (int)adj );
+	record->m_mode = Modes::R_ROT;
+
+	return true;
+
 }
 
-void Resolver::FindBestAngle( LagRecord* record ) {
+void Resolver::best_angle( LagRecord* record ) {
 	// constants
 	constexpr float STEP{ 4.f };
 	constexpr float RANGE{ 32.f };
@@ -302,7 +426,8 @@ void Resolver::FindBestAngle( LagRecord* record ) {
 			enemypos.z };
 
 		// draw a line for debugging purposes.
-		//g_csgo.m_debug_overlay->AddLineOverlay( start, end, 255, 0, 0, true, 0.1f ); // <!--
+
+		//g_csgo.m_debug_overlay->AddLineOverlay( start, end, 255, 0, 0, true, 0.1f );
 
 		// compute the direction.
 		vec3_t dir = end - start;
@@ -366,7 +491,7 @@ void Resolver::FindBestAngle( LagRecord* record ) {
 	}
 }
 
-Resolver::Directions Resolver::HandleDirections( AimPlayer* data, int ticks, float threshold ) {
+Resolver::Directions Resolver::get_direction( AimPlayer* data ) {
 	CGameTrace tr;
 	CTraceFilterSimple filter{ };
 
@@ -420,32 +545,32 @@ Resolver::Directions Resolver::HandleDirections( AimPlayer* data, int ticks, flo
 	static auto rightTicks = 0;
 	static auto backTicks = 0;
 
-	if ( rightLength - leftLength > threshold )
+	if ( rightLength - leftLength > 20.0f )
 		leftTicks++;
 	else
 		leftTicks = 0;
 
-	if ( leftLength - rightLength > threshold )
+	if ( leftLength - rightLength > 20.0f )
 		rightTicks++;
 	else
 		rightTicks = 0;
 
-	if ( fabs( rightLength - leftLength ) <= threshold )
+	if ( fabs( rightLength - leftLength ) <= 20.0f )
 		backTicks++;
 	else
 		backTicks = 0;
 
 	Directions direction = Directions::YAW_NONE;
 
-	if ( rightTicks > ticks ) {
+	if ( rightTicks > 10 ) {
 		direction = Directions::YAW_RIGHT;
 	}
 	else {
-		if ( leftTicks > ticks ) {
+		if ( leftTicks > 10 ) {
 			direction = Directions::YAW_LEFT;
 		}
 		else {
-			if ( backTicks > ticks )
+			if ( backTicks > 10 )
 				direction = Directions::YAW_BACK;
 		}
 	}
@@ -453,411 +578,93 @@ Resolver::Directions Resolver::HandleDirections( AimPlayer* data, int ticks, flo
 	return direction;
 }
 
-void Resolver::collect_wall_detect( const Stage_t stage )
-{
-	if ( stage != FRAME_NET_UPDATE_POSTDATAUPDATE_START )
+void Resolver::standard( AimPlayer* data, LagRecord* record ) {
+
+	// @doc: lby-update.
+	if ( do_update( data, record ) )
 		return;
 
-	if ( !g_cl.m_local )
+	// @doc: flick yaw.
+	if ( flick( data, record ) )
 		return;
 
-	auto g_pLocalPlayer = g_cl.m_local;
+	float edge_yaw{ };
+	if ( data->m_missed_shots <= 1 && edge( data, record, .5f, edge_yaw ) )
+		return snap( data, record, edge_yaw, "EDGE" );
 
-	last_eye_positions.insert( last_eye_positions.begin( ), g_pLocalPlayer->m_vecOrigin( ) + g_pLocalPlayer->m_vecViewOffset( ) );
-
-	if ( last_eye_positions.size( ) > 64 )
-		last_eye_positions.pop_back( );
-
-	auto nci = g_csgo.m_engine->GetNetChannelInfo( );
-	if ( !nci )
-		return;
-
-	const int latency_ticks = game::TIME_TO_TICKS( nci->GetLatency( nci->FLOW_OUTGOING ) );
-	auto latency_based_eye_pos = last_eye_positions.size( ) <= latency_ticks ? last_eye_positions.back( ) : last_eye_positions[latency_ticks];
-
-	for ( auto i = 1; i < g_csgo.m_globals->m_max_clients; i++ )
-	{
-		Player* player = g_csgo.m_entlist->GetClientEntity< Player* >( i );
-
-		if ( !player || player == g_pLocalPlayer )
-		{
-			continue;
-		}
-
-		if ( !player->enemy( g_pLocalPlayer ) )
-		{
-			continue;
-		}
-
-		if ( !player->alive( ) )
-		{
-			continue;
-		}
-
-		if ( player->dormant( ) )
-		{
-			continue;
-		}
-
-		if ( player->m_vecVelocity( ).length_2d( ) > 0.1f )
-		{
-			continue;
-		}
-
-		if ( using_anti_freestand )
-		{
-			const auto at_target_angle = math::CalcAngle( player->m_vecOrigin( ), last_eye );
-
-			const auto eye_pos = player->get_eye_pos( );
-
-			const float height = 64;
-
-			vec3_t direction_1, direction_2, direction_3;
-			math::AngleVectors( ang_t( 0.f, math::CalcAngle( g_pLocalPlayer->m_vecOrigin( ), player->m_vecOrigin( ) ).y - 90.f, 0.f ), &direction_1 );
-			math::AngleVectors( ang_t( 0.f, math::CalcAngle( g_pLocalPlayer->m_vecOrigin( ), player->m_vecOrigin( ) ).y + 90.f, 0.f ), &direction_2 );
-			math::AngleVectors( ang_t( 0.f, math::CalcAngle( g_pLocalPlayer->m_vecOrigin( ), player->m_vecOrigin( ) ).y + 180.f, 0.f ), &direction_3 );
-
-			const auto left_eye_pos = player->m_vecOrigin( ) + vec3_t( 0, 0, height ) + ( direction_1 * 16.f );
-			const auto right_eye_pos = player->m_vecOrigin( ) + vec3_t( 0, 0, height ) + ( direction_2 * 16.f );
-			const auto back_eye_pos = player->m_vecOrigin( ) + vec3_t( 0, 0, height ) + ( direction_3 * 16.f );
-
-			anti_freestanding_record.left_damage = penetration::scale( player, left_damage[i], 1.f, HITGROUP_CHEST );
-			anti_freestanding_record.right_damage = penetration::scale( player, right_damage[i], 1.f, HITGROUP_CHEST );
-			anti_freestanding_record.back_damage = penetration::scale( player, back_damage[i], 1.f, HITGROUP_CHEST );
-
-			Ray ray;
-			CGameTrace trace;
-			CTraceFilterWorldOnly filter;
-
-			Ray first_ray( left_eye_pos, latency_based_eye_pos );
-			g_csgo.m_engine_trace->TraceRay( first_ray, MASK_ALL, &filter, &trace );
-			anti_freestanding_record.left_fraction = trace.m_fraction;
-
-			Ray second_ray( right_eye_pos, latency_based_eye_pos );
-			g_csgo.m_engine_trace->TraceRay( second_ray, MASK_ALL, &filter, &trace );
-			anti_freestanding_record.right_fraction = trace.m_fraction;
-
-			Ray third_ray( back_eye_pos, latency_based_eye_pos );
-			g_csgo.m_engine_trace->TraceRay( third_ray, MASK_ALL, &filter, &trace );
-			anti_freestanding_record.back_fraction = trace.m_fraction;
-		}
-	}
-}
-
-bool hitPlayer[64];
-
-bool Resolver::AntiFreestanding( Player* entity, AimPlayer* data, float& yaw )
-{
-
-	const auto freestanding_record = anti_freestanding_record;
-
-	auto local_player = g_cl.m_local;
-	if ( !local_player )
-		return false;
-
-	const float at_target_yaw = math::CalcAngle( local_player->m_vecOrigin( ), entity->m_vecOrigin( ) ).y;
-
-	if ( freestanding_record.left_damage >= 20 && freestanding_record.right_damage >= 20 )
-		yaw = at_target_yaw;
-
-	auto set = false;
-
-	if ( freestanding_record.left_damage <= 0 && freestanding_record.right_damage <= 0 )
-	{
-		if ( freestanding_record.right_fraction < freestanding_record.left_fraction ) {
-			set = true;
-			yaw = at_target_yaw + 125.f;
-		}
-		else if ( freestanding_record.right_fraction > freestanding_record.left_fraction ) {
-			set = true;
-			yaw = at_target_yaw - 73.f;
-		}
-		else {
-			yaw = at_target_yaw;
-		}
-	}
-	else
-	{
-		if ( freestanding_record.left_damage > freestanding_record.right_damage ) {
-			yaw = at_target_yaw + 130.f;
-			set = true;
-		}
-		else
-			yaw = at_target_yaw;
-	}
-
-	return true;
-}
-
-void Resolver::ResolveStand( AimPlayer* data, LagRecord* record ) {
-
-	float away = GetAwayAngle( record );
-
-	LagRecord* move = &data->m_walk_record;
-
-	bool flicked = m_runtime[data->m_player->index( )] == 0.f;
-
-	if ( ( ( flicked && config["acc_correct_fflick"].get<bool>( ) ) || !config["acc_correct_fflick"].get<bool>( ) ) && ResolveBodyUpdates( record->m_player, record ) )
-		return;
-
-	// we have a valid moving record.
-	if ( move->m_sim_time > 0.f ) {
-		// lets check if we can collect move data.
-		if ( !data->m_moved ) {
-			vec3_t delta = move->m_origin - record->m_origin;
-			// check if moving record is close.
-			if ( delta.length( ) <= 128.f ) {
-				// indicate that we are using the moving lby.
-				data->m_moved = true;
-			}
-		}
-	}
-
-	/* freestand */ {
-		auto& rec{ m_fsrecord[data->m_player->index( )] };
-		auto ext = std::max( g_cl.m_local->m_vecVelocity( ).absolute( ).length( ), vec3_t( 100, 100, 0 ).length( ) ) == g_cl.m_local->m_vecVelocity( ).absolute( ).length( ) ? g_cl.m_local->m_vecVelocity( ).absolute( ) : vec3_t( 300, 0, 0 );
-
-		Ray ray;
-		CGameTrace trace;
-		CTraceFilterWorldOnly filter;
-
-		Ray left_ray( g_cl.m_shoot_pos, record->m_pred_origin + ( ext * ( g_csgo.m_globals->m_interval * 20 ) ) );
-		g_csgo.m_engine_trace->TraceRay( left_ray, MASK_ALL, &filter, &trace );
-		rec.update( trace, fs_dir::FS_LEFT );
-
-		Ray right_ray( g_cl.m_shoot_pos, record->m_pred_origin + ( ext * ( g_csgo.m_globals->m_interval * -20 ) ) );
-		g_csgo.m_engine_trace->TraceRay( right_ray, MASK_ALL, &filter, &trace );
-		rec.update( trace, fs_dir::FS_RIGHT );
-
-		Ray back_ray( g_cl.m_shoot_pos, record->m_pred_origin );
-		g_csgo.m_engine_trace->TraceRay( back_ray, MASK_ALL, &filter, &trace );
-		rec.update( trace, fs_dir::FS_BACK );
-	}
-
-	auto tr_fract = [&]( vec3_t pos ) {
-		CGameTrace tr;
-		CTraceFilterSimple filter{ };
-		filter.m_pass_ent1 = g_cl.m_local;
-
-		auto start = g_cl.m_shoot_pos;
-		auto dir = ( pos - start ).normalized( );
-
-		g_csgo.m_engine_trace->TraceRay( Ray( start, pos ), MASK_SHOT | CONTENTS_GRATE, &filter, &tr );
-
-		return tr.m_fraction;
-	};
-
-	auto dick = std::max( g_cl.m_local->m_vecVelocity( ).absolute( ).length( ), record->m_player->m_vecVelocity( ).absolute( ).length( ) ) == g_cl.m_local->m_vecVelocity( ).absolute( ).length( ) ? g_cl.m_local->m_vecVelocity( ).absolute( ) : record->m_player->m_vecVelocity( ).absolute( );
-	auto ball = std::max( dick.length( ), vec3_t( 300, 0, 0 ).length( ) ) == dick.length( ) ? dick : vec3_t( 300, 0, 0 );
-
-	auto fr_left = tr_fract( record->m_player->m_vecOrigin( ) + ( ball * ( g_csgo.m_globals->m_interval * 20 ) ) );
-	auto fr_right = tr_fract( record->m_player->m_vecOrigin( ) + ( ball * ( g_csgo.m_globals->m_interval * -20 ) ) );
-	auto fr_back = tr_fract( record->m_player->m_vecOrigin( ) );
-
-	if ( data->m_moved && config["acc_correct_lm"].get<bool>( ) ) {
-		float diff = math::NormalizedAngle( record->m_body - move->m_body );
-		const Directions direction = HandleDirections( data );
-
-		//if ( fabsf( move->m_body - record->m_body ) >= 36.f && !record->m_fake_walk ) {
-		//	if ( IsLastMoveValid( record, move->m_body ) ) {
-		//		record->m_eye_angles.y = move->m_body;
-		//		record->m_resolver = XOR( "*last" );
-		//	}
-		//	else {
-		//		if ( direction == Directions::YAW_LEFT )
-		//			record->m_eye_angles.y = away + 90.f;
-		//		else if ( direction == Directions::YAW_RIGHT )
-		//			record->m_eye_angles.y = away - 90.f;
-		//		else
-		//			record->m_eye_angles.y = away - 180.f;
-
-		//		record->m_resolver = XOR( "*fs" );
-
-		//		//auto standard = m_fsrecord[data->m_player->index( )].get_yaw( record, false );
-		//		//auto reversed = m_fsrecord[data->m_player->index( )].get_yaw( record, true );
-
-		//		//auto inverse = [&]( ) {
-		//		//	CGameTrace tr;
-		//		//	CTraceFilterSimple filter{ };
-		//		//	filter.m_pass_ent1 = g_cl.m_local;
-
-		//		//	auto start = g_cl.m_shoot_pos;
-		//		//	auto dir = ( record->m_player->m_vecOrigin( ) - start ).normalized( );
-
-		//		//	g_csgo.m_engine_trace->TraceRay( Ray( start, record->m_player->m_vecOrigin( ) ), MASK_SHOT | CONTENTS_GRATE, &filter, &tr );
-
-		//		//	return tr.m_entity == record->m_player || tr.m_fraction > 0.97f;
-		//		//};
-
-		//		//record->m_eye_angles.y = away + ( inverse( ) ? reversed : standard );
-
-		//		//record->m_resolver = inverse( ) ? XOR( "*rfs" ) : XOR( "*fs" );
-		//	}
-		//}
-		//else {
-		//	FindBestAngle( record );
-		//	record->m_resolver = XOR( "*dir" );
-		//}
-
-		// last move is valid.
-		if ( IsLastMoveValid( record, move->m_body ) && !record->m_fake_walk && fabsf( move->m_body - record->m_body ) >= 36.f ) {
-			record->m_mode = Modes::RESOLVE_LM;
-
-			// if these are the case then it is 100%
-			if ( direction == Directions::YAW_LEFT )
-				record->m_eye_angles.y = away + 90.f;
-			else if ( direction == Directions::YAW_RIGHT )
-				record->m_eye_angles.y = away - 90.f;
-
-			// if not just lastmove resolve
-			else
-				record->m_eye_angles.y = move->m_body;
-
-			record->m_resolver = XOR( "*lm" );
-		}
-		else {
-
-			if ( data->m_missed_shots < 1 ) {
-				// set our resolver mode
-				record->m_mode = Modes::RESOLVE_FREESTAND;
-
+	// @doc: standard.
+	switch ( data->m_missed_shots % 4 ) {
+		case 0:
+			{
+				auto direction{ get_direction( data ) };
 				if ( direction == Directions::YAW_LEFT )
-					record->m_eye_angles.y = away - 90.f;
+					record->m_eye_angles.y = GetAwayAngle( record ) + 90.f;
 				else if ( direction == Directions::YAW_RIGHT )
-					record->m_eye_angles.y = away + 90.f;
-
-				// seemed to work the best.
+					record->m_eye_angles.y = GetAwayAngle( record ) - 90.f;
 				else
-					FindBestAngle( record );
+					best_angle( record );
 
-				record->m_resolver = XOR( "*dir" );
+				record->m_mode = Modes::R_FREESTAND;
+				record->m_dbg = tfm::format( "LOGIC[%s]", direction );
 			}
-			else {
-				record->m_eye_angles.y = away - 180.f;
-				record->m_resolver = XOR( "*back" );
+			break;
+		case 1:
+			{
+				freestand( data, record, 1.f );
 			}
-		}
-	}
-	else
-	{
-		const Directions direction = HandleDirections( data );
+			break;
+		case 2:
+			{
+				if ( !data->m_update_record )
+					snap( data, record, record->m_eye_angles.y * -1.f, "YAW" );
+				else
+					snap( data, record, data->m_update_record->m_body, "FLICK" );
+			}
+			break;
+		case 3:
+			{
+				record->m_eye_angles.y = GetAwayAngle( record ) + 180.f;
+				record->m_mode = Modes::R_FREESTAND;
+				record->m_dbg = XOR( "BACK" );
+			}
+			break;
 
-		record->m_mode = Modes::RESOLVE_FREESTAND;
-
-		switch ( data->m_missed_shots % 5 ) {
-			case 0:
-			case 1:
-				{
-					if ( direction == Directions::YAW_LEFT )
-						record->m_eye_angles.y = away + 90.f;
-					else if ( direction == Directions::YAW_RIGHT )
-						record->m_eye_angles.y = away - 90.f;
-					else
-						FindBestAngle( record );
-
-					record->m_resolver = XOR( "fs[0]" );
-				}
-				break;
-			case 2:
-			case 3:
-				{
-					if ( fr_left > fr_right && fr_left > fr_back )
-						record->m_eye_angles.y = away - 90.f;
-					else if ( fr_right > fr_left && fr_right > fr_back )
-						record->m_eye_angles.y = away + 90.f;
-					else
-						record->m_eye_angles.y = away + 180.f;
-
-					record->m_resolver = XOR( "fs[1]" );
-				}
-				break;
-			default:
-				{
-					record->m_eye_angles.y = away + 180.f;
-
-					record->m_resolver = XOR( "fs[2]" );
-				}
-				break;
-		}
-
-		//if ( direction == Directions::YAW_LEFT )
-		//	record->m_eye_angles.y = away + 90.f;
-		//else if ( direction == Directions::YAW_RIGHT )
-		//	record->m_eye_angles.y = away - 90.f;
-		//else
-		//	FindBestAngle( record );
-
-		//switch ( data->m_missed_shots % 4 ) {
-		//	case 0:
-		//		{
-		//			if ( fr_left > fr_right && fr_left > fr_back )
-		//				record->m_eye_angles.y = away - 90.f;
-
-		//			else if ( fr_right > fr_left && fr_right > fr_back )
-		//				record->m_eye_angles.y = away + 90.f;
-
-		//			else if ( fr_back > fr_left && fr_back > fr_right )
-		//				record->m_eye_angles.y = away + 180.f;
-		//			else
-		//				FindBestAngle( record );
-
-		//			record->m_resolver = XOR( "fs[0]" );
-		//		}
-		//		break;
-		//	case 1:
-		//		{
-		//			auto standard = m_fsrecord[data->m_player->index( )].get_yaw( record, false );
-		//			auto reversed = m_fsrecord[data->m_player->index( )].get_yaw( record, true );
-
-		//			auto inverse = [&]( ) {
-		//				CGameTrace tr;
-		//				CTraceFilterSimple filter{ };
-		//				filter.m_pass_ent1 = g_cl.m_local;
-
-		//				auto start = g_cl.m_shoot_pos;
-		//				auto dir = ( record->m_player->m_vecOrigin( ) - start ).normalized( );
-
-		//				g_csgo.m_engine_trace->TraceRay( Ray( start, record->m_player->m_vecOrigin( ) ), MASK_SHOT | CONTENTS_GRATE, &filter, &tr );
-
-		//				return tr.m_entity == record->m_player || tr.m_fraction > 0.97f;
-		//			};
-
-		//			record->m_eye_angles.y = away + ( inverse( ) ? reversed : standard );
-
-		//			record->m_resolver = XOR( "fs[1]" );
-		//		}
-		//		break;
-		//	case 2:
-		//		{
-		//			record->m_eye_angles.y = away + 180.f;
-
-		//			record->m_resolver = XOR( "fs[2]" );
-		//		}
-		//		break;
-		//	case 3:
-		//		{
-		//			FindBestAngle( record );
-
-		//			record->m_resolver = XOR( "fs[3]" );
-		//		}
-		//	default:
-		//		break;
-		//}
-
+		default:
+			break;
 	}
 
-	// @note : hella potential;
-	if ( data->m_player->m_AnimOverlay( ) )
-		record->m_eye_angles.y += 25.f * data->m_player->m_AnimOverlay( )[3].m_weight;
+	// @doc: normalise output.
+	math::NormalizeAngle( record->m_eye_angles.y );
 }
 
-void Resolver::ResolveAir( AimPlayer* data, LagRecord* record ) {
-	float velyaw = math::rad_to_deg( std::atan2( record->m_velocity.y, record->m_velocity.x ) );
+void Resolver::move( AimPlayer* data, LagRecord* record ) {
 
+	// @doc: correct yaw.
+	record->m_eye_angles.y = record->m_body;
+
+	// @doc: increment body-update.
+	data->m_body_update = record->m_anim_time + 0.22f;
+
+	// @doc: miscellaneous data assignment.
+	data->m_body_index = 0;
+	data->m_missed_shots = 0;
+
+	// @doc: info.
+	record->m_mode = Modes::R_MOVE;
+	record->m_dbg = m_dbg[data->m_player->index( )] = XOR( "WALK" );
+
+	if ( config["acc_correct_lm"].get<bool>( ) )
+		data->m_update_record = record;
+
+}
+
+void Resolver::air( AimPlayer* data, LagRecord* record ) {
+
+	// @doc: rotate yaw.
 	record->m_eye_angles.y = GetAwayAngle( record ) + 180.f;
 
-	record->m_resolver = XOR( "air" );
-}
+	// @doc: info.
+	record->m_mode = Modes::R_AIR;
+	record->m_dbg = m_dbg[data->m_player->index( )] = XOR( "FLY" );
 
-void Resolver::ResolvePoses( Player* player, LagRecord* record ) {
 }

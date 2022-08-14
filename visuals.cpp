@@ -1,43 +1,52 @@
 #include "includes.h"
 #include "wapim.h"
 #include "gh.h"
+#include "tickbase.h"
 
 Visuals g_visuals{ };;
 
 void Visuals::ModulateWorld( ) {
 	std::vector< IMaterial* > world, props, sky;
 
+	static auto p_p_clr{ colors::white }, p_w_clr{ colors::white }, p_s_clr{ colors::white }, p_a_clr{ colors::black };
 	auto _w = config["vis_world"].get<bool>( ) ? config["vis_world_clr"].get_color( 255 ) : colors::white;
 	auto _p = config["vis_prop"].get<bool>( ) ? config["vis_prop_clr"].get_color( ) : colors::white;
 	auto _s = config["vis_sky"].get<bool>( ) ? config["vis_sky_clr"].get_color( 255 ) : colors::white;
 	auto _a = config["vis_amb"].get<bool>( ) ? config["vis_amb_clr"].get_color( 255 ) : colors::black;
 
-	for ( uint16_t h{ g_csgo.m_material_system->FirstMaterial( ) }; h != g_csgo.m_material_system->InvalidMaterial( ); h = g_csgo.m_material_system->NextMaterial( h ) ) {
-		IMaterial* mat = g_csgo.m_material_system->GetMaterial( h );
-		if ( !mat )
-			continue;
+	if ( p_w_clr != _w || p_p_clr != _p || p_s_clr != _s ) {
+		for ( uint16_t h{ g_csgo.m_material_system->FirstMaterial( ) }; h != g_csgo.m_material_system->InvalidMaterial( ); h = g_csgo.m_material_system->NextMaterial( h ) ) {
+			IMaterial* mat = g_csgo.m_material_system->GetMaterial( h );
+			if ( !mat )
+				continue;
 
-		if ( FNV1a::get( mat->GetTextureGroupName( ) ) == HASH( "World textures" ) ) {
-			mat->ColorModulate( _w.r( ) / 255.f, _w.g( ) / 255.f, _w.b( ) / 255.f );
+			if ( FNV1a::get( mat->GetTextureGroupName( ) ) == HASH( "World textures" ) ) {
+				mat->ColorModulate( _w.r( ) / 255.f, _w.g( ) / 255.f, _w.b( ) / 255.f );
+			}
+
+			else if ( FNV1a::get( mat->GetTextureGroupName( ) ) == HASH( "StaticProp textures" ) ) {
+				mat->ColorModulate( _p.r( ) / 255.f, _p.g( ) / 255.f, _p.b( ) / 255.f );
+				mat->AlphaModulate( _p.a( ) / 255.f );
+			}
+
+			else if ( strstr( mat->GetTextureGroupName( ), "SkyBox" ) ) {
+				mat->ColorModulate( _s.r( ) / 255.f, _s.g( ) / 255.f, _s.b( ) / 255.f );
+			}
 		}
 
-		else if ( FNV1a::get( mat->GetTextureGroupName( ) ) == HASH( "StaticProp textures" ) ) {
-			mat->ColorModulate( _p.r( ) / 255.f, _p.g( ) / 255.f, _p.b( ) / 255.f );
-			mat->AlphaModulate( _p.a( ) / 255.f );
-		}
-
-		else if ( strstr( mat->GetTextureGroupName( ), "SkyBox" ) ) {
-			mat->ColorModulate( _s.r( ) / 255.f, _s.g( ) / 255.f, _s.b( ) / 255.f );
-		}
+		p_p_clr = _p; p_w_clr = _w; p_s_clr = _s;
 	}
 
 	if ( g_csgo.r_DrawSpecificStaticProp->GetInt( ) != 0 ) {
 		g_csgo.r_DrawSpecificStaticProp->SetValue( 0 );
 	}
 
-	g_csgo.m_cvar->FindVar( HASH( "mat_ambient_light_r" ) )->SetValue( _a.r( ) / 255.f );
-	g_csgo.m_cvar->FindVar( HASH( "mat_ambient_light_g" ) )->SetValue( _a.g( ) / 255.f );
-	g_csgo.m_cvar->FindVar( HASH( "mat_ambient_light_b" ) )->SetValue( _a.b( ) / 255.f );
+	if ( _a != p_a_clr ) {
+		g_csgo.m_cvar->FindVar( HASH( "mat_ambient_light_r" ) )->SetValue( _a.r( ) / 255.f );
+		g_csgo.m_cvar->FindVar( HASH( "mat_ambient_light_g" ) )->SetValue( _a.g( ) / 255.f );
+		g_csgo.m_cvar->FindVar( HASH( "mat_ambient_light_b" ) )->SetValue( _a.b( ) / 255.f );
+		p_a_clr = _a;
+	}
 
 	if ( config["vis_ss"].get<bool>( ) ) {
 		g_csgo.m_cvar->FindVar( HASH( "cl_csm_rot_override" ) )->SetValue( "1" );
@@ -160,7 +169,7 @@ void Visuals::Hitmarker( ) {
 		render::line( x + 2, y - 2, x + end_set, y - end_set, hs ? config["vis_hm_crit"].get_color( int( 255.f * t ) ) : config["vis_hm_def"].get_color( int( 255.f * t ) ) );
 		render::line( x - 2, y - 2, x - end_set, y - end_set, hs ? config["vis_hm_crit"].get_color( int( 255.f * t ) ) : config["vis_hm_def"].get_color( int( 255.f * t ) ) );
 
-		render::esp.string( x + 1, int( y - 10 - ( 8 * t ) ), hs ? config["vis_hm_crit"].get_color( int( 255.f * t ) ) : config["vis_hm_def"].get_color( int( 255.f * t ) ), std::to_string( damage ), render::ALIGN_CENTER );
+		//render::esp.string( x + 1, int( y - 10 - ( 8 * t ) ), hs ? config["vis_hm_crit"].get_color( int( 255.f * t ) ) : config["vis_hm_def"].get_color( int( 255.f * t ) ), std::to_string( damage ), render::ALIGN_CENTER );
 	};
 
 	for ( auto i : g_shots.m_hits ) {
@@ -251,8 +260,16 @@ void Visuals::hotkeys( )
 		float change = std::abs( math::NormalizedAngle( g_cl.m_body - g_cl.m_real_angle.y ) );
 
 		Indicator_t ind{ };
-		ind.color = change > 35.f ? Color( 100, 255, 100 ) : Color( 255, 100, 100 );
+		ind.color = Color( 255, 100, 100 ).blend( Color( 100, 255, 100 ), ( g_cl.m_body_pred - g_csgo.m_globals->m_curtime ) / 1.1f );
 		ind.text = XOR( "lby" );
+		indicators.push_back( ind );
+	}
+
+	if ( cfg_t::get_hotkey( "acc_dt", "acc_dt_mode" ) ) {
+		Indicator_t ind{ };
+		ind.color = colors::white.blend( gui::m_accent, (float)g_tickbase.m_ticks / (float)g_tickbase.m_goal_ticks );
+		ind.text = XOR( "dt" );
+		ind.mode = config["acc_dt_mode"].get<int>( );
 		indicators.push_back( ind );
 	}
 
@@ -889,6 +906,15 @@ void Visuals::DrawPlayer( Player* player ) {
 		if ( !config["esp_flags"].get<bool>( ) )
 			return;
 
+		AimPlayer* data{ &g_aimbot.m_players[i - 1] };
+		if ( data ) {
+			if ( !data->m_records.empty( ) ) {
+				LagRecord* front{ data->m_records.front( ).get( ) };
+
+				flags.push_back( { front->m_dbg, { 255, 255, 255, int( m_alpha[i] ) } } );
+			}
+		}
+
 		{
 			if ( player->m_bHasHelmet( ) && player->m_ArmorValue( ) > 0 )
 				flags.push_back( { XOR( "hk" ), { 103, 160, 224, int( m_alpha[i] ) } } );
@@ -912,38 +938,6 @@ void Visuals::DrawPlayer( Player* player ) {
 
 		if ( player->HasC4( ) )
 			flags.push_back( { XOR( "b" ), { 224, 103, 106, int( m_alpha[i] ) } } );
-
-		AimPlayer* data = &g_aimbot.m_players[player->index( )];
-		if ( data ) {
-
-			auto tr_fract = [&]( vec3_t pos ) {
-				CGameTrace tr;
-				CTraceFilterSimple filter{ };
-				filter.m_pass_ent1 = g_cl.m_local;
-
-				auto start = g_cl.m_shoot_pos;
-				auto dir = ( pos - start ).normalized( );
-
-				g_csgo.m_engine_trace->TraceRay( Ray( start, pos ), MASK_SHOT | CONTENTS_GRATE, &filter, &tr );
-
-				return tr.m_fraction;
-			};
-
-			auto ext = std::max( g_cl.m_local->m_vecVelocity( ).absolute( ).length( ), player->m_vecVelocity( ).absolute( ).length( ) ) == g_cl.m_local->m_vecVelocity( ).absolute( ).length( ) ? g_cl.m_local->m_vecVelocity( ).absolute( ) : player->m_vecVelocity( ).absolute( );
-			auto fr_left = tr_fract( player->m_vecOrigin( ) + ( ext * ( g_csgo.m_globals->m_interval * 20 ) ) );
-			auto fr_right = tr_fract( player->m_vecOrigin( ) + ( ext * ( g_csgo.m_globals->m_interval * -20 ) ) );
-			auto fr_back = tr_fract( player->m_vecOrigin( ) );
-
-			if ( fr_left > fr_right && fr_left > fr_back )
-				flags.push_back( { "l", { 255, 155, 155, int( m_alpha[i] ) } } );
-
-			else if ( fr_right > fr_left && fr_right > fr_back )
-				flags.push_back( { "r", { 255, 155, 155, int( m_alpha[i] ) } } );
-
-			else if ( fr_back > fr_left && fr_back > fr_right )
-				flags.push_back( { "b", { 255, 155, 155, int( m_alpha[i] ) } } );
-
-		}
 
 		// iterate flags.
 		for ( size_t i{ }; i < flags.size( ); ++i ) {
