@@ -231,22 +231,7 @@ void HVH::GetAntiAimDirection( ) {
 	if ( config["aa_fs"].get<bool>( ) && best_target && m_mode != AntiAimMode::AIR ) {
 
 		AutoDirection( );
-		//m_direction = m_auto;
-
-		auto& rec{ g_resolver.m_fsrecord[best_target->index( )] };
-		auto* data{ &g_aimbot.m_players[best_target->index( ) - 1] };
-		if ( data && !data->m_records.empty( ) ) {
-
-			auto* record{ data->m_records.front( ).get( ) };
-			if ( record ) {
-
-				float fs_yaw{ rec.get_yaw( record, false ) };
-				if ( abs( fs_yaw ) == 90 )
-					m_direction = m_auto;
-
-			}
-
-		}
+		m_direction = m_auto;
 
 	}
 
@@ -452,9 +437,9 @@ void HVH::DoRealAntiAim( ) {
 		distortion_delta = sin( g_csgo.m_globals->m_curtime * 3.f ) * config["aa_dangle"].get<float>( );
 
 		if ( force_turn )
-			distortion_delta += ( 360.f * ( ( g_cl.m_body_pred - g_csgo.m_globals->m_curtime ) / 1.1f ) ) * ( abs( distortion_delta ) / distortion_delta );
 
-		math::NormalizeAngle( distortion_delta );
+
+			math::NormalizeAngle( distortion_delta );
 
 		g_cl.m_cmd->m_view_angles.y += distortion_delta;
 	}

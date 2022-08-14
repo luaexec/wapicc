@@ -1,10 +1,11 @@
 #include "includes.h"
 #include "minhook/minhook.h"
+#include "tickbase.h"
 
 Hooks                g_hooks{ };;
 CustomEntityListener g_custom_entity_listener{ };;
 
-void Pitch_proxy( CRecvProxyData *data, Address ptr, Address out ) {
+void Pitch_proxy( CRecvProxyData* data, Address ptr, Address out ) {
 	// normalize this fucker.
 	math::NormalizeAngle( data->m_Value.m_Float );
 
@@ -16,17 +17,17 @@ void Pitch_proxy( CRecvProxyData *data, Address ptr, Address out ) {
 		g_hooks.m_Pitch_original( data, ptr, out );
 }
 
-void SimulationTime_proxy( CRecvProxyData *data, Address ptr, Address out ) {
+void SimulationTime_proxy( CRecvProxyData* data, Address ptr, Address out ) {
 	// thanks faith.
-	if( data->m_Value.m_Int == 0 )
+	if ( data->m_Value.m_Int == 0 )
 		return;
 
 	// call original proxy.
-	if( g_hooks.m_SimulationTime_original )
+	if ( g_hooks.m_SimulationTime_original )
 		g_hooks.m_SimulationTime_original( data, ptr, out );
 }
 
-void Body_proxy( CRecvProxyData *data, Address ptr, Address out ) {
+void Body_proxy( CRecvProxyData* data, Address ptr, Address out ) {
 	Stack stack;
 
 	static Address RecvTable_Decode{ pattern::find( g_csgo.m_engine_dll, XOR( "EB 0D FF 77 10" ) ) };
@@ -34,7 +35,7 @@ void Body_proxy( CRecvProxyData *data, Address ptr, Address out ) {
 	// call from entity going into pvs.
 	if ( stack.next( ).next( ).ReturnAddress( ) != RecvTable_Decode ) {
 		// convert to player.
-		Player *player = ptr.as< Player * >( );
+		Player* player = ptr.as< Player* >( );
 
 		// store data about the update.
 		g_resolver.OnBodyUpdate( player, data->m_Value.m_Float );
@@ -45,7 +46,7 @@ void Body_proxy( CRecvProxyData *data, Address ptr, Address out ) {
 		g_hooks.m_Body_original( data, ptr, out );
 }
 
-void AbsYaw_proxy( CRecvProxyData *data, Address ptr, Address out ) {
+void AbsYaw_proxy( CRecvProxyData* data, Address ptr, Address out ) {
 	// convert to ragdoll.
 	//Ragdoll* ragdoll = ptr.as< Ragdoll* >( );
 
@@ -92,17 +93,17 @@ void AbsYaw_proxy( CRecvProxyData *data, Address ptr, Address out ) {
 		g_hooks.m_AbsYaw_original( data, ptr, out );
 }
 
-void Force_proxy( CRecvProxyData *data, Address ptr, Address out ) {
+void Force_proxy( CRecvProxyData* data, Address ptr, Address out ) {
 	// convert to ragdoll.
-	Ragdoll *ragdoll = ptr.as< Ragdoll * >( );
+	Ragdoll* ragdoll = ptr.as< Ragdoll* >( );
 
 	// get ragdoll owner.
-	Player *player = ragdoll->GetPlayer( );
+	Player* player = ragdoll->GetPlayer( );
 
 	// we only want this happening to noobs we kill.
 	if ( g_menu.main.misc.ragdoll_force.get( ) && g_cl.m_local && player && player->enemy( g_cl.m_local ) ) {
 		// get m_vecForce.
-		vec3_t vel = { data->m_Value.m_Vector[ 0 ], data->m_Value.m_Vector[ 1 ], data->m_Value.m_Vector[ 2 ] };
+		vec3_t vel = { data->m_Value.m_Vector[0], data->m_Value.m_Vector[1], data->m_Value.m_Vector[2] };
 
 		// give some speed to all directions.
 		vel *= 1000.f;
@@ -119,62 +120,26 @@ void Force_proxy( CRecvProxyData *data, Address ptr, Address out ) {
 		math::clamp( vel.z, std::numeric_limits< float >::lowest( ), std::numeric_limits< float >::max( ) );
 
 		// set new velocity.
-		data->m_Value.m_Vector[ 0 ] = vel.x;
-		data->m_Value.m_Vector[ 1 ] = vel.y;
-		data->m_Value.m_Vector[ 2 ] = vel.z;
+		data->m_Value.m_Vector[0] = vel.x;
+		data->m_Value.m_Vector[1] = vel.y;
+		data->m_Value.m_Vector[2] = vel.z;
 	}
 
 	if ( g_hooks.m_Force_original )
 		g_hooks.m_Force_original( data, ptr, out );
 }
 
-void CL_Move(float accumulated_extra_samples, bool bFinalTick) {
-	auto original = o_CLMove;
-
-
-	// Recharge every other tick
-// By not sending a command this tick, our commands allowed for simulation goes up so we can shift again
-// Task for the reader: Automate this properly without preventing the second DT shot...
-	if (g_csgo.m_globals->m_tick_count % 2 && g_cl.doubletapCharge < 15) {
-		g_cl.doubletapCharge++;
-		// Task for the reader: Tickbase still increases when recharging, but the client doesn't know that...
-		return;
-	}
-
-	original(accumulated_extra_samples, bFinalTick);
-
-	//////// Shift if needed
-	// Every time we call original again, we create another command to send to the server
-	// All of these extra commands will be simulated by the server as long as we have a tick allowed for simulation
-	// Recharging "earns" us extra ticks allowed for simulation, which we can "spend" via sending multiple commands to shift
-
-	// Task for the reader: Fix tickbase (not required for shifting but will prevent pred errors and occasional failure to predict the third shot)
-	// Hint #1: Look where the game modifies m_nTickbase and do stuff there
-	// Hint #2: Print out your serverside tickbase and see how it changes when you shift
-	g_cl.isShifting = true;
-	{
-		for (g_cl.ticksToShift = std::min(g_cl.doubletapCharge, g_cl.ticksToShift); g_cl.ticksToShift > 0; g_cl.ticksToShift--) {
-			original(accumulated_extra_samples, bFinalTick); // Create an extra movement command (will call CreateMove)
-			if (g_cl.ticksToShift <= 1) {
-				g_cl.lastShiftedCmdNr = g_csgo.m_cl->m_last_outgoing_command;
-			}
-		}
-	}
-	g_cl.isShifting = false;
-	g_cl.ignoreallcmds = false;
-	//return (void)original(accumulated_extra_samples, bFinalTick);
-}
-
-
 void Hooks::init( ) {
-	MH_Initialize();
-	MH_CreateHook(pattern::find(PE::GetModule(HASH("engine.dll")), XOR("55 8B EC 81 EC ? ? ? ? 53 56 57 8B 3D ? ? ? ? 8A")), &CL_Move, reinterpret_cast<void**>(&o_CLMove));
-	MH_EnableHook(MH_ALL_HOOKS);
+	MH_Initialize( );
+	MH_CreateHook(
+		pattern::find( PE::GetModule( HASH( "engine.dll" ) ), XOR( "55 8B EC 81 EC ? ? ? ? 53 56 57 8B 3D ? ? ? ? 8A" ) ), &hk_tickbase::clmove, reinterpret_cast<void**>( &hk_tickbase::o_clmove )
+	);
+	MH_EnableHook( MH_ALL_HOOKS );
 
 	// hook wndproc.
-	auto m_hWindow = FindWindowA(XOR("Valve001"), NULL);
+	auto m_hWindow = FindWindowA( XOR( "Valve001" ), NULL );
 	auto m_window = m_hWindow;
-	m_old_wndproc = (WNDPROC)g_winapi.SetWindowLongA(g_csgo.m_game->m_hWindow, GWL_WNDPROC, util::force_cast<LONG>(Hooks::WndProc));
+	m_old_wndproc = (WNDPROC)g_winapi.SetWindowLongA( g_csgo.m_game->m_hWindow, GWL_WNDPROC, util::force_cast<LONG>( Hooks::WndProc ) );
 
 	// setup normal VMT hooks.
 	m_panel.init( g_csgo.m_panel );
@@ -186,7 +151,7 @@ void Hooks::init( ) {
 	m_client.add( CHLClient::LEVELSHUTDOWN, util::force_cast( &Hooks::LevelShutdown ) );
 	//m_client.add( CHLClient::INKEYEVENT, util::force_cast( &Hooks::IN_KeyEvent ) );
 	m_client.add( CHLClient::FRAMESTAGENOTIFY, util::force_cast( &Hooks::FrameStageNotify ) );
-	m_client.add(CHLClient::USRCMDTODELTABUFFER, util::force_cast(&Hooks::WriteUsercmdDeltaToBuffer));
+	m_client.add( CHLClient::USRCMDTODELTABUFFER, util::force_cast( &Hooks::WriteUsercmdDeltaToBuffer ) );
 
 	m_engine.init( g_csgo.m_engine );
 	m_engine.add( IVEngineClient::ISCONNECTED, util::force_cast( &Hooks::IsConnected ) );
