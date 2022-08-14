@@ -1,4 +1,5 @@
 #include "includes.h"
+#include "tickbase.h"
 
 Aimbot g_aimbot{ };;
 
@@ -102,7 +103,7 @@ void AimPlayer::UpdateAnimations( LagRecord* record ) {
 	// reset fakewalk & fakeflick state.
 	record->m_fake_walk = false;
 	record->m_fake_flick = false;
-	record->m_mode = Resolver::Modes::RESOLVE_NONE;
+	record->m_mode = Resolver::Modes::R_NONE;
 
 	// fix velocity.
 	// https://github.com/VSES/SourceEngine2007/blob/master/se2007/game/client/c_baseplayer.cpp#L659
@@ -238,68 +239,63 @@ void AimPlayer::UpdateAnimations( LagRecord* record ) {
 
 	// if using fake angles, correct angles.
 	if ( fake ) {
-		g_resolver.ResolveAngles( m_player, record );
-		g_resolver.ResolveBodyUpdates( m_player, record );
+		g_resolver.on_player( record );
+
+		// set stuff before animating.
+		m_player->m_vecOrigin( ) = record->m_origin;
+		m_player->m_vecVelocity( ) = m_player->m_vecAbsVelocity( ) = record->m_anim_velocity;
+		m_player->m_flLowerBodyYawTarget( ) = record->m_body;
+
+		// EFL_DIRTY_ABSVELOCITY
+		// skip call to C_BaseEntity::CalcAbsoluteVelocity
+		m_player->m_iEFlags( ) &= ~0x1000;
+
+		// force to use correct abs origin and velocity ( no CalcAbsolutePosition and CalcAbsoluteVelocity calls )
+		m_player->m_iEFlags( ) &= ~( EFL_DIRTY_ABSTRANSFORM | EFL_DIRTY_ABSVELOCITY );
+
+		// write potentially resolved angles.
+		m_player->m_angEyeAngles( ) = record->m_eye_angles;
+
+		// fix animating in same frame.
+		if ( state->m_frame >= g_csgo.m_globals->m_frame )
+			state->m_frame = g_csgo.m_globals->m_frame - 1;
+
+		// make sure we keep track of the original invalidation state
+		const auto oldbonecache = invalidatebonecache;
+
+		// 'm_animating' returns true if being called from SetupVelocity, passes raw velocity to animstate.
+		m_player->m_bClientSideAnimation( ) = true;
+		m_player->UpdateClientSideAnimation( );
+		m_player->m_bClientSideAnimation( ) = false;
+
+		// we don't want to enable cache invalidation by accident
+		invalidatebonecache = oldbonecache;
+
+		// store updated/animated poses and rotation in lagrecord.
+		m_player->GetPoseParameters( record->m_poses );
+		record->m_abs_ang = m_player->GetAbsAngles( );
+
+		// restore backup data.
+		m_player->m_vecOrigin( ) = backup.m_origin;
+		m_player->m_vecVelocity( ) = backup.m_velocity;
+		m_player->m_vecAbsVelocity( ) = backup.m_abs_velocity;
+		m_player->m_fFlags( ) = backup.m_flags;
+		m_player->m_iEFlags( ) = backup.m_eflags;
+		m_player->m_flDuckAmount( ) = backup.m_duck;
+		m_player->m_flLowerBodyYawTarget( ) = backup.m_body;
+		m_player->SetAbsOrigin( backup.m_abs_origin );
+		m_player->SetAnimLayers( backup.m_layers );
+
+		// IMPORTANT: do not restore poses here, since we want to preserve them for rendering.
+		// also dont restore the render angles which indicate the model rotation.
+
+		// restore globals.
+		g_csgo.m_globals->m_curtime = curtime;
+		g_csgo.m_globals->m_frametime = frametime;
+
+		// players animations have updated.
+		return m_player->InvalidatePhysicsRecursive( InvalidatePhysicsBits_t::ANIMATION_CHANGED );
 	}
-
-	// set stuff before animating.
-	m_player->m_vecOrigin( ) = record->m_origin;
-	m_player->m_vecVelocity( ) = m_player->m_vecAbsVelocity( ) = record->m_anim_velocity;
-	m_player->m_flLowerBodyYawTarget( ) = record->m_body;
-
-	// EFL_DIRTY_ABSVELOCITY
-	// skip call to C_BaseEntity::CalcAbsoluteVelocity
-	m_player->m_iEFlags( ) &= ~0x1000;
-
-	// force to use correct abs origin and velocity ( no CalcAbsolutePosition and CalcAbsoluteVelocity calls )
-	m_player->m_iEFlags( ) &= ~( EFL_DIRTY_ABSTRANSFORM | EFL_DIRTY_ABSVELOCITY );
-
-	// write potentially resolved angles.
-	m_player->m_angEyeAngles( ) = record->m_eye_angles;
-
-	// fix animating in same frame.
-	if ( state->m_frame >= g_csgo.m_globals->m_frame )
-		state->m_frame = g_csgo.m_globals->m_frame - 1;
-
-	// make sure we keep track of the original invalidation state
-	const auto oldbonecache = invalidatebonecache;
-
-	// 'm_animating' returns true if being called from SetupVelocity, passes raw velocity to animstate.
-	m_player->m_bClientSideAnimation( ) = true;
-	m_player->UpdateClientSideAnimation( );
-	m_player->m_bClientSideAnimation( ) = false;
-
-	// we don't want to enable cache invalidation by accident
-	invalidatebonecache = oldbonecache;
-
-	// correct poses if fake angles.
-	if ( fake )
-		g_resolver.ResolvePoses( m_player, record );
-
-	// store updated/animated poses and rotation in lagrecord.
-	m_player->GetPoseParameters( record->m_poses );
-	record->m_abs_ang = m_player->GetAbsAngles( );
-
-	// restore backup data.
-	m_player->m_vecOrigin( ) = backup.m_origin;
-	m_player->m_vecVelocity( ) = backup.m_velocity;
-	m_player->m_vecAbsVelocity( ) = backup.m_abs_velocity;
-	m_player->m_fFlags( ) = backup.m_flags;
-	m_player->m_iEFlags( ) = backup.m_eflags;
-	m_player->m_flDuckAmount( ) = backup.m_duck;
-	m_player->m_flLowerBodyYawTarget( ) = backup.m_body;
-	m_player->SetAbsOrigin( backup.m_abs_origin );
-	m_player->SetAnimLayers( backup.m_layers );
-
-	// IMPORTANT: do not restore poses here, since we want to preserve them for rendering.
-	// also dont restore the render angles which indicate the model rotation.
-
-	// restore globals.
-	g_csgo.m_globals->m_curtime = curtime;
-	g_csgo.m_globals->m_frametime = frametime;
-
-	// players animations have updated.
-	return m_player->InvalidatePhysicsRecursive( InvalidatePhysicsBits_t::ANIMATION_CHANGED );
 }
 
 void AimPlayer::OnNetUpdate( Player* player ) {
@@ -400,7 +396,7 @@ void AimPlayer::OnNetUpdate( Player* player ) {
 
 void AimPlayer::OnRoundStart( Player* player ) {
 	m_player = player;
-	m_walk_record = LagRecord{ };
+	m_update_record = std::make_unique<LagRecord>( ).get( );
 	m_shots = 0;
 	m_missed_shots = 0;
 
@@ -426,18 +422,13 @@ void AimPlayer::SetupHitboxes( LagRecord* record, bool history ) {
 
 	auto head_always = config["rage_head_always"].get<bool>( );
 	auto head_move = config["rage_head_move"].get<bool>( ) && prefer_head;
-	auto head_resolve = config["rage_head_resolve"].get<bool>( ) && !( record->m_mode != Resolver::Modes::RESOLVE_NONE && record->m_mode != Resolver::Modes::RESOLVE_WALK && record->m_mode != Resolver::Modes::RESOLVE_BODY );
+	auto head_resolve = config["rage_head_resolve"].get<bool>( ) && !( record->m_mode != Resolver::Modes::R_NONE && record->m_mode != Resolver::Modes::R_MOVE && record->m_mode != Resolver::Modes::R_UPDATE );
 
 	if ( head_always || head_move || head_resolve )
 		m_hitboxes.push_back( { HITBOX_HEAD, HitscanMode::PREFER } );
 
-	if ( g_cl.m_weapon_id == ZEUS ) {
-		m_hitboxes.push_back( { HITBOX_BODY, HitscanMode::PREFER } );
-		return;
-	}
-
 	auto body_always = config["rage_body_always"].get<bool>( );
-	auto body_fake = config["rage_body_fake"].get<bool>( ) && record->m_mode != Resolver::Modes::RESOLVE_NONE && record->m_mode != Resolver::Modes::RESOLVE_WALK && record->m_mode != Resolver::Modes::RESOLVE_BODY;
+	auto body_fake = config["rage_body_fake"].get<bool>( ) && record->m_mode != Resolver::Modes::R_NONE && record->m_mode != Resolver::Modes::R_MOVE && record->m_mode != Resolver::Modes::R_UPDATE;
 	bool body_air = config["rage_body_air"].get<bool>( ) && !( record->m_pred_flags & FL_ONGROUND );
 
 	if ( body_always || body_fake || body_air )
@@ -447,22 +438,17 @@ void AimPlayer::SetupHitboxes( LagRecord* record, bool history ) {
 		m_hitboxes.push_back( { HITBOX_PELVIS, HitscanMode::LETHAL } );
 
 	bool only{ false };
-
-	if ( cfg_t::get_hotkey( "acc_forcebody", "acc_forcebody_mode" ) ) {
+	if ( cfg_t::get_hotkey( "acc_forcebody", "acc_forcebody_mode" ) || g_cl.m_weapon_id == ZEUS ) {
 		only = m_force_body = true;
 		m_hitboxes.push_back( { HITBOX_PELVIS, HitscanMode::PREFER } );
 	}
 
-	if ( only )
-		return;
-
 	bool ignore_limbs = record->m_velocity.length_2d( ) > 71.f && config["acc_limbs"].get<bool>( );
-
-	if ( config["rage_hb_head"].get<bool>( ) ) {
+	if ( config["rage_hb_head"].get<bool>( ) && !only ) {
 		m_hitboxes.push_back( { HITBOX_HEAD, HitscanMode::NORMAL } );
 	}
 
-	if ( config["rage_hb_ubody"].get<bool>( ) ) {
+	if ( config["rage_hb_ubody"].get<bool>( ) && !only ) {
 		m_hitboxes.push_back( { HITBOX_UPPER_CHEST, HitscanMode::NORMAL } );
 	}
 
@@ -476,19 +462,19 @@ void AimPlayer::SetupHitboxes( LagRecord* record, bool history ) {
 		m_hitboxes.push_back( { HITBOX_PELVIS, HitscanMode::NORMAL } );
 	}
 
-	if ( config["rage_hb_arm"].get<bool>( ) && !ignore_limbs ) {
+	if ( config["rage_hb_arm"].get<bool>( ) && !ignore_limbs && !only ) {
 		m_hitboxes.push_back( { HITBOX_L_UPPER_ARM, HitscanMode::NORMAL } );
 		m_hitboxes.push_back( { HITBOX_R_UPPER_ARM, HitscanMode::NORMAL } );
 	}
 
-	if ( config["rage_hb_leg"].get<bool>( ) && !ignore_limbs ) {
+	if ( config["rage_hb_leg"].get<bool>( ) && !ignore_limbs && !only ) {
 		m_hitboxes.push_back( { HITBOX_L_THIGH, HitscanMode::NORMAL } );
 		m_hitboxes.push_back( { HITBOX_R_THIGH, HitscanMode::NORMAL } );
 		m_hitboxes.push_back( { HITBOX_L_CALF, HitscanMode::NORMAL } );
 		m_hitboxes.push_back( { HITBOX_R_CALF, HitscanMode::NORMAL } );
 	}
 
-	if ( config["rage_hb_foot"].get<bool>( ) && !ignore_limbs ) {
+	if ( config["rage_hb_foot"].get<bool>( ) && !ignore_limbs && !only ) {
 		m_hitboxes.push_back( { HITBOX_L_FOOT, HitscanMode::NORMAL } );
 		m_hitboxes.push_back( { HITBOX_R_FOOT, HitscanMode::NORMAL } );
 	}
@@ -548,7 +534,7 @@ void Aimbot::think( ) {
 	}
 
 	// no point in aimbotting if we cannot fire this tick.
-	if ( !g_cl.m_weapon_fire )
+	if ( !g_cl.m_weapon_fire && g_tickbase.m_shift != e_shift::E_UNCHARGE )
 		return;
 
 	// setup bones for all valid targets.
@@ -591,7 +577,11 @@ bool Aimbot::CheckHitchance( Player* player, const ang_t& angle ) {
 	vec3_t     start{ g_cl.m_shoot_pos }, end, fwd, right, up, dir, wep_spread;
 	float      inaccuracy, spread;
 	CGameTrace tr;
-	size_t     total_hits{ }, needed_hits{ (size_t)std::ceil( ( config["rage_hitchance"].get<float>( ) * SEED_MAX ) / HITCHANCE_MAX ) };
+	auto hc{ g_tickbase.m_shift == e_shift::E_UNCHARGE ? config["rage_dthc"].get<float>( ) : config["rage_hitchance"].get<float>( ) };
+	size_t     total_hits{ }, needed_hits{ (size_t)std::ceil( ( hc * SEED_MAX ) / HITCHANCE_MAX ) };
+
+	if ( hc == 0.f )
+		return true;
 
 	// get needed directional vectors.
 	math::AngleVectors( angle, &fwd, &right, &up );
@@ -770,7 +760,7 @@ void Aimbot::find( ) {
 			}
 		}
 
-		if ( hit || !on ) {
+		if ( hit || !on || g_tickbase.m_shift == e_shift::E_UNCHARGE ) {
 			// right click attack.
 			if ( !config["menu_ut"].get<bool>( ) && g_cl.m_weapon_id == REVOLVER )
 				g_cl.m_cmd->m_buttons |= IN_ATTACK2;
@@ -1317,7 +1307,7 @@ void Aimbot::apply( ) {
 		bool should_fl = g_cl.m_lag < 15 && !g_aimbot.m_double_tap;
 
 		if ( g_cl.m_weapon_fire )
-			*g_cl.m_packet = false;
+			*g_cl.m_packet = true;
 
 		if ( m_target ) {
 			// make sure to aim at un-interpolated data.

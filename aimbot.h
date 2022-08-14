@@ -52,7 +52,7 @@ public:
 	// resolve data.
 	int       m_shots;
 	int       m_missed_shots;
-	LagRecord m_walk_record;
+	LagRecord* m_update_record;
 
 	float     m_body_update;
 	bool      m_moved, m_predict;
@@ -70,6 +70,8 @@ public:
 	bool m_prefer_head;
 	bool m_force_body;
 
+	std::deque< std::string > dbg_info;
+
 public:
 	void UpdateAnimations( LagRecord* record );
 	void OnNetUpdate( Player* player );
@@ -82,7 +84,7 @@ public:
 	void reset( ) {
 		m_player = nullptr;
 		m_spawn = 0.f;
-		m_walk_record = LagRecord{};
+		m_update_record = std::make_unique<LagRecord>( ).get( );
 		m_shots = 0;
 		m_missed_shots = 0;
 

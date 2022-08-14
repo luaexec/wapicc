@@ -146,8 +146,6 @@ void Hooks::FrameStageNotify( Stage_t stage ) {
 		g_visuals.DrawBeams( );
 	}
 
-	g_resolver.collect_wall_detect( stage );
-
 	// call og.
 	g_hooks.m_client.GetOldMethod< FrameStageNotify_t >( CHLClient::FRAMESTAGENOTIFY )( this, stage );
 

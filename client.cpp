@@ -1,6 +1,7 @@
 #include "includes.h"
 #include "wapim.h"
 #include "gh.h"
+#include "tickbase.h"
 
 Client g_cl{ };
 
@@ -118,6 +119,7 @@ void Client::OnPaint( ) {
 	g_visuals.think( );
 	g_grenades.paint( );
 	g_notify.think( gui::m_accent );
+	g_tickbase.on_paint( );
 
 	/* hotkeys 4 cmove */ {
 
@@ -328,6 +330,8 @@ void Client::DoMove( ) {
 	g_aimbot.think( );
 
 	g_hvh.AntiAim( );
+
+	g_tickbase.on_cmove( );
 }
 
 void Client::EndMove( CUserCmd* cmd ) {
