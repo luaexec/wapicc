@@ -951,6 +951,37 @@ void Visuals::DrawPlayer( Player* player ) {
 		}
 	}
 
+	/* debug */
+	if ( player->alive( ) && !player->dormant( ) ) {
+
+		for ( int i{ 0 }; i < 12; i++ ) {
+
+			C_AnimationLayer layer{ player->m_AnimOverlay( )[i] };
+			int y{ 0 };
+
+			auto render_layer = [&]( std::string prefix, double value ) {
+				render::esp.string( bbox.x + bbox.w + 2 + 20 + ( i * 50 ), bbox.y + ( y * 15 ), colors::white, tfm::format( "%s: %s", prefix, std::round( value ) ) );
+				y++;
+			};
+
+			render_layer( "act", layer.m_activty );
+			render_layer( "time", layer.m_anim_time );
+			render_layer( "bits", layer.m_bits );
+			render_layer( "cycle", layer.m_cycle );
+			render_layer( "pcycle", layer.m_prev_cycle );
+			render_layer( "fade", layer.m_fade_out_time );
+			render_layer( "flags", layer.m_flags );
+			render_layer( "order", layer.m_order );
+			render_layer( "rate", layer.m_playback_rate );
+			render_layer( "pr", layer.m_priority );
+			render_layer( "seq", layer.m_sequence );
+			render_layer( "weight", layer.m_weight );
+			render_layer( "wrate", layer.m_weight_delta_rate );
+
+		}
+
+	}
+
 	if ( player->alive( ) && !player->dormant( ) ) {
 		if ( config["esp_skeleton"].get<bool>( ) )
 			DrawSkeleton( player, m_alpha[i] );

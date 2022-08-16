@@ -605,20 +605,22 @@ void Resolver::standard( AimPlayer* data, LagRecord* record ) {
 					best_angle( record );
 
 				record->m_mode = Modes::R_FREESTAND;
-				record->m_dbg = tfm::format( "LOGIC[%s]", direction );
+				record->m_dbg = tfm::format( "LG[%s]", direction );
 			}
 			break;
 		case 1:
 			{
-				freestand( data, record, 1.f );
+				freestand( data, record, .75f );
 			}
 			break;
 		case 2:
 			{
-				if ( !data->m_update_record )
-					snap( data, record, record->m_eye_angles.y * -1.f, "YAW" );
+				if ( (bool)record->m_layers[3].m_weight && ( record->m_layers[3].m_weight_delta_rate != 0.f ) ) {
+					snap( data, record, record->m_body * -1.f, "SHF" );
+					record->m_eye_angles.y += ( record->m_layers[3].m_weight_delta_rate ) * 180.f;
+				}
 				else
-					snap( data, record, data->m_update_record->m_body, "FLICK" );
+					snap( data, record, record->m_eye_angles.y * -1.f, "YAW" );
 			}
 			break;
 		case 3:
